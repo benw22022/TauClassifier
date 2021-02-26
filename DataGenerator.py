@@ -16,7 +16,7 @@ import time
 
 class DataGenerator(keras.utils.Sequence):
 
-    def __init__(self, filename, features, indexes, labels, batch_size, step_size=100000, array_cache="8000 MB",):
+    def __init__(self, filename, features, indexes, labels, batch_size, step_size=1000000, array_cache="8000 MB",):
         self._filename = filename
         self._features = features
         self._batch_size = batch_size
