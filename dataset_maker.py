@@ -50,13 +50,17 @@ def make_dir(path):
         pass
 
 
-def make_files(file_list, variable_list, sample_name="TauClassifier", step_size=100000, prog_count=10):
+def make_files(file_list, variable_list, sample_name="TauClassifier", step_size=100000, prog_count=10, overwrite=True):
     counter = 0
     for batch in uproot.iterate(file_list, filter_name=variable_list, step_size=step_size, library="np"):
         make_dir("data\\" + str(counter))
         for variable in variable_list:
-            array = STLVector_to_list(batch[variable])
-            np.savez(f"data\\{sample_name}_{variable}_{counter}", array)
+            if overwrite is True:
+                array = STLVector_to_list(batch[variable])
+                np.savez(f"data\\{sample_name}_{variable}_{counter}", array)
+            elif overwrite is False and os.path.isfile(f"data\\{sample_name}_{variable}_{counter}") is False:
+                array = STLVector_to_list(batch[variable])
+                np.savez(f"data\\{sample_name}_{variable}_{counter}", array)
         if counter % prog_count == 0:
             print(f"Done batch {counter}")
         counter += 1
@@ -122,7 +126,10 @@ if __name__ == "__main__":
     all_files = signal_files + background_files
 
     # Make the datasets
-    make_files(all_files, input_variables, )
+    make_files(all_files, input_variables)
+
+    # Shuffle the datasets
+    multithread_shuffle(input_variables, 12)
 
     # Print memory usage and time taken
     current, peak = tracemalloc.get_traced_memory()
