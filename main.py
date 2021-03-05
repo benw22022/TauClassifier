@@ -14,18 +14,31 @@ import awkward as ak
 import pandas as pd
 import gc
 from sys import getsizeof
-
+from dataset_maker import *
 
 
 if __name__ == "__main__":
 
-    # Start counting time and memory usage
-    start_time = time.time()
-    tracemalloc.start()
+    time_memory_logger = TimeMemoryMonitor()
 
+    # Grab all root files in directory
+    # TODO: Make config file for datasets
+    signal_dir = "E:\\MxAODs\\TauID\\signal"
+    background_dir = "E:\\MxAODs\\TauID\\background"
+    tree_name = ":CollectionTree"
 
+    signal_files = get_root_files(signal_dir, tree_name)
+    background_files = get_root_files(background_dir, tree_name)
+    all_files = signal_files + background_files
 
-    #make_files(signal_files, input_variables, "Gammatautau", 1)
-    arr = np.load("data\\180\\test_TauJetsAuxDyn.trk_nInnermostPixelHits_180.npz", allow_pickle=True)["arr_0"]
-    print(arr)
+    # Make the datasets
+    make_files(all_files, input_variables)
+    print("Done: Made npz files")
+    time_memory_logger.get_current_usage()
+
+    # Shuffle the datasets
+    multithread_shuffle(input_variables, 12)
+    time_memory_logger.get_current_usage()
+    print("Done: Data shuffling")
+
 

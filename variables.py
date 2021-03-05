@@ -21,7 +21,9 @@ input_variables = [
     "TauJetsAuxDyn.dRmax",
     "TauJetsAuxDyn.SumPtTrkFrac",
     "TauJetsAuxDyn.ptRatioEflowApprox",
-    "TauJetsAuxDyn.ptIntermediateAxis"
+    "TauJetsAuxDyn.ptIntermediateAxis",
+    "EventInfoAuxDyn.mcEventWeights",
+    "EventInfoAuxDyn.mcChannelNumber"
     ]
 
 variables = {"Tracks": ["TauJetsAuxDyn.trk_pt",
