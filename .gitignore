@@ -1,2 +1,6 @@
 #Ignore data files
 *.npz
+*.npy
+
+#
+venv*
