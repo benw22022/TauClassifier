@@ -1,5 +1,6 @@
 """
 List of input variables from MxAODs
+TODO: Make this a yaml config file (Bad practice to use a .py file for configs)
 """
 
 input_variables = [

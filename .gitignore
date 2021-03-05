@@ -2,5 +2,5 @@
 *.npz
 *.npy
 
-#
+# ignore directories
 venv*
