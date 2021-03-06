@@ -5,3 +5,4 @@
 # ignore directories
 venv*
 .idea
+.log

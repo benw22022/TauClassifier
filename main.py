@@ -27,6 +27,7 @@ if __name__ == "__main__":
     background_dir = "E:\\MxAODs\\TauID\\background"
     tree_name = ":CollectionTree"
 
+
     signal_files = get_root_files(signal_dir, tree_name)
     background_files = get_root_files(background_dir, tree_name)
     all_files = signal_files + background_files
@@ -40,5 +41,4 @@ if __name__ == "__main__":
     multithread_shuffle(input_variables, 12)
     time_memory_logger.get_current_usage()
     print("Done: Data shuffling")
-
 

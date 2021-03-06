@@ -73,7 +73,7 @@ def make_dir(path):
         pass
 
 
-def make_files(file_list, variable_list, sample_name="TauClassifier", step_size=10000, prog_count=1, overwrite=True):
+def make_files(file_list, variable_list, sample_name="TauClassifier", step_size=100000, prog_count=1, overwrite=True):
     """
     Function to read data from MxAODs into npz files. Reads in batches of events of size step_size, makes arrays,
     converts the uproot::STLVector containers and writes them to npz. Batches are stored in numerically ordered
@@ -125,8 +125,13 @@ def shuffle_data(variable, number_of_iterations=50, rdm_seed=42):
     :param rdm_seed: int - random seed (important! must be the same for each variable you shuffle!)
     :return: None
     """
+    log_file = open("shuffle.log", "a")
     for i in range(0, number_of_iterations):
         file_list = get_files_of_type_in_dir("data\\", variable+"_")
+
+        log_file.write("Found files")
+        for file in file_list:
+            log_file.write(file)
 
         pairs = []
         while file_list:
@@ -136,18 +141,24 @@ def shuffle_data(variable, number_of_iterations=50, rdm_seed=42):
             pairs.append(pair)
 
         for pair in pairs:
-            #print(pair)
-            arr1 = np.load(pair[0], allow_pickle=True)["arr_0"]
-            arr2 = np.load(pair[1], allow_pickle=True)["arr_0"]
-            comb_arr = np.concatenate((arr1, arr2), axis=0)
-            np.random.seed(rdm_seed)
-            np.random.shuffle(comb_arr)
-            split_arr = np.array_split(comb_arr, 2)
-            new_arr1 = split_arr[0]
-            new_arr2 = split_arr[1]
-            np.savez(pair[0], new_arr1)
-            np.savez(pair[1], new_arr2)
+            log_file.write(f"Shuffling: {pair[0]}      {pair[1]}")
+
+            # Open using 'with' keyword to *hopefully* avoid file corruption
+            with np.load(pair[0], allow_pickle=True) as file1:
+                with np.load(pair[1], allow_pickle=True) as file2:
+                    arr1 = file1["arr_0"]
+                    arr2 = file2["arr_0"]
+                    comb_arr = np.concatenate((arr1, arr2), axis=0)
+                    np.random.seed(rdm_seed)
+                    np.random.shuffle(comb_arr)
+                    split_arr = np.array_split(comb_arr, 2)
+                    new_arr1 = split_arr[0]
+                    new_arr2 = split_arr[1]
+                    np.savez(pair[0], new_arr1)
+                    np.savez(pair[1], new_arr2)
+        log_file.write(f"Done {i+1} shuffles of {variable}")
         print(f"Done {i+1} shuffles of {variable}")
+    log_file.close()
 
 
 def multithread_shuffle(variable_list, n_threads):
