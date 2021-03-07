@@ -15,6 +15,8 @@ import multiprocessing
 import math
 from variables import input_variables
 from utils import TimeMemoryMonitor
+import sys
+from functools import partial
 
 
 def get_root_files(directory, tree=""):
@@ -73,22 +75,38 @@ def make_dir(path):
         pass
 
 
+def write_array(batch, counter, sample_name, variable):
+    array = STLVector_to_list(batch[variable])
+    np.savez(f"data\\{counter}\\{sample_name}_{variable}_{counter}", array)
+
+
+def multithread_write(batch, variable_list, counter, sample_name="TauClassifier", n_threads=12):
+    # If we have more variables than threads we can group the jobs into chunks
+    chunksize = math.ceil(len(input_variables) / n_threads)
+    with multiprocessing.Pool(processes=n_threads) as pool:
+        func = partial(write_array, batch, counter, sample_name)
+        result = pool.map(write_array, variable_list, chunksize)
+
+
 def make_files(file_list, variable_list, sample_name="TauClassifier", step_size=100000, prog_count=1, overwrite=True):
     """
     Function to read data from MxAODs into npz files. Reads in batches of events of size step_size, makes arrays,
     converts the uproot::STLVector containers and writes them to npz. Batches are stored in numerically ordered
-    subdirectories within data
+    subdirectories within data folder
     :param file_list: list - list of file paths to root files with :Tree_name suffix
     :param variable_list: list - list of variables to read from root files
-    :param sample_name: string (optional: default= "TauClassifier") - a name to give each array file
+    :param sample_name: string (optional: default = "TauClassifier") - a name to give each array file
     :param step_size: int (optional: default = 10000) - number of events to read in for each batch
     :param prog_count: int (optional: default = 1) - sets the number of times to print message
     :param overwrite: bool (optional: default = True) - If True will overwrite existing files
     :return: None
+    TODO: Could maybe multithread variable array processing - data is in memory anyway may as well use it
     """
     counter = 0
     for batch in uproot.iterate(file_list, filter_name=variable_list, step_size=step_size, library="np"):
         make_dir("data\\" + str(counter))
+        multithread_write(batch, variable_list, counter)
+        """
         for variable in variable_list:
             if overwrite is True:
                 array = STLVector_to_list(batch[variable])
@@ -96,6 +114,7 @@ def make_files(file_list, variable_list, sample_name="TauClassifier", step_size=
             elif overwrite is False and os.path.isfile(f"data\\{sample_name}_{variable}_{counter}") is False:
                 array = STLVector_to_list(batch[variable])
                 np.savez(f"data\\{counter}\\{sample_name}_{variable}_{counter}", array)
+            """
         if counter % prog_count == 0:
             print(f"Done batch {counter}")
         counter += 1
@@ -125,13 +144,14 @@ def shuffle_data(variable, number_of_iterations=50, rdm_seed=42):
     :param rdm_seed: int - random seed (important! must be the same for each variable you shuffle!)
     :return: None
     """
-    log_file = open("shuffle.log", "a")
+    log_file = open("shuffle.log", "w")
     for i in range(0, number_of_iterations):
         file_list = get_files_of_type_in_dir("data\\", variable+"_")
+        file_list.reverse() # want to see error sooner
 
-        log_file.write("Found files")
+        log_file.write("Found files: \n")
         for file in file_list:
-            log_file.write(file)
+            log_file.write(file + "\n")
 
         pairs = []
         while file_list:
@@ -144,11 +164,25 @@ def shuffle_data(variable, number_of_iterations=50, rdm_seed=42):
             log_file.write(f"Shuffling: {pair[0]}      {pair[1]}")
 
             # Open using 'with' keyword to *hopefully* avoid file corruption
+            # Note use of allow_pickle argument - needed since we have arrays of objects
             with np.load(pair[0], allow_pickle=True) as file1:
                 with np.load(pair[1], allow_pickle=True) as file2:
                     arr1 = file1["arr_0"]
                     arr2 = file2["arr_0"]
-                    comb_arr = np.concatenate((arr1, arr2), axis=0)
+                    try:
+                        comb_arr = np.concatenate((arr1, arr2), axis=0)
+                    except ValueError:
+                        print("These arrays could not be concatenated!")
+                        print(pair[0])
+                        print(pair[1])
+                        print(arr1)
+                        print(arr2)
+                        log_file.write("These arrays could not be concatenated")
+                        log_file.write(pair[0])
+                        log_file.write(pair[1])
+                        log_file.write(arr1)
+                        log_file.write(arr2)
+                        sys.exit(1)
                     np.random.seed(rdm_seed)
                     np.random.shuffle(comb_arr)
                     split_arr = np.array_split(comb_arr, 2)
@@ -156,7 +190,7 @@ def shuffle_data(variable, number_of_iterations=50, rdm_seed=42):
                     new_arr2 = split_arr[1]
                     np.savez(pair[0], new_arr1)
                     np.savez(pair[1], new_arr2)
-        log_file.write(f"Done {i+1} shuffles of {variable}")
+        log_file.write(f"Done {i+1} shuffles of {variable}\n")
         print(f"Done {i+1} shuffles of {variable}")
     log_file.close()
 
