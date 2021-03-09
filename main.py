@@ -32,13 +32,18 @@ if __name__ == "__main__":
     background_files = get_root_files(background_dir, tree_name)
     all_files = signal_files + background_files
 
+    print(all_files)
+
     # Make the datasets
-    make_files(all_files, input_variables)
-    print("Done: Made npz files")
-    time_memory_logger.get_current_usage()
+    #print("Starting dataset creation")
+    #multithread_write(all_files, ["EventInfoAuxDyn.mcChannelNumber"])
+    #print("Done: Made npz files")
+    #time_memory_logger.get_current_usage()
+
+
 
     # Shuffle the datasets
-    multithread_shuffle(input_variables, 12)
-    time_memory_logger.get_current_usage()
-    print("Done: Data shuffling")
+    #multithread_shuffle(input_variables, 12)
+    #time_memory_logger.get_current_usage()
+    #print("Done: Data shuffling")
 

@@ -17,7 +17,7 @@ from variables import input_variables
 from utils import TimeMemoryMonitor
 import sys
 from functools import partial
-
+import time
 
 def get_root_files(directory, tree=""):
     """
@@ -75,49 +75,61 @@ def make_dir(path):
         pass
 
 
-def write_array(batch, counter, sample_name, variable):
+def write_array_to_file(batch, variable, counter, sample_name, start_time=0., time_write=True):
     array = STLVector_to_list(batch[variable])
-    np.savez(f"data\\{counter}\\{sample_name}_{variable}_{counter}", array)
+    outfile = f"data\\{counter}\\{sample_name}_{variable}_{counter}"
+    np.savez(outfile, array)
+    if time_write:
+        print(f"Done: {outfile}  --- %s seconds ---" % (time.time() - start_time))
+    if start_time <= 0:
+        print("WARNING: Timing of array creation may be wrong - start_time was set to a number <= 0!")
 
 
-def multithread_write(batch, variable_list, counter, sample_name="TauClassifier", n_threads=12):
-    # If we have more variables than threads we can group the jobs into chunks
-    chunksize = math.ceil(len(input_variables) / n_threads)
-    with multiprocessing.Pool(processes=n_threads) as pool:
-        func = partial(write_array, batch, counter, sample_name)
-        result = pool.map(write_array, variable_list, chunksize)
-
-
-def make_files(file_list, variable_list, sample_name="TauClassifier", step_size=100000, prog_count=1, overwrite=True):
+def make_files(file_list, variable_list, sample_name="TauClassifier", step_size=50000, prog_count=1, overwrite=True):
     """
     Function to read data from MxAODs into npz files. Reads in batches of events of size step_size, makes arrays,
     converts the uproot::STLVector containers and writes them to npz. Batches are stored in numerically ordered
-    subdirectories within data folder
+    subdirectories within data folder. The step_size is set to 50,000 - not recommended to go larger than this since
+    there are some files in the MxAODs which have ~ 100,000 events - could lead to some batches with very few events in.
+    Maximum step_size should be set to 1/2 of the number of events in the smallest file. Can combine batches in training
+    to make bigger ones
     :param file_list: list - list of file paths to root files with :Tree_name suffix
     :param variable_list: list - list of variables to read from root files
     :param sample_name: string (optional: default = "TauClassifier") - a name to give each array file
-    :param step_size: int (optional: default = 10000) - number of events to read in for each batch
+    :param step_size: int (optional: default = 50000) - number of events to read in for each batch
     :param prog_count: int (optional: default = 1) - sets the number of times to print message
     :param overwrite: bool (optional: default = True) - If True will overwrite existing files
     :return: None
     TODO: Could maybe multithread variable array processing - data is in memory anyway may as well use it
+    TODO: Remember to add overwrite option back in
+    TODO: Work out how to go from per event to per tau (Answer: This is done at the NTuple level in THOR)
+    TODO: A progress bar would be nice here :)
     """
     counter = 0
+    start_time = time.time()
     for batch in uproot.iterate(file_list, filter_name=variable_list, step_size=step_size, library="np"):
         make_dir("data\\" + str(counter))
-        multithread_write(batch, variable_list, counter)
-        """
-        for variable in variable_list:
-            if overwrite is True:
-                array = STLVector_to_list(batch[variable])
-                np.savez(f"data\\{counter}\\{sample_name}_{variable}_{counter}", array)
-            elif overwrite is False and os.path.isfile(f"data\\{sample_name}_{variable}_{counter}") is False:
-                array = STLVector_to_list(batch[variable])
-                np.savez(f"data\\{counter}\\{sample_name}_{variable}_{counter}", array)
-            """
+
+        if isinstance(variable_list, list):
+            for variable in variable_list:
+                write_array_to_file(batch, variable, counter, sample_name, start_time=start_time, time_write=True)
+        elif isinstance(variable_list, str):
+            write_array_to_file(batch, variable_list, counter, sample_name, start_time=start_time, time_write=True)
+        else:
+            print("ERROR: make_files() function was passed a variable_list which was not a list or a string!")
+            raise ValueError
+
         if counter % prog_count == 0:
-            print(f"Done batch {counter}")
+            print(f"Done Batch: {counter}  --- %s seconds ---" % (time.time() - start_time))
         counter += 1
+
+
+def multithread_write(file_list, variable_list, n_threads=12):
+    # If we have more variables than threads we can group the jobs into chunks
+    chunksize = math.ceil(len(input_variables) / n_threads)
+    with multiprocessing.Pool(processes=n_threads) as pool:
+        func = partial(make_files, file_list)
+        result = pool.map(func, variable_list, chunksize)
 
 
 def pop_random(lst, rdm_seed=12):
@@ -202,6 +214,9 @@ def multithread_shuffle(variable_list, n_threads):
     :param variable_list: list - list of variables to shuffle
     :param n_threads: int - number of threads to use
     :return:
+    TODO: Could try using multithreaded single variable shuffle inside the multivariable shuffle to improve performance
+    TODO: even more. Need to carefully think about the number of threads we want to commit
+
     """
     # If we have more variables than threads we can group the jobs into chunks
     chunksize = math.ceil(len(input_variables) / n_threads)

@@ -22,7 +22,7 @@ input_variables = [
     "TauJetsAuxDyn.SumPtTrkFrac",
     "TauJetsAuxDyn.ptRatioEflowApprox",
     "TauJetsAuxDyn.ptIntermediateAxis",
-    "EventInfoAuxDyn.mcEventWeights",
+   # "EventInfoAuxDyn.mcEventWeights",
     "EventInfoAuxDyn.mcChannelNumber"
     ]
 
