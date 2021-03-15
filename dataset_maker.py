@@ -57,10 +57,14 @@ def STLVector_to_list(STLVector_array):
     :param STLVector_array: np.array - A numpy array whose elements contain uproot::STLVector containers
     :return: np.array - A numpy array with nested lists rather than uproot::STLVector containers
     """
-    new_array = []
     for i in range(0, len(STLVector_array)):
-        new_array.append(STLVector_array[i].tolist())
-    return np.array(new_array, dtype=object)
+        if isinstance(STLVector_array[i], uproot.STLVector):
+            STLVector_array[i] = np.array(STLVector_array[i].tolist(), dtype=object)
+            for j in range(0, len(STLVector_array[i])):
+                if isinstance(STLVector_array[i][j], uproot.STLVector):
+                    STLVector_array[i][j] = np.array(STLVector_array[i][j], dtype=object)
+
+    return STLVector_array
 
 
 def make_dir(path):
@@ -82,7 +86,7 @@ def write_array_to_file(batch, variable, counter, sample_name, start_time=0., ti
     if time_write:
         print(f"Done: {outfile}  --- %s seconds ---" % (time.time() - start_time))
     if start_time <= 0:
-        print("WARNING: Timing of array creation may be wrong - start_time was set to a number <= 0!")
+        print("dataset_maker.py: WARNING - Timing of array creation may be wrong - start_time was set to a number <= 0!")
 
 
 def make_files(file_list, variable_list, sample_name="TauClassifier", step_size=50000, prog_count=1, overwrite=True):
@@ -116,7 +120,7 @@ def make_files(file_list, variable_list, sample_name="TauClassifier", step_size=
         elif isinstance(variable_list, str):
             write_array_to_file(batch, variable_list, counter, sample_name, start_time=start_time, time_write=True)
         else:
-            print("ERROR: make_files() function was passed a variable_list which was not a list or a string!")
+            print("dataset_maker.py: ERROR - make_files() function was passed a variable_list which was not a list or a string!")
             raise ValueError
 
         if counter % prog_count == 0:
@@ -124,11 +128,11 @@ def make_files(file_list, variable_list, sample_name="TauClassifier", step_size=
         counter += 1
 
 
-def multithread_write(file_list, variable_list, n_threads=12):
+def multithread_write(file_list, variable_list, n_threads=12, batch_size=10000):
     # If we have more variables than threads we can group the jobs into chunks
     chunksize = math.ceil(len(input_variables) / n_threads)
     with multiprocessing.Pool(processes=n_threads) as pool:
-        func = partial(make_files, file_list)
+        func = partial(make_files, file_list, step_size=batch_size)
         result = pool.map(func, variable_list, chunksize)
 
 
@@ -144,7 +148,40 @@ def pop_random(lst, rdm_seed=12):
     return lst.pop(idx)
 
 
-def shuffle_data(variable, number_of_iterations=50, rdm_seed=42):
+def shuffle_pair(pair, rdm_seed=123456789):
+    # Open using 'with' keyword to *hopefully* avoid file corruption
+    # Note use of allow_pickle argument - needed since we have arrays of objects
+    with np.load(pair[0], allow_pickle=True) as file1:
+        with np.load(pair[1], allow_pickle=True) as file2:
+            arr1 = file1["arr_0"]
+            arr2 = file2["arr_0"]
+            try:
+                comb_arr = np.concatenate((arr1, arr2), axis=0)
+            except ValueError:
+                print("These arrays could not be concatenated!")
+                print(pair[0])
+                print(pair[1])
+                print(arr1)
+                print(arr2)
+                sys.exit(1)
+            np.random.seed(rdm_seed)
+            np.random.shuffle(comb_arr)
+            split_arr = np.array_split(comb_arr, 2)
+            new_arr1 = split_arr[0]
+            new_arr2 = split_arr[1]
+            np.savez(pair[0], new_arr1)
+            np.savez(pair[1], new_arr2)
+
+
+def multithread_single_variable_shuffle(pairs, n_threads):
+    # If we have more variables than threads we can group the jobs into chunks
+    chunksize = math.ceil(len(input_variables) / n_threads)
+
+    with multiprocessing.Pool(processes=n_threads) as pool:
+        result = pool.map(shuffle_pair, pairs, chunksize)
+
+
+def shuffle_data(variable, number_of_iterations=50, rdm_seed=42, n_threads=1):
     """
     A function to shuffle arrays belonging to a particular variable. The function works by making random pairs of files,
     then, for each pair: loading the arrays, concatenating them, shuffling, splitting back into two arrays and saving
@@ -172,36 +209,13 @@ def shuffle_data(variable, number_of_iterations=50, rdm_seed=42):
             pair = rand1, rand2
             pairs.append(pair)
 
-        for pair in pairs:
-            log_file.write(f"Shuffling: {pair[0]}      {pair[1]}")
+        if n_threads <= 1:
+            for pair in pairs:
+                log_file.write(f"Shuffling: {pair[0]}      {pair[1]}")
+                shuffle_pair(pair)
+        else:
+            multithread_single_variable_shuffle(pairs, n_threads)
 
-            # Open using 'with' keyword to *hopefully* avoid file corruption
-            # Note use of allow_pickle argument - needed since we have arrays of objects
-            with np.load(pair[0], allow_pickle=True) as file1:
-                with np.load(pair[1], allow_pickle=True) as file2:
-                    arr1 = file1["arr_0"]
-                    arr2 = file2["arr_0"]
-                    try:
-                        comb_arr = np.concatenate((arr1, arr2), axis=0)
-                    except ValueError:
-                        print("These arrays could not be concatenated!")
-                        print(pair[0])
-                        print(pair[1])
-                        print(arr1)
-                        print(arr2)
-                        log_file.write("These arrays could not be concatenated")
-                        log_file.write(pair[0])
-                        log_file.write(pair[1])
-                        log_file.write(arr1)
-                        log_file.write(arr2)
-                        sys.exit(1)
-                    np.random.seed(rdm_seed)
-                    np.random.shuffle(comb_arr)
-                    split_arr = np.array_split(comb_arr, 2)
-                    new_arr1 = split_arr[0]
-                    new_arr2 = split_arr[1]
-                    np.savez(pair[0], new_arr1)
-                    np.savez(pair[1], new_arr2)
         log_file.write(f"Done {i+1} shuffles of {variable}\n")
         print(f"Done {i+1} shuffles of {variable}")
     log_file.close()
@@ -216,16 +230,14 @@ def multithread_shuffle(variable_list, n_threads):
     :return:
     TODO: Could try using multithreaded single variable shuffle inside the multivariable shuffle to improve performance
     TODO: even more. Need to carefully think about the number of threads we want to commit
-
+    TODO: This works by creating multiple python interpreter instances to get around the Global Interpreter Lock
+    TODO: Could use Numba for even better performance (https://www.youtube.com/watch?v=m2yeB94CxVQ)
     """
     # If we have more variables than threads we can group the jobs into chunks
     chunksize = math.ceil(len(input_variables) / n_threads)
-
     with multiprocessing.Pool(processes=n_threads) as pool:
         result = pool.map(shuffle_data, variable_list, chunksize)
 
-
-# TODO: make muthithreaded shuffle for single variable operations
 
 if __name__ == "__main__":
 

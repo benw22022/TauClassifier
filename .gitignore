@@ -4,5 +4,8 @@
 
 # ignore directories
 venv*
-.idea
-.log
+*.idea
+
+# Ignore logs
+*.log
+*.txt

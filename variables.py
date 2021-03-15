@@ -26,7 +26,7 @@ input_variables = [
     "EventInfoAuxDyn.mcChannelNumber"
     ]
 
-variables = {"Tracks": ["TauJetsAuxDyn.trk_pt",
+variables_dictionary = {"Tracks": ["TauJetsAuxDyn.trk_pt",
                         "TauJetsAuxDyn.trk_ptJetSeed",
                         "TauJetsAuxDyn.trk_z0sinthetaTJVA",
                         "TauJetsAuxDyn.trk_dEta",
