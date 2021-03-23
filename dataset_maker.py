@@ -18,6 +18,10 @@ from utils import TimeMemoryMonitor
 import sys
 from functools import partial
 import time
+import tensorflow as tf
+from numba import njit
+tf.get_logger().setLevel('ERROR')
+
 
 def get_root_files(directory, tree=""):
     """
@@ -82,7 +86,8 @@ def make_dir(path):
 def write_array_to_file(batch, variable, counter, sample_name, start_time=0., time_write=True):
     array = STLVector_to_list(batch[variable])
     outfile = f"data\\{counter}\\{sample_name}_{variable}_{counter}"
-    np.savez(outfile, array)
+    #np.savez(outfile, array)
+    np.savez_compressed(outfile, array)
     if time_write:
         print(f"Done: {outfile}  --- %s seconds ---" % (time.time() - start_time))
     if start_time <= 0:
@@ -155,15 +160,15 @@ def shuffle_pair(pair, rdm_seed=123456789):
         with np.load(pair[1], allow_pickle=True) as file2:
             arr1 = file1["arr_0"]
             arr2 = file2["arr_0"]
-            try:
-                comb_arr = np.concatenate((arr1, arr2), axis=0)
-            except ValueError:
-                print("These arrays could not be concatenated!")
-                print(pair[0])
-                print(pair[1])
-                print(arr1)
-                print(arr2)
-                sys.exit(1)
+            #try:
+            comb_arr = np.concatenate((arr1, arr2), axis=0)
+            #except ValueError:
+            #    print("These arrays could not be concatenated!")
+            #    print(pair[0])
+            #    print(pair[1])
+            #    print(arr1)
+            #    print(arr2)
+            #    sys.exit(1)
             np.random.seed(rdm_seed)
             np.random.shuffle(comb_arr)
             split_arr = np.array_split(comb_arr, 2)
@@ -174,11 +179,17 @@ def shuffle_pair(pair, rdm_seed=123456789):
 
 
 def multithread_single_variable_shuffle(pairs, n_threads):
-    # If we have more variables than threads we can group the jobs into chunks
-    chunksize = math.ceil(len(input_variables) / n_threads)
 
-    with multiprocessing.Pool(processes=n_threads) as pool:
-        result = pool.map(shuffle_pair, pairs, chunksize)
+    from concurrent.futures import ThreadPoolExecutor
+    shuffle_pair_jit = njit(shuffle_pair, no_gil=True)
+    # OH WOW THIS IS FAST!
+    with ThreadPoolExecutor(n_threads) as ex:
+        ex.map(shuffle_pair_jit, pairs)
+
+   # If we have more variables than threads we can group the jobs into chunks
+   # chunksize = math.ceil(len(input_variables) / n_threads)
+   # with multiprocessing.Pool(processes=n_threads) as pool:
+   #     result = pool.map(shuffle_pair_jit, pairs, chunksize)
 
 
 def shuffle_data(variable, number_of_iterations=50, rdm_seed=42, n_threads=1):
@@ -194,6 +205,7 @@ def shuffle_data(variable, number_of_iterations=50, rdm_seed=42, n_threads=1):
     :return: None
     """
     log_file = open("shuffle.log", "w")
+    start_time = time.time()
     for i in range(0, number_of_iterations):
         file_list = get_files_of_type_in_dir("data\\", variable+"_")
         file_list.reverse() # want to see error sooner
@@ -218,25 +230,37 @@ def shuffle_data(variable, number_of_iterations=50, rdm_seed=42, n_threads=1):
 
         log_file.write(f"Done {i+1} shuffles of {variable}\n")
         print(f"Done {i+1} shuffles of {variable}")
+        print("--- %s seconds ---" % (time.time() - start_time))
     log_file.close()
 
 
-def multithread_shuffle(variable_list, n_threads):
+def multithread_shuffle(variable_list, n_threads, n_threads_per_shuffle=1):
     """
     Function to speed up shuffling of variable arrays by splitting the job into tasks to be done on multiple threads
     (Note: Not an expert in multi-threading in python I just happen to know that this method works)
     :param variable_list: list - list of variables to shuffle
     :param n_threads: int - number of threads to use
+    :param n_threads_per_shuffle: int - number of threads to use for shuffling a single variable
     :return:
     TODO: Could try using multithreaded single variable shuffle inside the multivariable shuffle to improve performance
     TODO: even more. Need to carefully think about the number of threads we want to commit
     TODO: This works by creating multiple python interpreter instances to get around the Global Interpreter Lock
     TODO: Could use Numba for even better performance (https://www.youtube.com/watch?v=m2yeB94CxVQ)
     """
+
+    if n_threads <= 1:
+        start_time = time.time()
+        for variable in variable_list:
+            shuffle_data(variable, n_threads=n_threads_per_shuffle)
+            print("--- %s seconds ---" % (time.time() - start_time))
+        return
+
     # If we have more variables than threads we can group the jobs into chunks
     chunksize = math.ceil(len(input_variables) / n_threads)
     with multiprocessing.Pool(processes=n_threads) as pool:
-        result = pool.map(shuffle_data, variable_list, chunksize)
+        func = partial(shuffle_data, n_threads=n_threads_per_shuffle)
+        func_jit = njit(func, no_gil=True)
+        result = pool.map(func_jit, variable_list, chunksize)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 List of input variables from MxAODs
 TODO: Make this a yaml config file (Bad practice to use a .py file for configs)
 """
-
+"""
 input_variables = [
     "TauJetsAuxDyn.trk_pt",
     "TauJetsAuxDyn.trk_ptJetSeed",
@@ -47,12 +47,13 @@ variables_dictionary = {"Tracks": ["TauJetsAuxDyn.trk_pt",
              "Weights": ["EventInfoAuxDyn.mcEventWeights"]
              }
 
-""""
+"""
 input_variables = [
 # 8 Vars
-"TauTracks.pt_log", 
-"TauTracks.pt_jetseed_log",
-"TauTracks.z0sinThetaTJVA_abs_log",
+"TauTracks.pt", # LOG
+#"TauTracks.pt_jetseed", # LOG What- doesn't exist? Is "TauJets.ptJetSeed"
+"TauJets.ptJetSeed", # LOG
+"TauTracks.z0sinthetaTJVA", #ABS LOG (NOTE lowercase theta (change from R21)
 "TauTracks.dEta",
 "TauTracks.dPhi",
 "TauTracks.nInnermostPixelHits",
@@ -60,8 +61,9 @@ input_variables = [
 "TauTracks.nSCTHits",
 
 # 7 vars
-"TauClusters.et_log",
-"TauClusters.pt_jetseed_log",
+"TauClusters.et",
+#"TauClusters.pt_jetseed", #LOG What- doesn't exist? Is "TauJets.ptJetSeed"
+"TauJets.ptJetSeed", # LOG
 "TauClusters.dEta",
 "TauClusters.dPhi",
 "TauClusters.SECOND_R",
@@ -72,10 +74,41 @@ input_variables = [
 "TauJets.centFrac",
 "TauJets.etOverPtLeadTrk",
 "TauJets.dRmax",
-"TauJets.absipSigLeadTrk",
+#"TauJets.absipSigLeadTrk",#REMOVED FOR R22
 "TauJets.SumPtTrkFrac",
 "TauJets.EMPOverTrkSysP",
 "TauJets.ptRatioEflowApprox",
 "TauJets.mEflowApprox",
-"TauJets.ptIntermediateAxis"]
-"""
+"TauJets.ptIntermediateAxis",
+
+
+# Others
+"TauJets.IsTruthMatched",# NOT IN Background files for some dumb reason
+#"TauJets.mcEventWeight"
+]
+
+
+variables_dictionary = {"Tracks": ["TauTracks.pt",
+                                    "TauTracks.z0sinthetaTJVA",
+                                    "TauTracks.dEta",
+                                    "TauTracks.dPhi",
+                                    "TauTracks.nInnermostPixelHits",
+                                    "TauTracks.nPixelHits",
+                                    "TauTracks.nSCTHits"],
+                        "Clusters": ["TauClusters.et",
+                                    "TauClusters.dEta",
+                                    "TauClusters.dPhi",
+                                    "TauClusters.SECOND_R",
+                                    "TauClusters.SECOND_LAMBDA",
+                                    "TauClusters.CENTER_LAMBDA"],
+                        "Jets": ["TauJets.centFrac",
+                                "TauJets.ptJetSeed",
+                                "TauJets.etOverPtLeadTrk",
+                                "TauJets.dRmax",
+                                "TauJets.SumPtTrkFrac",
+                                "TauJets.EMPOverTrkSysP",
+                                "TauJets.ptRatioEflowApprox",
+                                "TauJets.mEflowApprox",
+                                "TauJets.ptIntermediateAxis"],
+                        "Event": ["TauJets.mcEventWeight"]
+                        }

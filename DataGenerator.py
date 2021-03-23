@@ -27,10 +27,6 @@ class DataGenerator(keras.utils.Sequence):
             tmp_arr.append(variable)
         return tmp_arr
 
-    def my_func(self, arg):
-        arg = tf.convert_to_tensor(arg, dtype=tf.float32)
-        return arg
-
     def fill_dataframe(self, feature, idx, sample_name="TauClassifier"):
         feature_df = pd.DataFrame()
         for feature_var in self._get_feature_arrays(feature):
@@ -45,7 +41,7 @@ class DataGenerator(keras.utils.Sequence):
 
     def get_labels(self, idx, sample_name="TauClassifier", signal_channel_number=425200):
 
-        array_filepath = f"data\\{idx}\\{sample_name}_EventInfoAuxDyn.mcChannelNumber_{idx}.npz"
+        array_filepath = f"data\\{idx}\\{sample_name}_EventInfoAuxDyn.mcChannelNumber_{idx}.npz"  # TODO: DON'T HARDCODE THIS!
         with np.load(array_filepath, allow_pickle=True) as array_file:
             channel_num_arr = array_file["arr_0"]
             labels_arr = np.ones(len(channel_num_arr))
