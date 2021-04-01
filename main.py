@@ -2,7 +2,7 @@
 Main Code Body
 """
 from variables import input_variables, variables_dictionary
-from models import experimental_model
+from models import tauid_rnn_model
 from DataGenerator import DataGenerator
 from dataset_maker import *
 
@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     print(f"Track shape = {shape_trk}   Cluster shape = {shape_cls}    Jet shape = {shape_jet}")
 
-    model = experimental_model(shape_trk[1:], shape_cls[1:], shape_jet[1:])
+    model = tauid_rnn_model(shape_trk[1:], shape_cls[1:], shape_jet[1:])
     model.summary()
     model.compile(optimizer="adam", loss="binary_crossentropy",  metrics=["accuracy"])
 

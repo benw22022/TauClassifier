@@ -6,7 +6,7 @@ from keras.models import Model
 from keras.layers import Input, Dense, LSTM, Masking, TimeDistributed, concatenate
 
 
-def experimental_model(
+def tauid_rnn_model(
         input_shape_1, input_shape_2, input_shape_3,
         dense_units_1_1=32, dense_units_1_2=32,
         lstm_units_1_1=32, lstm_units_1_2=32,
