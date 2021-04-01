@@ -11,7 +11,7 @@ import numpy as np
 
 class DataLoader:
 
-    def __init__(self, data_type, files, class_label, dummy_var="TauJets.mcEventWeight"):
+    def __init__(self, data_type, files, class_label, dummy_var="mcEventWeight", cut=None):
         """
         Class constructor - fills in meta-data for the data type
         :param data_type: The type of data file being loaded e.g. Gammatautau, JZ1, ect...
@@ -24,8 +24,10 @@ class DataLoader:
         self.files = files
         self.num_events = 0
         self.dummy_var = dummy_var
-        for batch in uproot.iterate(files, step_size=1000000, filter_name=dummy_var):
-            self.num_events += len(batch[dummy_var])
+        self.cut = cut
+        for batch in uproot.iterate(files, step_size=1000000, filter_name="TauJets."+dummy_var, cut=cut):
+            self.num_events += len(batch["TauJets."+dummy_var])
+
         self.specific_batch_size = 0
         self.batches = None
         self.class_label = class_label
@@ -44,6 +46,7 @@ class DataLoader:
         self.specific_batch_size = math.ceil(total_batch_size * self.num_events / total_num_events)
         self.batches = [batch for batch in uproot.iterate(self.files, filter_name=variable_list, step_size=self.specific_batch_size,
                                                           library="ak", how="zip")]
+        #, cut=self.cut
         print(f"Preloaded data for {self.data_type}")
 
     def batch_length(self, idx):
@@ -52,7 +55,7 @@ class DataLoader:
         :param idx: Index of the batch
         :return: Number of events in batch at index idx
         """
-        return len(self.batches[idx][self.dummy_var])
+        return len(self.batches[idx]["TauJets."+self.dummy_var])
 
     def batch_labels(self, idx):
         """

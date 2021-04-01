@@ -14,7 +14,7 @@ from DataLoader import DataLoader
 
 class DataGenerator(keras.utils.Sequence):
 
-    def __init__(self, file_dict, variables_dict, batch_size):
+    def __init__(self, file_dict, variables_dict, batch_size, cuts=None):
         """
         Class constructor - loads batches of data in a way that can be fed one by one to Keras - avoids having to load
         entire dataset into memory prior to training
@@ -28,8 +28,9 @@ class DataGenerator(keras.utils.Sequence):
         self._batch_size = batch_size
         self._file_dict = file_dict
         self.data_classes = []
+        self.cuts = cuts
 
-        # Organise variable list
+        # Organise a list of all variables
         self._variables_dict = variables_dict
         self._variables_list = []
         for _, variable_list in variables_dict.items():
@@ -40,7 +41,7 @@ class DataGenerator(keras.utils.Sequence):
             class_label = 0
             if data_type == "Gammatautau":
                 class_label = 1
-            self.data_classes.append(DataLoader(data_type, file_list, class_label))
+            self.data_classes.append(DataLoader(data_type, file_list, class_label, cut=self.cuts))
 
         # Get number of events in each dataset
         self.total_num_events = 0
@@ -56,6 +57,22 @@ class DataGenerator(keras.utils.Sequence):
 
         print("DataGenerator initialized")
 
+    def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=20):
+
+        variables = [v.replace(f"{variable_type}.", "") for v in self._variables_dict[variable_type]]
+        ak_arrays = ak.concatenate([batch[variable_type][var][:, :, None] for var in variables], axis=0)
+        ak_arrays = ak.pad_none(ak_arrays, max_items, clip=True)
+        np_arrays = ak.to_numpy(ak_arrays)
+        np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables), np_arrays.shape[1])
+        return np_arrays
+
+    def reshape_arrays(self, batch, variable_type):
+        variables = self._variables_dict[variable_type]
+        ak_arrays = ak.concatenate([batch[var][:] for var in variables], axis=0)
+        np_arrays = ak.to_numpy(ak_arrays)
+        np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables))
+        return np_arrays
+
     def _load_batch_from_data(self, data_class, idx):
         """
         Loads a batch of data of a specific data type. Pads ragged track and cluster arrays to make them rectilinear
@@ -68,30 +85,34 @@ class DataGenerator(keras.utils.Sequence):
         """
         batch = data_class.batches[idx]
 
-        track_vars = [v.replace("TauTracks.", "") for v in self._variables_dict["Tracks"]]
-        track_ak_arrays = ak.concatenate([batch["TauTracks"][var][:, :, None] for var in track_vars], axis=0)
-        track_ak_arrays = ak.pad_none(track_ak_arrays, 20, clip=True)
-        track_np_arrays = ak.to_numpy(track_ak_arrays)
-        track_np_arrays = track_np_arrays.reshape(int(track_np_arrays.shape[0] / len(track_vars)), len(track_vars),
-                                                  track_np_arrays.shape[1])
+        print(batch["TauTracks"])
 
-        cluster_vars = [v.replace("TauClusters.", "") for v in self._variables_dict["Clusters"]]
-        cluster_ak_arrays = ak.concatenate([batch["TauClusters"][var][:, :, None] for var in cluster_vars], axis=0)
-        cluster_ak_arrays = ak.pad_none(cluster_ak_arrays, 15, clip=True)
-        cluster_np_arrays = ak.to_numpy(cluster_ak_arrays)
-        cluster_np_arrays = cluster_np_arrays.reshape(int(cluster_np_arrays.shape[0] / len(cluster_vars)), len(cluster_vars),
-                                                      cluster_np_arrays.shape[1])
 
-        jet_vars = self._variables_dict["Jets"]
-        jet_ak_arrays = ak.concatenate([batch[var][:] for var in jet_vars], axis=0)
-        jet_np_arrays = ak.to_numpy(jet_ak_arrays)
-        jet_np_arrays = jet_np_arrays.reshape(int(jet_np_arrays.shape[0] / len(jet_vars)), len(jet_vars))
+        track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=20)
+        conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=20)
+        shot_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ShotPFO", max_items=20)
+        neutral_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "NeutralPFO", max_items=20)
+        jet_np_arrays = self.reshape_arrays(batch, "TauJets")
 
-        labels_np_array = data_class.batch_labels(idx)
+        # Just do the 1-prong case for now
+        sig_bkg_labels_np_array = data_class.batch_labels(idx)
+        labels_np_array = np.zeros((len(sig_bkg_labels_np_array), 4), dtype="object")
+        if sig_bkg_labels_np_array[0] == 0:
+            labels_np_array[:] = np.array([1, 0, 0, 0])
+        else:
+            truth_decay_mode_np_array = ak.to_numpy(batch[self._variables_dict["DecayMode"]])
+            for i in range(0, len(truth_decay_mode_np_array,)):
+                if truth_decay_mode_np_array[i] == 0:
+                    labels_np_array[i] = np.array([0, 1, 0, 0])
+                elif truth_decay_mode_np_array[i] == 1:
+                    labels_np_array[i] = np.array([0, 0, 1, 0])
+                else:
+                    labels_np_array[i] = np.array([0, 0, 0, 1])
 
-        weight_np_array = ak.to_numpy(batch["TauJets.mcEventWeight"])
+        weight_np_array = ak.to_numpy(batch[self._variables_dict["Weight"]])
 
-        return track_np_arrays, cluster_np_arrays, jet_np_arrays, labels_np_array, weight_np_array
+        return track_np_arrays, conv_track_np_arrays, shot_pfo_np_arrays, neutral_pfo_np_arrays, jet_np_arrays, \
+               labels_np_array, weight_np_array
 
     def load_batch(self, idx):
         """
@@ -101,25 +122,31 @@ class DataGenerator(keras.utils.Sequence):
             [[Tracks, Clusters, Jets], labels, weights]
         """
         track_array = np.array([])
-        cluster_array = np.array([])
+        #cluster_array = np.array([])
+        conv_track_array = np.array([])
+        shot_pfo_array = np.array([])
+        neutral_pfo_array = np.array([])
         jet_array = np.array([])
         label_array = np.array([])
         weight_array = np.array([])
 
         for i in range(0, len(self.data_classes)):
             if i == 0:
-                track_array, cluster_array, jet_array, label_array, weight_array = self._load_batch_from_data(
-                    self.data_classes[i], idx)
+                track_array, conv_track_array, shot_pfo_array, neutral_pfo_array, jet_array, \
+                label_array, weight_array = self._load_batch_from_data(self.data_classes[i], idx)
             else:
-                tmp_track_array, tmp_cluster_array, tmp_jet_array, tmp_label_array, tmp_weight_array = self._load_batch_from_data(
-                    self.data_classes[i], idx)
+                tmp_track_array, tmp_conv_track_array, tmp_shot_pfo_array, tmp_neutral_pfo_array, tmp_jet_array, \
+                tmp_label_array, tmp_weight_array = self._load_batch_from_data(self.data_classes[i], idx)
                 track_array = np.concatenate((tmp_track_array, track_array))
-                cluster_array = np.concatenate((tmp_cluster_array, cluster_array))
+                conv_track_array = np.concatenate((tmp_conv_track_array, conv_track_array))
+                shot_pfo_array = np.concatenate((tmp_shot_pfo_array, shot_pfo_array))
+                neutral_pfo_array = np.concatenate((tmp_neutral_pfo_array, neutral_pfo_array))
+                #cluster_array = np.concatenate((tmp_cluster_array, cluster_array))
                 jet_array = np.concatenate((tmp_jet_array, jet_array))
                 label_array = np.concatenate((tmp_label_array, label_array))
                 weight_array = np.concatenate((tmp_weight_array, weight_array))
 
-        return [track_array, cluster_array, jet_array], label_array, weight_array
+        return [track_array, conv_track_array, shot_pfo_array, neutral_pfo_array, jet_array], label_array, weight_array
 
     def get_batch_shapes(self, idx=0):
         """
@@ -130,7 +157,14 @@ class DataGenerator(keras.utils.Sequence):
             tracks.shape, clusters.shape, jets.shape, labels.shape, weights.shape
         """
         batch = self.load_batch(idx)
-        return batch[0][0].shape, batch[0][1].shape, batch[0][2].shape, batch[1].shape, batch[2].shape
+        shapes = []
+
+        for item in batch[0]:
+            shapes.append(item.shape)
+        shapes.append(batch[1].shape)
+        shapes.append(batch[2].shape)
+
+        return shapes
 
     def __len__(self):
         """
@@ -146,9 +180,3 @@ class DataGenerator(keras.utils.Sequence):
         :return: A full batch of data
         """
         return self.load_batch(idx)
-
-
-
-
-
-
