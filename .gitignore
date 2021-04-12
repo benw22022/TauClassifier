@@ -9,3 +9,7 @@ venv*
 # Ignore logs
 *.log
 *.txt
+
+# Other 
+__pycache__
+

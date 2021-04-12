@@ -10,6 +10,7 @@ import numpy as np
 import keras
 import awkward as ak
 from DataLoader import DataLoader
+from utils import logger
 
 
 class DataGenerator(keras.utils.Sequence):
@@ -47,13 +48,17 @@ class DataGenerator(keras.utils.Sequence):
         self.total_num_events = 0
         for data_class in self.data_classes:
             self.total_num_events += data_class.num_events
+        logger.log(f"Found {self.total_num_events} events total", "INFO")
 
         # Lazily load batches of data for each dataset
         for data_class in self.data_classes:
             data_class.load_batches(self._variables_list, self.total_num_events, self._batch_size)
+            logger.log(f"Lazily loaded data for {data_class}", "INFO")
+        logger.log(f"Lazily loaded data for all datasets", "INFO")
 
         # Work out the number of batches for training epoch (important)
         self._num_batches = len(self.data_classes[0].batches)
+        logger.log(f"Number of batches per epoch: {self._num_batches}", 'DEBUG')
 
         print("DataGenerator initialized")
 
@@ -85,9 +90,26 @@ class DataGenerator(keras.utils.Sequence):
         """
         batch = data_class.batches[idx]
 
+        """    
+        logger.log(f"{data_class} - batch = {batch}", 'DEBUG')
+
+        print(data_class)
         print(batch["TauTracks"])
+        try:
+            print(batch["TauTracks"])
+        except:
+            print("couldn't do batch[\"TauTracks\"]")
 
+        try:
+            print(batch["TauTracks"]["jetpt"])
+        except:
+            print("couldn't do batch[\"TauTracks\"][\"jetpt\"]")
 
+        try:
+            print(batch["TauTracks.jetpt"])
+        except:
+            print("couldn't do batch[\"TauTracks.jetpt\"]")
+"""
         track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=20)
         conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=20)
         shot_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ShotPFO", max_items=20)
@@ -145,6 +167,7 @@ class DataGenerator(keras.utils.Sequence):
                 jet_array = np.concatenate((tmp_jet_array, jet_array))
                 label_array = np.concatenate((tmp_label_array, label_array))
                 weight_array = np.concatenate((tmp_weight_array, weight_array))
+                logger.log(f"Preparing batch: Done {i}/{len(self.data_classes)}", 'DEBUG')
 
         return [track_array, conv_track_array, shot_pfo_array, neutral_pfo_array, jet_array], label_array, weight_array
 
@@ -179,4 +202,5 @@ class DataGenerator(keras.utils.Sequence):
         :param idx: An index - set by Keras
         :return: A full batch of data
         """
+        logger.log("")
         return self.load_batch(idx)

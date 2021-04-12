@@ -7,6 +7,7 @@ A helper class to lazily load batches of training data for each type of data
 import uproot
 import math
 import numpy as np
+from utils import logger
 
 
 class DataLoader:
@@ -25,12 +26,18 @@ class DataLoader:
         self.num_events = 0
         self.dummy_var = dummy_var
         self.cut = cut
+
+
         for batch in uproot.iterate(files, step_size=1000000, filter_name="TauJets."+dummy_var, cut=cut):
             self.num_events += len(batch["TauJets."+dummy_var])
 
         self.specific_batch_size = 0
         self.batches = None
         self.class_label = class_label
+        logger.log(f"Found {len(files)} files for {data_type}", 'INFO')
+        logger.log(f"Found these files: {files}", 'INFO')
+        logger.log(f"Found {self.num_events} events for {data_type}", 'INFO')
+        logger.log(f"DataLoader for {data_type} initialized", "INFO")
 
     def load_batches(self, variable_list, total_num_events, total_batch_size):
         """

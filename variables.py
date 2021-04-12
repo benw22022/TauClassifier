@@ -123,12 +123,12 @@ variables_dictionary = {"TauTracks": [
                                       "TauTracks.chargedScoreRNN",
                                       "TauTracks.isolationScoreRNN",
                                       "TauTracks.conversionScoreRNN",
-                                      "TauTracks.fakeScoreRNN"
+                                      "TauTracks.fakeScoreRNN",
 
                                       "TauTracks.pt",
-                                      "TauTracks.dphiECal",
-                                      "TauTracks.detaECal",
-                                      "TauTracks.jetpt",
+                                      #"TauTracks.dphiECal",
+                                      #"TauTracks.detaECal",
+                                      #"TauTracks.jetpt",
                                       "TauTracks.d0TJVA",
                                       "TauTracks.d0SigTJVA",
                                       "TauTracks.z0sinthetaTJVA",
