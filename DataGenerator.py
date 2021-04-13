@@ -25,7 +25,7 @@ class DataGenerator(keras.utils.Sequence):
         and values being a list of branch names of the variables associated with that type
         :param batch_size: The number of events to train on per batch of data
         """
-        print("Initializing DataGenerator")
+        logger.log("Initializing DataGenerator", 'INFO')
         self._batch_size = batch_size
         self._file_dict = file_dict
         self.data_classes = []
@@ -51,16 +51,16 @@ class DataGenerator(keras.utils.Sequence):
         logger.log(f"Found {self.total_num_events} events total", "INFO")
 
         # Lazily load batches of data for each dataset
-        for data_class in self.data_classes:
-            data_class.load_batches(self._variables_list, self.total_num_events, self._batch_size)
-            logger.log(f"Lazily loaded data for {data_class}", "INFO")
-        logger.log(f"Lazily loaded data for all datasets", "INFO")
+        #for data_class in self.data_classes:
+        #    data_class.load_batches(self._variables_list, self.total_num_events, self._batch_size)
+        #logger.log(f"Lazily loaded data for all datasets", "INFO")
 
         # Work out the number of batches for training epoch (important)
-        self._num_batches = len(self.data_classes[0].batches)
+        #self._num_batches = len(self.data_classes[0].batches)
+        self._num_batches = self.data_classes[0].number_of_batches(self.total_num_events, batch_size)
         logger.log(f"Number of batches per epoch: {self._num_batches}", 'DEBUG')
 
-        print("DataGenerator initialized")
+        logger.log("DataGenerator initialized", 'INFO')
 
     def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=20):
 
@@ -88,7 +88,8 @@ class DataGenerator(keras.utils.Sequence):
         :return: A list of arrays
             [Tracks, Clusters, Jets, Labels, Weight]
         """
-        batch = data_class.batches[idx]
+        #batch = data_class.batches[idx]
+        batch = data_class.load_batch(idx, self._variables_list, self.total_num_events, self._batch_size)
 
         """    
         logger.log(f"{data_class} - batch = {batch}", 'DEBUG')
@@ -156,6 +157,7 @@ class DataGenerator(keras.utils.Sequence):
             if i == 0:
                 track_array, conv_track_array, shot_pfo_array, neutral_pfo_array, jet_array, \
                 label_array, weight_array = self._load_batch_from_data(self.data_classes[i], idx)
+                logger.log(f"Preparing batch: Done {self.data_classes[i].data_type} {i+1}/{len(self.data_classes)}", 'DEBUG')
             else:
                 tmp_track_array, tmp_conv_track_array, tmp_shot_pfo_array, tmp_neutral_pfo_array, tmp_jet_array, \
                 tmp_label_array, tmp_weight_array = self._load_batch_from_data(self.data_classes[i], idx)
@@ -167,7 +169,7 @@ class DataGenerator(keras.utils.Sequence):
                 jet_array = np.concatenate((tmp_jet_array, jet_array))
                 label_array = np.concatenate((tmp_label_array, label_array))
                 weight_array = np.concatenate((tmp_weight_array, weight_array))
-                logger.log(f"Preparing batch: Done {i}/{len(self.data_classes)}", 'DEBUG')
+                logger.log(f"Preparing batch: Done {self.data_classes[i].data_type} {i+1}/{len(self.data_classes)}", 'DEBUG')
 
         return [track_array, conv_track_array, shot_pfo_array, neutral_pfo_array, jet_array], label_array, weight_array
 
@@ -179,6 +181,11 @@ class DataGenerator(keras.utils.Sequence):
         :return: A list of all the array shapes.
             tracks.shape, clusters.shape, jets.shape, labels.shape, weights.shape
         """
+
+        if idx >= self.__len__():
+            logger.log("index > number of batches")
+            raise IndexError
+
         batch = self.load_batch(idx)
         shapes = []
 
@@ -191,7 +198,8 @@ class DataGenerator(keras.utils.Sequence):
 
     def __len__(self):
         """
-        This returns the number of batches that the data was split up into
+        This returns the number of batches that the data was split up into (important that this is correct or you'll
+        run into memory access violations when Keras oversteps bounds of array)
         :return: The number of batches in an epoch
         """
         return self._num_batches
@@ -202,5 +210,5 @@ class DataGenerator(keras.utils.Sequence):
         :param idx: An index - set by Keras
         :return: A full batch of data
         """
-        logger.log("")
+        logger.log(f"loaded batch {idx}/{self.__len__()}", 'DEBUG')
         return self.load_batch(idx)

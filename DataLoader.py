@@ -23,17 +23,16 @@ class DataLoader:
         """
         self.data_type = data_type
         self.files = files
-        self.num_events = 0
         self.dummy_var = dummy_var
         self.cut = cut
 
-
-        for batch in uproot.iterate(files, step_size=1000000, filter_name="TauJets."+dummy_var, cut=cut):
-            self.num_events += len(batch["TauJets."+dummy_var])
+        dummy_array = uproot.concatenate(files, filter_name="TauJets."+dummy_var, cut=cut)
+        self.num_events = len(dummy_array["TauJets."+dummy_var])
 
         self.specific_batch_size = 0
         self.batches = None
         self.class_label = class_label
+        self._n_events_in_batch = 0
         logger.log(f"Found {len(files)} files for {data_type}", 'INFO')
         logger.log(f"Found these files: {files}", 'INFO')
         logger.log(f"Found {self.num_events} events for {data_type}", 'INFO')
@@ -45,6 +44,7 @@ class DataLoader:
         there is a proportional number of each type of event in each batch of training data. This is done separately,
         outside of the constructor, since we need to know the total number of events in all files in order to properly
         weight the step_size
+        NOTE: Is actually very memory intensive/slow
         :param variable_list: List of variables to be loaded
         :param total_num_events: Total number of events in all data files
         :param total_batch_size: Size of batch to be trained on
@@ -52,17 +52,44 @@ class DataLoader:
         """
         self.specific_batch_size = math.ceil(total_batch_size * self.num_events / total_num_events)
         self.batches = [batch for batch in uproot.iterate(self.files, filter_name=variable_list, step_size=self.specific_batch_size,
-                                                          library="ak", how="zip")]
-        #, cut=self.cut
-        print(f"Preloaded data for {self.data_type}")
+                                                          library="ak", cut=self.cut)]
+        #how = "zip",
+        logger.log(f"Preloaded data for {self.data_type}", 'INFO')
 
-    def batch_length(self, idx):
-        """
-        Returns the number of events in a batch at position idx
-        :param idx: Index of the batch
-        :return: Number of events in batch at index idx
-        """
-        return len(self.batches[idx]["TauJets."+self.dummy_var])
+    def load_batch(self, idx, variable_list, total_num_events, total_batch_size):
+        #counter = 0
+        self.specific_batch_size = math.ceil(total_batch_size * self.num_events / total_num_events)
+        #for batch in uproot.iterate(self.files, filter_name=variable_list, step_size=self.specific_batch_size,
+        #                            library="ak", how="zip"):
+        #    if counter == idx:
+        #        self._n_events_in_batch = len(batch["TauJets."+self.dummy_var])
+        #        return batch
+        #    counter += 1
+        #    logger.log(f"Iterating through {self.data_type} - {counter}/{idx}", 'DEBUG')
+
+        data = uproot.lazy(self.files, filter_name=variable_list, step_size=self.specific_batch_size)
+        batch = data[idx * self.specific_batch_size: idx * self.specific_batch_size + self.specific_batch_size]
+        print(len(batch))
+        batch = batch[batch["TauJets.truthProng"] == 1]
+        print(len(batch))
+        return batch
+
+    def number_of_batches(self, total_num_events, total_batch_size):
+        counter = 0
+        self.specific_batch_size = math.ceil(total_batch_size * self.num_events / total_num_events)
+        for _ in uproot.iterate(self.files, filter_name="TauJets."+self.dummy_var, step_size=self.specific_batch_size,
+                                    library="ak", how="zip"):
+            counter += 1
+        return counter
+
+
+    #def batch_length(self, idx):
+    #    """
+    #    Returns the number of events in a batch at position idx
+    #    :param idx: Index of the batch
+    #    :return: Number of events in batch at index idx
+    #    """
+    #    return len(self.batches[idx]["TauJets."+self.dummy_var])
 
     def batch_labels(self, idx):
         """
@@ -70,4 +97,5 @@ class DataLoader:
         :param idx: index of batch to create labels for - Note: batches will not always have the same lengths
         :return: An array of either zeros or ones of length equal to the number of events in the batch at idx
         """
-        return np.ones((self.batch_length(idx))) * self.class_label
+        return np.ones(self._n_events_in_batch) * self.class_label
+        #return np.ones((self.batch_length(idx))) * self.class_label
