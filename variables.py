@@ -187,8 +187,8 @@ variables_dictionary = {"TauTracks": [
                                     "TauJets.etaJetSeed",
                                     "TauJets.phiJetSeed"],
 
-                        "DecayMode": "TauJets.truthDecayMode",
-                        "Prong": "TauJets.truthProng",
+                        "DecayMode": ["TauJets.truthDecayMode"],
+                        "Prong": ["TauJets.truthProng"],
                         "Weight": ["TauJets.mcEventWeight"]}
 
 
