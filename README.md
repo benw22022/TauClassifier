@@ -2,8 +2,8 @@
 Development of a combined tau ID and tau decay mode classifier for ATLAS Tau Group
 
 A work in progress - apologies for any confusing bits!
-Uses a Keras data generator (DataGenerator.py) to feed neural networks directly from NTuples using uproot.iterate. Each data file type (e.g. Gammatautau, JZ1, JZ2, etc...) is 
-lazily loaded into chunks and a batch of training data is made by concatenating all the arrays together. This avoids having all the data loaded into memory at once.
+Uses a Keras data generator (DataGenerator.py) to feed neural networks directly from NTuples using uproot.lazy. Each data file type (e.g. Gammatautau, JZ1, JZ2, etc...) has a  
+chunk of data loaded and a batch of training data is made by concatenating all the arrays together. This avoids having all the data loaded into memory at once.
 The DataGenerator class works by:
   1. Making a Dataloader class for each file type. This is a helper class I made which stores the lazily loaded chunks and works out how many events should be in each chunk- 
      it also stores info on whether data is signal/background. This class can return a lazily loaded chunk of data from an index.
@@ -19,3 +19,4 @@ The DataGenerator class works by:
             - The numpy array is then reshaped to match the network input shape is -> (#Number of events, #Number of variables, #length of arrays (clipping value))
      - For variable types which are already recilinear and contain multiple variables (jets) the reshape_arrays() method is called which does a similar thing to the above except
        without the padding. The shape is also differnt -> (#Number of events, #Number of variables)
+     - Added option to use pool.starmap to read chunks of data from each datafile in parallel - this significantly speeds up loading of batches of data 
