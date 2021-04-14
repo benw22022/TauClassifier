@@ -11,11 +11,15 @@ import keras
 import awkward as ak
 from DataLoader import DataLoader
 from utils import logger
+import time
+import datetime
+from multiprocessing import Pool
+from functools import partial
 
 
 class DataGenerator(keras.utils.Sequence):
 
-    def __init__(self, file_dict, variables_dict, batch_size, cuts=None):
+    def __init__(self, file_dict, variables_dict, batch_size, cuts=None, nprocs=None):
         """
         Class constructor - loads batches of data in a way that can be fed one by one to Keras - avoids having to load
         entire dataset into memory prior to training
@@ -30,6 +34,9 @@ class DataGenerator(keras.utils.Sequence):
         self._file_dict = file_dict
         self.data_classes = []
         self.cuts = cuts
+        self.nprocs = nprocs
+        if nprocs == 'max':
+            self.nprocs = -1
 
         # Organise a list of all variables
         self._variables_dict = variables_dict
@@ -42,30 +49,35 @@ class DataGenerator(keras.utils.Sequence):
             class_label = 0
             if data_type == "Gammatautau":
                 class_label = 1
-            self.data_classes.append(DataLoader(data_type, file_list, class_label, cut=self.cuts))
+            if data_type in cuts:
+                self.data_classes.append(DataLoader(data_type, file_list, class_label, cut=self.cuts))
+            else:
+                self.data_classes.append(DataLoader(data_type, file_list, class_label))
 
         # Get number of events in each dataset
-        self.total_num_events = 0
+        self._total_num_events = 0
         for data_class in self.data_classes:
-            self.total_num_events += data_class.num_events
-        logger.log(f"Found {self.total_num_events} events total", "INFO")
+            self._total_num_events += data_class.num_events
+        logger.log(f"Found {self._total_num_events} events total", "INFO")
 
         # Lazily load batches of data for each dataset
         #for data_class in self.data_classes:
-        #    data_class.load_batches(self._variables_list, self.total_num_events, self._batch_size)
+        #    data_class.load_batches(self._variables_list, self._total_num_events, self._batch_size)
         #logger.log(f"Lazily loaded data for all datasets", "INFO")
 
         # Work out the number of batches for training epoch (important)
         #self._num_batches = len(self.data_classes[0].batches)
-        self._num_batches = self.data_classes[0].number_of_batches(self.total_num_events, batch_size)
+        self._num_batches = self.data_classes[0].number_of_batches(self._total_num_events, batch_size)
         logger.log(f"Number of batches per epoch: {self._num_batches}", 'DEBUG')
 
         logger.log("DataGenerator initialized", 'INFO')
 
     def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=20):
 
-        variables = [v.replace(f"{variable_type}.", "") for v in self._variables_dict[variable_type]]
-        ak_arrays = ak.concatenate([batch[variable_type][var][:, :, None] for var in variables], axis=0)
+        #variables = [v.replace(f"{variable_type}.", "") for v in self._variables_dict[variable_type]]
+        variables = self._variables_dict[variable_type]
+        #ak_arrays = ak.concatenate([batch[variable_type][var][:, :, None] for var in variables], axis=0)
+        ak_arrays = ak.concatenate([batch[var][:, :, None] for var in variables], axis=0)
         ak_arrays = ak.pad_none(ak_arrays, max_items, clip=True)
         np_arrays = ak.to_numpy(ak_arrays)
         np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables), np_arrays.shape[1])
@@ -89,28 +101,8 @@ class DataGenerator(keras.utils.Sequence):
             [Tracks, Clusters, Jets, Labels, Weight]
         """
         #batch = data_class.batches[idx]
-        batch = data_class.load_batch(idx, self._variables_list, self.total_num_events, self._batch_size)
+        batch,  sig_bkg_labels_np_array = data_class.load_batch(idx, self._variables_list, self._total_num_events, self._batch_size)
 
-        """    
-        logger.log(f"{data_class} - batch = {batch}", 'DEBUG')
-
-        print(data_class)
-        print(batch["TauTracks"])
-        try:
-            print(batch["TauTracks"])
-        except:
-            print("couldn't do batch[\"TauTracks\"]")
-
-        try:
-            print(batch["TauTracks"]["jetpt"])
-        except:
-            print("couldn't do batch[\"TauTracks\"][\"jetpt\"]")
-
-        try:
-            print(batch["TauTracks.jetpt"])
-        except:
-            print("couldn't do batch[\"TauTracks.jetpt\"]")
-"""
         track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=20)
         conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=20)
         shot_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ShotPFO", max_items=20)
@@ -118,7 +110,6 @@ class DataGenerator(keras.utils.Sequence):
         jet_np_arrays = self.reshape_arrays(batch, "TauJets")
 
         # Just do the 1-prong case for now
-        sig_bkg_labels_np_array = data_class.batch_labels(idx)
         labels_np_array = np.zeros((len(sig_bkg_labels_np_array), 4), dtype="object")
         if sig_bkg_labels_np_array[0] == 0:
             labels_np_array[:] = np.array([1, 0, 0, 0])
@@ -137,6 +128,16 @@ class DataGenerator(keras.utils.Sequence):
         return track_np_arrays, conv_track_np_arrays, shot_pfo_np_arrays, neutral_pfo_np_arrays, jet_np_arrays, \
                labels_np_array, weight_np_array
 
+    def _process_batch(self, index, batch_index):
+        """
+        Function designed to be run in parallel to retrieve and format batch data from one data file type
+        :param index:
+        :param batch_index:
+        :return:
+        """
+        batch = self._load_batch_from_data(self.data_classes[index], batch_index)
+        return batch
+
     def load_batch(self, idx):
         """
         Loads a batch of data from each data type and concatenates them into single arrays for training
@@ -144,34 +145,69 @@ class DataGenerator(keras.utils.Sequence):
         :return: A list of arrays to be passed to model.fit()
             [[Tracks, Clusters, Jets], labels, weights]
         """
-        track_array = np.array([])
-        #cluster_array = np.array([])
-        conv_track_array = np.array([])
-        shot_pfo_array = np.array([])
-        neutral_pfo_array = np.array([])
-        jet_array = np.array([])
-        label_array = np.array([])
-        weight_array = np.array([])
+        batch_load_time = time.time()
 
-        for i in range(0, len(self.data_classes)):
-            if i == 0:
-                track_array, conv_track_array, shot_pfo_array, neutral_pfo_array, jet_array, \
-                label_array, weight_array = self._load_batch_from_data(self.data_classes[i], idx)
-                logger.log(f"Preparing batch: Done {self.data_classes[i].data_type} {i+1}/{len(self.data_classes)}", 'DEBUG')
-            else:
-                tmp_track_array, tmp_conv_track_array, tmp_shot_pfo_array, tmp_neutral_pfo_array, tmp_jet_array, \
-                tmp_label_array, tmp_weight_array = self._load_batch_from_data(self.data_classes[i], idx)
-                track_array = np.concatenate((tmp_track_array, track_array))
-                conv_track_array = np.concatenate((tmp_conv_track_array, conv_track_array))
-                shot_pfo_array = np.concatenate((tmp_shot_pfo_array, shot_pfo_array))
-                neutral_pfo_array = np.concatenate((tmp_neutral_pfo_array, neutral_pfo_array))
-                #cluster_array = np.concatenate((tmp_cluster_array, cluster_array))
-                jet_array = np.concatenate((tmp_jet_array, jet_array))
-                label_array = np.concatenate((tmp_label_array, label_array))
-                weight_array = np.concatenate((tmp_weight_array, weight_array))
-                logger.log(f"Preparing batch: Done {self.data_classes[i].data_type} {i+1}/{len(self.data_classes)}", 'DEBUG')
+        if self.nprocs is not None:
+            task_idxs = np.arange(len(self.data_classes))
+            if self.nprocs > len(task_idxs) or self.nprocs == -1:
+                logger.log(f"Setting number of processors to maximum = {len(task_idxs)}", 'DEBUG')
+                self.nprocs = len(task_idxs)
 
-        return [track_array, conv_track_array, shot_pfo_array, neutral_pfo_array, jet_array], label_array, weight_array
+            pool = Pool(processes=self.nprocs)
+            func = partial(self._process_batch, batch_index=idx)
+            Kchunks = [task_idxs[n * len(task_idxs) // self.nprocs: (n + 1) * len(task_idxs) // self.nprocs] for n in range(self.nprocs)]
+            batches = np.array(pool.starmap(func, Kchunks), dtype='object')
+
+            track_array = batches[0][0]
+            conv_track_array = batches[0][1]
+            shot_pfo_array = batches[0][2]
+            neutral_pfo_array = batches[0][3]
+            jet_array = batches[0][4]
+            label_array = batches[0][5]
+            weight_array = batches[0][6]
+
+            for i in range(1, len(batches)):
+                track_array = np.concatenate((batches[i][0], track_array))
+                conv_track_array = np.concatenate((batches[i][1], conv_track_array))
+                shot_pfo_array = np.concatenate((batches[i][2], shot_pfo_array))
+                neutral_pfo_array = np.concatenate((batches[i][3], neutral_pfo_array))
+                jet_array = np.concatenate((batches[i][4], jet_array))
+                label_array = np.concatenate((batches[i][5], label_array))
+                weight_array = np.concatenate((batches[i][6], weight_array))
+
+            logger.log(f"Loaded batch {idx} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))} ")
+            return [track_array, conv_track_array, shot_pfo_array, neutral_pfo_array, jet_array], label_array, weight_array
+
+        else:
+            track_array = np.array([])
+            conv_track_array = np.array([])
+            shot_pfo_array = np.array([])
+            neutral_pfo_array = np.array([])
+            jet_array = np.array([])
+            label_array = np.array([])
+            weight_array = np.array([])
+
+            for i in range(0, len(self.data_classes)):
+                if i == 0:
+                    track_array, conv_track_array, shot_pfo_array, neutral_pfo_array, jet_array, \
+                        label_array, weight_array = self._load_batch_from_data(self.data_classes[i], idx)
+                    logger.log(f"Preparing batch: Done {self.data_classes[i].data_type} {i+1}/{len(self.data_classes)}", 'DEBUG')
+                else:
+                    tmp_track_array, tmp_conv_track_array, tmp_shot_pfo_array, tmp_neutral_pfo_array, tmp_jet_array, \
+                    tmp_label_array, tmp_weight_array = self._load_batch_from_data(self.data_classes[i], idx)
+                    track_array = np.concatenate((tmp_track_array, track_array))
+                    conv_track_array = np.concatenate((tmp_conv_track_array, conv_track_array))
+                    shot_pfo_array = np.concatenate((tmp_shot_pfo_array, shot_pfo_array))
+                    neutral_pfo_array = np.concatenate((tmp_neutral_pfo_array, neutral_pfo_array))
+                    #cluster_array = np.concatenate((tmp_cluster_array, cluster_array))
+                    jet_array = np.concatenate((tmp_jet_array, jet_array))
+                    label_array = np.concatenate((tmp_label_array, label_array))
+                    weight_array = np.concatenate((tmp_weight_array, weight_array))
+                    logger.log(f"Preparing batch: Done {self.data_classes[i].data_type} {i+1}/{len(self.data_classes)}", 'DEBUG')
+
+            logger.log(f"Loaded batch {idx} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))} ")
+
+            return [track_array, conv_track_array, shot_pfo_array, neutral_pfo_array, jet_array], label_array, weight_array
 
     def get_batch_shapes(self, idx=0):
         """

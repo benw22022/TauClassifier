@@ -8,7 +8,7 @@ import uproot
 import math
 import numpy as np
 from utils import logger
-
+import pickle
 
 class DataLoader:
 
@@ -56,46 +56,29 @@ class DataLoader:
         #how = "zip",
         logger.log(f"Preloaded data for {self.data_type}", 'INFO')
 
-    def load_batch(self, idx, variable_list, total_num_events, total_batch_size):
-        #counter = 0
-        self.specific_batch_size = math.ceil(total_batch_size * self.num_events / total_num_events)
-        #for batch in uproot.iterate(self.files, filter_name=variable_list, step_size=self.specific_batch_size,
-        #                            library="ak", how="zip"):
-        #    if counter == idx:
-        #        self._n_events_in_batch = len(batch["TauJets."+self.dummy_var])
-        #        return batch
-        #    counter += 1
-        #    logger.log(f"Iterating through {self.data_type} - {counter}/{idx}", 'DEBUG')
-
-        data = uproot.lazy(self.files, filter_name=variable_list, step_size=self.specific_batch_size)
-        batch = data[idx * self.specific_batch_size: idx * self.specific_batch_size + self.specific_batch_size]
-        print(len(batch))
-        batch = batch[batch["TauJets.truthProng"] == 1]
-        print(len(batch))
-        return batch
-
     def number_of_batches(self, total_num_events, total_batch_size):
         counter = 0
         self.specific_batch_size = math.ceil(total_batch_size * self.num_events / total_num_events)
-        for _ in uproot.iterate(self.files, filter_name="TauJets."+self.dummy_var, step_size=self.specific_batch_size,
-                                    library="ak", how="zip"):
+        for _ in uproot.iterate(self.files, filter_name="TauJets." + self.dummy_var, step_size=self.specific_batch_size,
+                                library="ak", how="zip"):
             counter += 1
         return counter
 
 
-    #def batch_length(self, idx):
-    #    """
-    #    Returns the number of events in a batch at position idx
-    #    :param idx: Index of the batch
-    #    :return: Number of events in batch at index idx
-    #    """
-    #    return len(self.batches[idx]["TauJets."+self.dummy_var])
+    def load_batch(self, idx, variable_list, total_num_events, total_batch_size):
 
-    def batch_labels(self, idx):
-        """
-        Creates an array of class labels for a batch
-        :param idx: index of batch to create labels for - Note: batches will not always have the same lengths
-        :return: An array of either zeros or ones of length equal to the number of events in the batch at idx
-        """
-        return np.ones(self._n_events_in_batch) * self.class_label
-        #return np.ones((self.batch_length(idx))) * self.class_label
+        self.specific_batch_size = math.ceil(total_batch_size * self.num_events / total_num_events)
+
+        logger.log(f"Loading array {idx} for {self.data_type}...", 'DEBUG')
+
+        data = uproot.lazy(self.files, filter_name=variable_list, step_size=self.specific_batch_size)
+        batch = data[idx * self.specific_batch_size: idx * self.specific_batch_size + self.specific_batch_size]
+
+        logger.log(f"Loaded array {idx} for {self.data_type} ", 'DEBUG')
+
+        if self.data_type == "Gammatautau":
+            batch = batch[batch["TauJets.truthProng"] == 1]
+
+        return batch, np.ones(len(batch)) * self.class_label
+
+

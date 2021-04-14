@@ -1,10 +1,13 @@
 #Ignore data files
 *.npz
 *.npy
+*.pkl
+*.awkd
 
 # ignore directories
 venv*
 *.idea
+data
 
 # Ignore logs
 *.log

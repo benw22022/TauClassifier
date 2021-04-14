@@ -16,12 +16,17 @@ if __name__ == "__main__":
       logger.log("Beginning dataset preparation", 'INFO')
 
       # Initialize Generators
-      training_batch_generator = DataGenerator(files_dictionary, variables_dictionary, 100000, cuts="TauJets.truthProng == 1")
+
+      cuts = {"GammaTauTau": "TauJets.truthProng == 1"}
+
+      training_batch_generator = DataGenerator(files_dictionary, variables_dictionary, 100000, cuts=cuts, nprocs='max')
       #testing_batch_generator = DataGenerator(X_test_idx, variables_dictionary)
       #validation_batch_generator = DataGenerator(X_val_idx, variables_dictionary)
 
+      #training_batch_generator.write_lazy_arrays()
+
       # Initialize Model
-      shape_trk, shape_conv_trk, shape_shot_pfo, shape_neut_pfo, shape_jet, _, _ = training_batch_generator.get_batch_shapes(idx=150)
+      shape_trk, shape_conv_trk, shape_shot_pfo, shape_neut_pfo, shape_jet, _, _ = training_batch_generator.get_batch_shapes()
 
       print(f"Track shape = {shape_trk}   Conv Track shape = {shape_conv_trk}  Shot PFO shape = {shape_shot_pfo} "
             f"Neutral PFO shape = {shape_neut_pfo}  Jet shape = {shape_jet}")
