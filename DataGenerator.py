@@ -19,7 +19,7 @@ from functools import partial
 
 class DataGenerator(keras.utils.Sequence):
 
-    def __init__(self, file_dict, variables_dict, batch_size, cuts=None, nprocs=None):
+    def __init__(self, file_dict, variables_dict, batch_size, cuts=None, nprocs=None, step_size=1000000):
         """
         Class constructor - loads batches of data in a way that can be fed one by one to Keras - avoids having to load
         entire dataset into memory prior to training
@@ -37,6 +37,7 @@ class DataGenerator(keras.utils.Sequence):
         self.nprocs = nprocs
         if nprocs == 'max':
             self.nprocs = -1
+        self.step_size = step_size
 
         # Organise a list of all variables
         self._variables_dict = variables_dict
@@ -50,7 +51,7 @@ class DataGenerator(keras.utils.Sequence):
             if data_type == "Gammatautau":
                 class_label = 1
             if data_type in cuts:
-                self.data_classes.append(DataLoader(data_type, file_list, class_label, cut=self.cuts))
+                self.data_classes.append(DataLoader(data_type, file_list, class_label, cut=self.cuts, step_size=step_size))
             else:
                 self.data_classes.append(DataLoader(data_type, file_list, class_label))
 
@@ -61,15 +62,14 @@ class DataGenerator(keras.utils.Sequence):
         logger.log(f"Found {self._total_num_events} events total", "INFO")
 
         # Lazily load batches of data for each dataset
-        #for data_class in self.data_classes:
-        #    data_class.load_batches(self._variables_list, self._total_num_events, self._batch_size)
-        #logger.log(f"Lazily loaded data for all datasets", "INFO")
+        for data_class in self.data_classes:
+            data_class.set_batches(self._variables_list, self._total_num_events, self._batch_size)
+        logger.log(f"Lazily loaded data for all datasets", "INFO")
 
         # Work out the number of batches for training epoch (important)
         #self._num_batches = len(self.data_classes[0].batches)
         self._num_batches = self.data_classes[0].number_of_batches(self._total_num_events, batch_size)
         logger.log(f"Number of batches per epoch: {self._num_batches}", 'DEBUG')
-
         logger.log("DataGenerator initialized", 'INFO')
 
     def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=20):
@@ -101,7 +101,8 @@ class DataGenerator(keras.utils.Sequence):
             [Tracks, Clusters, Jets, Labels, Weight]
         """
         #batch = data_class.batches[idx]
-        batch,  sig_bkg_labels_np_array = data_class.load_batch(idx, self._variables_list, self._total_num_events, self._batch_size)
+        #batch,  sig_bkg_labels_np_array = data_class.load_batch(idx, self._variables_list, self._total_num_events, self._batch_size)
+        batch,  sig_bkg_labels_np_array = data_class.get_next_batch()
 
         track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=20)
         conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=20)
@@ -136,6 +137,7 @@ class DataGenerator(keras.utils.Sequence):
         :return:
         """
         batch = self._load_batch_from_data(self.data_classes[index], batch_index)
+        #batch = self.data_classes[index].get_next_batch()
         return batch
 
     def load_batch(self, idx):
@@ -248,3 +250,6 @@ class DataGenerator(keras.utils.Sequence):
         """
         logger.log(f"loaded batch {idx}/{self.__len__()}", 'DEBUG')
         return self.load_batch(idx)
+
+
+

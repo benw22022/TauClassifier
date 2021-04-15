@@ -12,7 +12,7 @@ import pickle
 
 class DataLoader:
 
-    def __init__(self, data_type, files, class_label, dummy_var="mcEventWeight", cut=None):
+    def __init__(self, data_type, files, class_label, dummy_var="mcEventWeight", cut=None, step_size=100000):
         """
         Class constructor - fills in meta-data for the data type
         :param data_type: The type of data file being loaded e.g. Gammatautau, JZ1, ect...
@@ -25,6 +25,7 @@ class DataLoader:
         self.files = files
         self.dummy_var = dummy_var
         self.cut = cut
+        self.step_size = step_size
 
         dummy_array = uproot.concatenate(files, filter_name="TauJets."+dummy_var, cut=cut)
         self.num_events = len(dummy_array["TauJets."+dummy_var])
@@ -33,6 +34,8 @@ class DataLoader:
         self.batches = None
         self.class_label = class_label
         self._n_events_in_batch = 0
+        self._batches_generator = None
+
         logger.log(f"Found {len(files)} files for {data_type}", 'INFO')
         logger.log(f"Found these files: {files}", 'INFO')
         logger.log(f"Found {self.num_events} events for {data_type}", 'INFO')
@@ -71,7 +74,10 @@ class DataLoader:
 
         logger.log(f"Loading array {idx} for {self.data_type}...", 'DEBUG')
 
-        data = uproot.lazy(self.files, filter_name=variable_list, step_size=self.specific_batch_size)
+        data = uproot.lazy(self.files, filter_name=variable_list, step_size=self.step_size)#, array_cache="100000 MB")
+
+        logger.log(f"{self.data_type} specific batch size = {self.specific_batch_size}", 'DEBUG')
+
         batch = data[idx * self.specific_batch_size: idx * self.specific_batch_size + self.specific_batch_size]
 
         logger.log(f"Loaded array {idx} for {self.data_type} ", 'DEBUG')
@@ -79,6 +85,21 @@ class DataLoader:
         if self.data_type == "Gammatautau":
             batch = batch[batch["TauJets.truthProng"] == 1]
 
+        return batch, np.ones(len(batch)) * self.class_label
+
+
+    def set_batches(self,  variable_list, total_num_events, total_batch_size):
+        self.specific_batch_size = math.ceil(total_batch_size * self.num_events / total_num_events)
+        self._batches_generator = uproot.iterate(self.files, filter_name=variable_list, step_size=self.specific_batch_size,
+                                       library="ak", cut=self.cut)
+        logger.log(f"{self.data_type}: made batches generator")
+
+
+    def get_next_batch(self):
+        batch = next(self._batches_generator)
+        logger.log(f"{self.data_type}: loaded next batch")
+        if self.data_type == "Gammatautau":
+            batch = batch[batch["TauJets.truthProng"] == 1]
         return batch, np.ones(len(batch)) * self.class_label
 
 

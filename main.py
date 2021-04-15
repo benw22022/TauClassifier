@@ -8,8 +8,8 @@ from files import files_dictionary
 import time
 from utils import logger
 
-if __name__ == "__main__":
 
+def main():
       # Start timer
       start_time = time.time()
 
@@ -19,13 +19,18 @@ if __name__ == "__main__":
 
       cuts = {"GammaTauTau": "TauJets.truthProng == 1"}
 
-      training_batch_generator = DataGenerator(files_dictionary, variables_dictionary, 100000, cuts=cuts, nprocs='max')
+      training_batch_generator = DataGenerator(files_dictionary, variables_dictionary, batch_size=10000, cuts=cuts, )
       #testing_batch_generator = DataGenerator(X_test_idx, variables_dictionary)
       #validation_batch_generator = DataGenerator(X_val_idx, variables_dictionary)
 
       #training_batch_generator.write_lazy_arrays()
 
       # Initialize Model
+      shape_trk, shape_conv_trk, shape_shot_pfo, shape_neut_pfo, shape_jet, _, _ = training_batch_generator.get_batch_shapes()
+
+      print(f"Track shape = {shape_trk}   Conv Track shape = {shape_conv_trk}  Shot PFO shape = {shape_shot_pfo} "
+            f"Neutral PFO shape = {shape_neut_pfo}  Jet shape = {shape_jet}")
+
       shape_trk, shape_conv_trk, shape_shot_pfo, shape_neut_pfo, shape_jet, _, _ = training_batch_generator.get_batch_shapes()
 
       print(f"Track shape = {shape_trk}   Conv Track shape = {shape_conv_trk}  Shot PFO shape = {shape_shot_pfo} "
@@ -38,3 +43,6 @@ if __name__ == "__main__":
       # Train Model
       #history = model.fit(training_batch_generator, epochs=100, max_queue_size=4, use_multiprocessing=False, shuffle=True)
 
+if __name__ == "__main__":
+
+   main()
