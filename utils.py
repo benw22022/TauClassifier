@@ -11,6 +11,8 @@ from functools import total_ordering
 from datetime import datetime
 import sys
 import os
+import inspect
+
 
 @total_ordering
 class LogLevels(Enum):
@@ -34,7 +36,9 @@ class Logger:
     def log(self, message, level='INFO'):
         if LogLevels[level] <= self.log_level:
             time_now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            print(f"{time_now} {os.path.relpath(sys.argv[0])}: {level} - {message}")
+            filename = inspect.stack()[1].filename
+            filename = os.path.basename(filename)
+            print(f"{time_now} {filename}: {level} - {message}")
 
 # Initialize logger as gloabl variable
 logger = Logger(log_level='INFO')

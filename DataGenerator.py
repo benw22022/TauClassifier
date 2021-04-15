@@ -17,9 +17,10 @@ from multiprocessing import Pool
 from functools import partial
 
 
+
 class DataGenerator(keras.utils.Sequence):
 
-    def __init__(self, file_dict, variables_dict, batch_size, cuts=None, step_size=1000000):
+    def __init__(self, file_dict, variables_dict, batch_size, cuts=None):
         """
         Class constructor - loads batches of data in a way that can be fed one by one to Keras - avoids having to load
         entire dataset into memory prior to training
@@ -34,7 +35,6 @@ class DataGenerator(keras.utils.Sequence):
         self._file_dict = file_dict
         self.data_classes = []
         self.cuts = cuts
-        self.step_size = step_size
         self._current_index = 0
 
         # Organise a list of all variables
@@ -48,24 +48,29 @@ class DataGenerator(keras.utils.Sequence):
             class_label = 0
             if data_type == "Gammatautau":
                 class_label = 1
-            if data_type in cuts:
-                self.data_classes.append(DataLoader(data_type, file_list, class_label, cut=self.cuts, step_size=step_size))
+            if cuts is not None and data_type in cuts:
+                logger.log(f"Cuts applied to {data_type}: {self.cuts[data_type]}")
+                self.data_classes.append(DataLoader(data_type, file_list, class_label, cuts=self.cuts[data_type]))
             else:
                 self.data_classes.append(DataLoader(data_type, file_list, class_label))
 
         # Get number of events in each dataset
-        self._total_num_events = 0
+        self._total_num_events = []
         for data_class in self.data_classes:
-            self._total_num_events += data_class.num_events
-        logger.log(f"Found {self._total_num_events} events total", "INFO")
+            self._total_num_events.append(data_class.num_events())
+        logger.log(f"Found {sum(self._total_num_events)} events total", "INFO")
+
+        # Work out how many batches to split the data into
+        self.nbatches = sum(self._total_num_events) // self._batch_size
 
         # Lazily load batches of data for each dataset
         for data_class in self.data_classes:
             data_class.set_batches(self._variables_list, self._total_num_events, self._batch_size)
+            logger.log(f"Number of batches in {data_class.data_type} = {data_class.number_of_batches(batch_size, sum(self._total_num_events))}")
         logger.log(f"Lazily loaded data for all datasets", "INFO")
 
         # Work out the number of batches for training epoch (important)
-        self._num_batches = self.data_classes[0].number_of_batches(self._total_num_events, batch_size)
+        #self._num_batches = self.data_classes[0].number_of_batches(self._total_num_events, batch_size)
         logger.log(f"Number of batches per epoch: {self._num_batches}", 'DEBUG')
         logger.log("DataGenerator initialized", 'INFO')
 
@@ -198,7 +203,7 @@ class DataGenerator(keras.utils.Sequence):
         :return: A full batch of data
         """
         logger.log(f"loaded batch {idx}/{self.__len__()}", 'DEBUG')
-        return self.load_batch(idx)
+        return self.load_batch()
 
     def _reset_generator(self):
         self._current_index = 0

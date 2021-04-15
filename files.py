@@ -7,7 +7,7 @@ import glob as glob
 ntuple_dir = "E:\\NTuples\\TauClassifier"
 tree = "tree"
 
-files_dictionary = {"Gammtautau": glob.glob(f"{ntuple_dir}\\*Gammatautau*\\*.root"),
+files_dictionary = {"Gammatautau": glob.glob(f"{ntuple_dir}\\*Gammatautau*\\*.root"),
                     "JZ1": glob.glob(f"{ntuple_dir}\\*JZ1*\\*.root"),
                     "JZ2": glob.glob(f"{ntuple_dir}\\*JZ2*\\*.root"),
                     "JZ3": glob.glob(f"{ntuple_dir}\\*JZ3*\\*.root"),
