@@ -25,17 +25,14 @@ def main():
 
       #training_batch_generator.write_lazy_arrays()
 
+      for i in range(0,len(training_batch_generator)):
+            shape_trk, shape_conv_trk, shape_shot_pfo, shape_neut_pfo, shape_jet, _, _ = training_batch_generator.get_batch_shapes()
+
+            print(f"Track shape = {shape_trk}   Conv Track shape = {shape_conv_trk}  Shot PFO shape = {shape_shot_pfo} "
+                  f"Neutral PFO shape = {shape_neut_pfo}  Jet shape = {shape_jet}")
+
+
       # Initialize Model
-      shape_trk, shape_conv_trk, shape_shot_pfo, shape_neut_pfo, shape_jet, _, _ = training_batch_generator.get_batch_shapes()
-
-      print(f"Track shape = {shape_trk}   Conv Track shape = {shape_conv_trk}  Shot PFO shape = {shape_shot_pfo} "
-            f"Neutral PFO shape = {shape_neut_pfo}  Jet shape = {shape_jet}")
-
-      shape_trk, shape_conv_trk, shape_shot_pfo, shape_neut_pfo, shape_jet, _, _ = training_batch_generator.get_batch_shapes()
-
-      print(f"Track shape = {shape_trk}   Conv Track shape = {shape_conv_trk}  Shot PFO shape = {shape_shot_pfo} "
-            f"Neutral PFO shape = {shape_neut_pfo}  Jet shape = {shape_jet}")
-
       #model = tauid_rnn_model(shape_trk[1:], shape_cls[1:], shape_jet[1:])
       #model.summary()
       #model.compile(optimizer="adam", loss="binary_crossentropy",  metrics=["accuracy"])

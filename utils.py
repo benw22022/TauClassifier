@@ -37,5 +37,5 @@ class Logger:
             print(f"{time_now} {os.path.relpath(sys.argv[0])}: {level} - {message}")
 
 # Initialize logger as gloabl variable
-logger = Logger(log_level='DEBUG')
+logger = Logger(log_level='INFO')
 
