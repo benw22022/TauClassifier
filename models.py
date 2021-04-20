@@ -85,12 +85,12 @@ class SumTFK(tfk_layers.Layer):
 # Functional models
 # =================
 
-def ModelDSNN(config_file, para, mask_value=0.0):
+def ModelDSNN(para, mask_value=0.0):
     #para = yaml.full_load(open(config_file))["DSNN"]
     bn = True #if para["batch_norm"] == 1 else False
 
     # Branch 1
-    x_1 = Input(shape=(para["n_steps"]["TauTrack"], para["n_features"]["TauTrack"]))
+    x_1 = Input(shape=para["shapes"]["TauTrack"])
     b_1 = Masking(mask_value=mask_value)(x_1)
     for x in range(para["n_tdd"]["TauTrack"]):
         b_1 = TimeDistributed(Dense(para["n_inputs"]["TauTrack"][x]))(b_1)
@@ -103,20 +103,20 @@ def ModelDSNN(config_file, para, mask_value=0.0):
         b_1 = BatchNormalization()(b_1)
 
     # Branch 2
-    x_2 = Input(shape=(para["n_steps"]["NeutralPFO"], para["n_features"]["NeutralPFO"]))
+    x_2 = Input(shape=para["shapes"]["NeutralPFO"])
     b_2 = Masking(mask_value=mask_value)(x_2)
     for x in range(para["n_tdd"]["NeutralPFO"]):
-        b_2 = TimeDistributed(Dense(para["n_inputs"]["NeutralPFO"][x]))(b_2)
-        b_2 = Activation("relu")(b_2)
+       b_2 = TimeDistributed(Dense(para["n_inputs"]["NeutralPFO"][x]))(b_2)
+       b_2 = Activation("relu")(b_2)
     b_2 = Sum()(b_2)
     for x in range(para["n_h"]["NeutralPFO"]):
-        b_2 = Dense(para["n_hiddens"]["NeutralPFO"][x])(b_2)
-        b_2 = Activation("relu")(b_2)
+       b_2 = Dense(para["n_hiddens"]["NeutralPFO"][x])(b_2)
+       b_2 = Activation("relu")(b_2)
     if bn:
-        b_2 = BatchNormalization()(b_2)
+       b_2 = BatchNormalization()(b_2)
 
     # Branch 3
-    x_3 = Input(shape=(para["n_steps"]["ShotPFO"], para["n_features"]["ShotPFO"]))
+    x_3 = Input(shape=para["shapes"]["ShotPFO"])
     b_3 = Masking(mask_value=mask_value)(x_3)
     for x in range(para["n_tdd"]["ShotPFO"]):
         b_3 = TimeDistributed(Dense(para["n_inputs"]["ShotPFO"][x]))(b_3)
@@ -129,7 +129,7 @@ def ModelDSNN(config_file, para, mask_value=0.0):
         b_3 = BatchNormalization()(b_3)
 
     # Branch 4
-    x_4 = Input(shape=(para["n_steps"]["ConvTrack"], para["n_features"]["ConvTrack"]))
+    x_4 = Input(shape=para["shapes"]["ConvTrack"])
     b_4 = Masking(mask_value=mask_value)(x_4)
     for x in range(para["n_tdd"]["ConvTrack"]):
         b_4 = TimeDistributed(Dense(para["n_inputs"]["ConvTrack"][x]))(b_4)
@@ -141,8 +141,15 @@ def ModelDSNN(config_file, para, mask_value=0.0):
     if bn:
         b_4 = BatchNormalization()(b_4)
 
+    # Branch 5
+    x_5 = Input(shape=para["shapes"]["TauJets"])
+    dense_5_1 = Dense(20, activation="relu")(x_5)
+    dense_5_2 = Dense(20, activation="relu")(dense_5_1)
+    dense_5_3 = Dense(20, activation="relu")(dense_5_2)
+    BatchNormalization()(x_5)
+
     # Merge
-    merged = Concatenate()([b_1, b_2, b_3, b_4])
+    merged = Concatenate()([b_1, b_2, b_3, b_4, dense_5_3])
     #merged = Dropout(para["dropout"])(merged)
     merged = Dense(para["n_fc1"])(merged)
     merged = Activation("relu")(merged)
@@ -152,9 +159,7 @@ def ModelDSNN(config_file, para, mask_value=0.0):
 
     y = Dense(para["n_classes"], activation="softmax")(merged)
 
-    return Model(inputs=[x_1, x_2, x_3, x_4], outputs=y)
-
-
+    return Model(inputs=[x_1, x_2, x_3, x_4, x_5], outputs=y)
 
 
 def tauid_rnn_model(

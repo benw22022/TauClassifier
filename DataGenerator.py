@@ -13,14 +13,17 @@ from DataLoader import DataLoader
 from utils import logger
 import time
 import datetime
+import tensorflow as tf
+from preprocessing import finite_log
+import time
+import datetime
 from multiprocessing import Pool
 from functools import partial
 
 
-
 class DataGenerator(keras.utils.Sequence):
 
-    def __init__(self, file_dict, variables_dict, batch_size, cuts=None):
+    def __init__(self, file_dict, variables_dict, nbatches=1000, cuts=None):
         """
         Class constructor - loads batches of data in a way that can be fed one by one to Keras - avoids having to load
         entire dataset into memory prior to training
@@ -31,11 +34,13 @@ class DataGenerator(keras.utils.Sequence):
         :param batch_size: The number of events to train on per batch of data
         """
         logger.log("Initializing DataGenerator", 'INFO')
-        self._batch_size = batch_size
+        self._nbatches = 10000
         self._file_dict = file_dict
-        self.data_classes = []
+        self.data_loaders = []
         self.cuts = cuts
         self._current_index = 0
+
+        self.nprocs = 12
 
         # Organise a list of all variables
         self._variables_dict = variables_dict
@@ -50,92 +55,41 @@ class DataGenerator(keras.utils.Sequence):
                 class_label = 1
             if cuts is not None and data_type in cuts:
                 logger.log(f"Cuts applied to {data_type}: {self.cuts[data_type]}")
-                self.data_classes.append(DataLoader(data_type, file_list, class_label, cuts=self.cuts[data_type]))
+                self.data_loaders.append(DataLoader(data_type, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[data_type]))
             else:
-                self.data_classes.append(DataLoader(data_type, file_list, class_label))
+                self.data_loaders.append(DataLoader(data_type, file_list, class_label, nbatches,  variables_dict))
 
         # Get number of events in each dataset
         self._total_num_events = []
-        for data_class in self.data_classes:
-            self._total_num_events.append(data_class.num_events())
+        self._num_batches_list = []
+        for data_loader in self.data_loaders:
+            self._total_num_events.append(data_loader.num_events())
+            self._num_batches_list.append(data_loader.number_of_batches())
         logger.log(f"Found {sum(self._total_num_events)} events total", "INFO")
 
         # Work out how many batches to split the data into
-        self.nbatches = sum(self._total_num_events) // self._batch_size
+        self._num_batches = min(self._num_batches_list)
 
         # Lazily load batches of data for each dataset
-        for data_class in self.data_classes:
-            data_class.set_batches(self._variables_list, self._total_num_events, self._batch_size)
-            logger.log(f"Number of batches in {data_class.data_type} = {data_class.number_of_batches(batch_size, sum(self._total_num_events))}")
-        logger.log(f"Lazily loaded data for all datasets", "INFO")
+        for data_loader in self.data_loaders:
+            data_loader.set_batches(self._variables_list)
+            logger.log(f"Number of batches in {data_loader.data_type()} = {data_loader.number_of_batches()}")
 
         # Work out the number of batches for training epoch (important)
-        #self._num_batches = self.data_classes[0].number_of_batches(self._total_num_events, batch_size)
         logger.log(f"Number of batches per epoch: {self._num_batches}", 'DEBUG')
         logger.log("DataGenerator initialized", 'INFO')
 
-    def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=20):
 
-        #variables = [v.replace(f"{variable_type}.", "") for v in self._variables_dict[variable_type]]
-        variables = self._variables_dict[variable_type]
-        #ak_arrays = ak.concatenate([batch[variable_type][var][:, :, None] for var in variables], axis=0)
-        ak_arrays = ak.concatenate([batch[var][:, :, None] for var in variables], axis=0)
-        ak_arrays = ak.pad_none(ak_arrays, max_items, clip=True)
-        np_arrays = ak.to_numpy(ak_arrays)
-        np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables), np_arrays.shape[1])
-        return np_arrays
-
-    def reshape_arrays(self, batch, variable_type):
-        variables = self._variables_dict[variable_type]
-        ak_arrays = ak.concatenate([batch[var][:] for var in variables], axis=0)
-        np_arrays = ak.to_numpy(ak_arrays)
-        np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables))
-        return np_arrays
-
-    def _load_batch_from_data(self, data_class):
-        """
-        Loads a batch of data of a specific data type. Pads ragged track and cluster arrays to make them rectilinear
-        and reshapes arrays into correct shape for training. The clip option in ak.pad_none will truncate/extend each
-        array so that they are all of a specific length- here we require 20 tracks and 15 clusters.
-        :param data_class: Data type to be loaded - e.g. Gammatautau, JZ1, etc...
-        :param idx: The index of the batch to be processed
-        :return: A list of arrays
-            [Tracks, Clusters, Jets, Labels, Weight]
-        """
-        batch,  sig_bkg_labels_np_array = data_class.get_next_batch()
-
-        track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=20)
-        conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=20)
-        shot_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ShotPFO", max_items=20)
-        neutral_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "NeutralPFO", max_items=20)
-        jet_np_arrays = self.reshape_arrays(batch, "TauJets")
-
-        # Just do the 1-prong case for now
-        labels_np_array = np.zeros((len(sig_bkg_labels_np_array), 4), dtype="object")
-        if sig_bkg_labels_np_array[0] == 0:
-            labels_np_array[:] = np.array([1, 0, 0, 0])
-        else:
-            truth_decay_mode_np_array = ak.to_numpy(batch[self._variables_dict["DecayMode"]])
-            for i in range(0, len(truth_decay_mode_np_array,)):
-                if truth_decay_mode_np_array[i] == 0:
-                    labels_np_array[i] = np.array([0, 1, 0, 0])
-                elif truth_decay_mode_np_array[i] == 1:
-                    labels_np_array[i] = np.array([0, 0, 1, 0])
-                else:
-                    labels_np_array[i] = np.array([0, 0, 0, 1])
-
-        weight_np_array = ak.to_numpy(batch[self._variables_dict["Weight"]])
-
-        return track_np_arrays, conv_track_np_arrays, shot_pfo_np_arrays, neutral_pfo_np_arrays, jet_np_arrays, \
-               labels_np_array, weight_np_array
-
-    def load_batch(self):
+    def load_batch(self, idx):
         """
         Loads a batch of data from each data type and concatenates them into single arrays for training
+        NOTE: idx argument is still being passed but is actually unused. This is for compatibility reasons - I would like
+        to test uproot.lazy still in the wider tensorflow context so will keep idx for the time being
         :param idx: The index of the batch of data to retrieve
         :return: A list of arrays to be passed to model.fit()
             [[Tracks, Clusters, Jets], labels, weights]
         """
+
         batch_load_time = time.time()
 
         track_array = np.array([])
@@ -146,28 +100,45 @@ class DataGenerator(keras.utils.Sequence):
         label_array = np.array([])
         weight_array = np.array([])
 
-        for i in range(0, len(self.data_classes)):
+        for i in range(0, len(self.data_loaders)):
             if i == 0:
                 track_array, conv_track_array, shot_pfo_array, neutral_pfo_array, jet_array, \
-                    label_array, weight_array = self._load_batch_from_data(self.data_classes[i])
-                logger.log(f"Preparing batch: Done {self.data_classes[i].data_type} {i+1}/{len(self.data_classes)}", 'DEBUG')
+                label_array, weight_array = self.data_loaders[i].load_batch_from_data(idx)
+                logger.log(f"Preparing batch: Done {self.data_loaders[i].data_type} {i+1}/{len(self.data_loaders)}", 'HELPME')
             else:
                 tmp_track_array, tmp_conv_track_array, tmp_shot_pfo_array, tmp_neutral_pfo_array, tmp_jet_array, \
-                tmp_label_array, tmp_weight_array = self._load_batch_from_data(self.data_classes[i])
+                tmp_label_array, tmp_weight_array =  self.data_loaders[i].load_batch_from_data(idx)
                 track_array = np.concatenate((tmp_track_array, track_array))
                 conv_track_array = np.concatenate((tmp_conv_track_array, conv_track_array))
                 shot_pfo_array = np.concatenate((tmp_shot_pfo_array, shot_pfo_array))
                 neutral_pfo_array = np.concatenate((tmp_neutral_pfo_array, neutral_pfo_array))
-                #cluster_array = np.concatenate((tmp_cluster_array, cluster_array))
                 jet_array = np.concatenate((tmp_jet_array, jet_array))
                 label_array = np.concatenate((tmp_label_array, label_array))
                 weight_array = np.concatenate((tmp_weight_array, weight_array))
-                logger.log(f"Preparing batch: Done {self.data_classes[i].data_type} {i+1}/{len(self.data_classes)}", 'DEBUG')
+                logger.log(f"Preparing batch: Done {self.data_loaders[i].data_type} {i+1}/{len(self.data_loaders)}", 'HELPME')
 
-        logger.log(f"Loaded batch {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}")
+        logger.log(f"Loaded batch {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "DEBUG")
         self._current_index += 1
 
-        return [track_array, conv_track_array, shot_pfo_array, neutral_pfo_array, jet_array], label_array, weight_array
+        track_array = tf.convert_to_tensor(track_array.astype("float32"))
+        conv_track_array = tf.convert_to_tensor(conv_track_array.astype("float32"))
+        shot_pfo_array = tf.convert_to_tensor(shot_pfo_array.astype("float32"))
+        neutral_pfo_array = tf.convert_to_tensor(neutral_pfo_array.astype("float32"))
+        jet_array = tf.convert_to_tensor(jet_array.astype("float32"))
+        label_array = tf.convert_to_tensor(label_array.astype("float32"))
+        weight_array = tf.convert_to_tensor(weight_array.astype("float32"))
+
+        logger.log(f"Batch: {self._current_index}/{self.__len__()} - shapes:", 'DEBUG')
+        logger.log(f"TauTracks Shape = {track_array.shape}", 'DEBUG')
+        logger.log(f"ConvTracks Shape = {conv_track_array.shape}", 'DEBUG')
+        logger.log(f"ShotPFO Shape = {shot_pfo_array.shape}", 'DEBUG')
+        logger.log(f"NeutralPFO Shape = {neutral_pfo_array.shape}", 'DEBUG')
+        logger.log(f"TauJets Shape = {jet_array.shape}", 'DEBUG')
+        logger.log(f"Labels Shape = {label_array.shape}", 'DEBUG')
+        logger.log(f"Weight Shape = {weight_array.shape}", 'DEBUG')
+
+        return [track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array], label_array, weight_array
+
 
     def get_batch_shapes(self):
         """
@@ -178,7 +149,7 @@ class DataGenerator(keras.utils.Sequence):
             tracks.shape, clusters.shape, jets.shape, labels.shape, weights.shape
         """
 
-        batch = self.load_batch()
+        batch = self.load_batch(0)
         shapes = []
 
         for item in batch[0]:
@@ -194,7 +165,7 @@ class DataGenerator(keras.utils.Sequence):
         run into memory access violations when Keras oversteps bounds of array)
         :return: The number of batches in an epoch
         """
-        return self._num_batches
+        return self._num_batches - 1
 
     def __getitem__(self, idx):
         """
@@ -203,12 +174,30 @@ class DataGenerator(keras.utils.Sequence):
         :return: A full batch of data
         """
         logger.log(f"loaded batch {idx}/{self.__len__()}", 'DEBUG')
-        return self.load_batch()
+        return self.load_batch(idx)
 
-    def _reset_generator(self):
+    def reset_generator(self):
+        """
+        Function that will reset the generator by recreating the uproot.iterator object for each dataloader
+        index will also get reset to zero
+        :return:
+        """
         self._current_index = 0
-        for data_class in self.data_classes:
-            data_class.set_batches(self._variables_list, self._total_num_events, self._batch_size)
+        for data_loader in self.data_loaders:
+            data_loader.set_batches(self._variables_list)
 
     def on_epoch_end(self):
-        self._reset_generator()
+        """
+        This function is called by Keras at the end of every epoch. Here it is used to reset the iterators to the start
+        :return:
+        """
+        self.reset_generator()
+
+    def set_max_itr(self, max_itr):
+        """
+        A function to set the max number of iterations to go through so that we don't run into errors. I really need to
+        find a better solution to this.
+        :param max_itr:
+        :return:
+        """
+        self._num_batches = max_itr

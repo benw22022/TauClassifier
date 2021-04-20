@@ -5,13 +5,11 @@ File containing useful functions and classes
 """
 
 import time
-import tracemalloc
 from enum import Enum
 from functools import total_ordering
 from datetime import datetime
-import sys
 import os
-import inspect
+from inspect import getframeinfo, stack
 
 
 @total_ordering
@@ -20,6 +18,7 @@ class LogLevels(Enum):
     WARNING = 1
     INFO = 2
     DEBUG = 3
+    HELPME = 4
 
     def __lt__(self, other):
         if self.__class__ is other.__class__:
@@ -30,16 +29,21 @@ class LogLevels(Enum):
 class Logger:
 
     def __init__(self, log_level='INFO'):
-        self.start_time = time.time()
-        self.log_level = LogLevels[log_level]
+        self._start_time = time.time()
+        self._log_level = LogLevels[log_level]
 
     def log(self, message, level='INFO'):
-        if LogLevels[level] <= self.log_level:
+        if LogLevels[level] <= self._log_level:
             time_now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            filename = inspect.stack()[1].filename
+            caller = getframeinfo(stack()[1][0])
+            filename = caller.filename
+            line_num = caller.lineno
             filename = os.path.basename(filename)
-            print(f"{time_now} {filename}: {level} - {message}")
+            print(f"{time_now} {filename}:{line_num} {level} - {message}")
 
-# Initialize logger as gloabl variable
-logger = Logger(log_level='INFO')
+    def set_log_level(self, level):
+        self._log_level = LogLevels[level]
+
+# Initialize logger as global variable
+logger = Logger()
 

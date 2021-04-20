@@ -4,6 +4,7 @@
 *.pkl
 *.awkd
 
+
 # ignore directories
 venv*
 *.idea
@@ -15,4 +16,5 @@ data
 
 # Other 
 __pycache__
-
+*.xml
+*.iml
