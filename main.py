@@ -1,6 +1,10 @@
 """
 Main Code Body
 """
+import os
+#os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'    # Acclerated Linear Algbra (XLA) Seems to actually make things slower
+#os.environ["CUDA_VISIBLE_DEVICES"] = "-1"                     # Disables GPU
+
 
 from variables import variables_dictionary
 from models import tauid_rnn_model, ModelDSNN
@@ -9,12 +13,10 @@ from files import training_files_dictionary, validation_files_dictionary
 import time
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from keras.callbacks import ModelCheckpoint
-import os
 from utils import logger
 
-logger.set_log_level('INFO')
-os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 
+logger.set_log_level('INFO')
 
 
 # custom callback for multi-gpu model saving
@@ -34,11 +36,6 @@ def main():
     # Initialize Generators
     cuts = {"Gammatautau": "TauJets.truthProng == 1"}
     training_batch_generator = DataGenerator(training_files_dictionary, variables_dictionary, nbatches=1500, cuts=cuts)
-    validation_batch_generator = DataGenerator(validation_files_dictionary, variables_dictionary, nbatches=1500, cuts=cuts)
-
-    max_lens = [len(training_batch_generator), len(validation_batch_generator)]
-    training_batch_generator.set_max_itr(min(max_lens))
-    validation_batch_generator.set_max_itr(min(max_lens))
 
     # Initialize Model
 
@@ -99,6 +96,7 @@ def main():
     print(config_dict["shapes"])
 
     model = ModelDSNN(config_dict)
+    validation_batch_generator = DataGenerator(validation_files_dictionary, variables_dictionary, nbatches=1500, cuts=cuts)
 
     # Configure callbacks
     early_stopping = EarlyStopping(
@@ -119,14 +117,10 @@ def main():
 
     # Train Model
     history = model.fit(training_batch_generator, epochs=100, callbacks=callbacks,
-                        validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True)
+                        validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
+                        )
 
-    #max_queue_size=6, use_multiprocessing=True, workers=6
-
-
-
-
-
+    #max_queue_size=6, workers=6, use_multiprocessing=True
 
 if __name__ == "__main__":
     main()

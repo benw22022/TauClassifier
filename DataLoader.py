@@ -4,12 +4,15 @@ ________________________________________________________________________________
 A helper class to lazily load batches of training data for each type of data
 """
 
-import uproot
 import math
-import numpy as np
-from utils import logger
-from preprocessing import procs, finite_log
+
 import awkward as ak
+import numpy as np
+import uproot
+
+from preprocessing import finite_log
+from utils import logger
+
 
 class DataLoader:
 
@@ -96,12 +99,11 @@ class DataLoader:
             logger.log(f"Successfully optimised batch size for {self._data_type}. Batch size set to {self.specific_batch_size}", 'INFO')
             logger.log(f"Sample {self._data_type} will have {self._num_truncated_events}", 'INFO')
 
-
     def set_batches(self,  variable_list):
         self._batches_generator = None
         self._batches_generator = uproot.iterate(self.files, filter_name=variable_list, step_size=self.specific_batch_size,
                                        library="ak", cut=self.cut)
-        #self._batches_generator = uproot.lazy(self.files, filter_name=variable_list, step_size=self.specific_batch_size*2,
+        #self._batches_generator = uproot.lazy(self.files, filter_name=variable_list, step_size=10000,#step_size=self.specific_batch_size*2,
         #                               library="ak", cut=self.cut)
 
     def get_next_batch(self, idx):
@@ -110,7 +112,8 @@ class DataLoader:
         logger.log(f"{self._data_type}: Loaded batch {self._current_index}", 'DEBUG')
         self._current_index += 1
 
-        return batch, np.ones(len(batch)) * self.class_label
+        yield batch, np.ones(len(batch)) * self.class_label
+
 
     def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=20):
         variables = self._variables_dict[variable_type]
@@ -138,7 +141,8 @@ class DataLoader:
         :return: A list of arrays
             [Tracks, Clusters, Jets, Labels, Weight]
         """
-        batch, sig_bkg_labels_np_array = self.get_next_batch(idx)
+
+        batch, sig_bkg_labels_np_array = next(self.get_next_batch(idx))
 
         track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=20)
         conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=20)
@@ -162,7 +166,7 @@ class DataLoader:
 
         weight_np_array = ak.to_numpy(batch[self._variables_dict["Weight"]])
 
-        return track_np_arrays, conv_track_np_arrays, shot_pfo_np_arrays, neutral_pfo_np_arrays, jet_np_arrays, \
+        yield track_np_arrays, conv_track_np_arrays, shot_pfo_np_arrays, neutral_pfo_np_arrays, jet_np_arrays, \
                labels_np_array, weight_np_array
 
     def num_events(self):
@@ -173,3 +177,7 @@ class DataLoader:
 
     def number_of_batches(self):
         return self._num_real_batches
+
+    def get_batch_generator(self):
+        return self._batches_generator
+
