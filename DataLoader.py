@@ -12,7 +12,8 @@ import uproot
 
 from preprocessing import finite_log
 from utils import logger
-
+from DataIterator import DataIterator
+import numba
 
 class DataLoader:
 
@@ -32,10 +33,12 @@ class DataLoader:
         self._nbatches = nbatches
         self.class_label = class_label
         self._variables_dict = variables_dict
+        self._idx = 0
 
 
         dummy_array = uproot.concatenate(files, filter_name="TauJets."+dummy_var, cut=cuts)
         self._num_events = len(dummy_array["TauJets."+dummy_var])
+        self._batch_len = 0
 
         # Set the DataLoader's batch size
         if batch_size is None:
@@ -44,22 +47,19 @@ class DataLoader:
             self.specific_batch_size = batch_size
 
         # Work out how many batches there will actually be in the iterator. Make sure we don't miss too many events
-        self._num_real_batches = 0
+        self._num_real_batches = nbatches
         self._num_truncated_events = 0
-        for batch in uproot.iterate(self.files, filter_name="TauJets." + self.dummy_var, step_size=self.specific_batch_size,
-                                library="ak", cut=self.cut):
-            self._num_real_batches += 1
-            if self._num_real_batches > self._nbatches:
-                self._num_truncated_events += len(batch["TauJets." + self.dummy_var])
+        #for batch in uproot.iterate(self.files, filter_name="TauJets." + self.dummy_var, step_size=self.specific_batch_size,
+        #                        library="ak", cut=self.cut):
+        #    self._num_real_batches += 1
+        #    if self._num_real_batches > self._nbatches:
+        #        self._num_truncated_events += len(batch["TauJets." + self.dummy_var])
 
-        logger.log(f"Sample {self._data_type} has {self._num_real_batches} batches but is limited to only {self._nbatches} batches",'WARNING')
-        logger.log(f"Sample {self._data_type} will have {self._num_truncated_events} missing events. Consider tuning the DataLoader batch_size",'WARNING')
 
-        #logger.log(f"Optimising batch size of sample {self._data_type}")
-        #self.optimise_batch_size()
+        #logger.log(f"Sample {self._data_type} has {self._num_real_batches} batches but is limited to only {self._nbatches} batches",'WARNING')
+        #logger.log(f"Sample {self._data_type} will have {self._num_truncated_events} missing events. Consider tuning the DataLoader batch_size",'WARNING')
 
         self._n_events_in_batch = 0
-        self._batches_generator = None
         self._current_index = 0
 
         logger.log(f"Found {len(files)} files for {data_type}", 'INFO')
@@ -67,52 +67,20 @@ class DataLoader:
         logger.log(f"Found {self._num_events} events for {data_type}", 'INFO')
         logger.log(f"DataLoader for {data_type} initialized", "INFO")
 
-    def optimise_batch_size(self, thresh=1000, step=100):
-        # Work out how many batches there will actually be in the iterator. Make sure we don't miss too many events
-        self._num_real_batches = 0
-        self._num_truncated_events = 0
-        print(step)
-        for batch in uproot.iterate(self.files, filter_name="TauJets." + self.dummy_var, step_size=self.specific_batch_size,
-                                library="ak", cut=self.cut):
-            self._num_real_batches += 1
-            if self._num_real_batches > self._nbatches:
-                self._num_truncated_events += len(batch["TauJets." + self.dummy_var])
-
-        if self._num_truncated_events > thresh and self._num_real_batches > self._nbatches + 1:
-            logger.log(f"Sample {self._data_type} has {self._num_real_batches} batches but is limited to only {self._nbatches} batches", 'DEBUG')
-            logger.log(f"Sample {self._data_type} will have {self._num_truncated_events} missing events. Consider tuning the DataLoader batch_size", 'DEBUG')
-
-            self.specific_batch_size += step
-            self.optimise_batch_size()
-
-        if self._num_real_batches < self._nbatches:
-            logger.log(
-                f"Sample {self._data_type} has {self._num_real_batches} batches but is limited to only {self._nbatches} batches",
-                'DEBUG')
-            logger.log(
-                f"Sample {self._data_type} will have {self._num_truncated_events} missing events. Consider tuning the DataLoader batch_size",
-                'DEBUG')
-            #self.specific_batch_size = math.ceil(self._num_events / self._nbatches)
-            self.optimise_batch_size(step=step - 1)
-
-        else:
-            logger.log(f"Successfully optimised batch size for {self._data_type}. Batch size set to {self.specific_batch_size}", 'INFO')
-            logger.log(f"Sample {self._data_type} will have {self._num_truncated_events}", 'INFO')
-
     def set_batches(self,  variable_list):
         self._batches_generator = None
-        self._batches_generator = uproot.iterate(self.files, filter_name=variable_list, step_size=self.specific_batch_size,
+        #self._batches_generator = uproot.iterate(self.files, filter_name=variable_list, step_size=self.specific_batch_size,
+        #                               library="ak", cut=self.cut, num_workers=12, num_fallback_workers=12, )
+        self._batches_generator = uproot.lazy(self.files, filter_name=variable_list, step_size=10000,#step_size=self.specific_batch_size*2,
                                        library="ak", cut=self.cut)
-        #self._batches_generator = uproot.lazy(self.files, filter_name=variable_list, step_size=10000,#step_size=self.specific_batch_size*2,
-        #                               library="ak", cut=self.cut)
+        logger.log(f"Set batches for {self._data_type}")
 
-    def get_next_batch(self, idx):
-        batch = next(self._batches_generator)
-        #batch = self._batches_generator[idx*self.specific_batch_size: idx*self.specific_batch_size + self.specific_batch_size]
-        logger.log(f"{self._data_type}: Loaded batch {self._current_index}", 'DEBUG')
+    def get_next_batch(self):
+        #batch = next(self._batches_generator)
+        batch = self._batches_generator[self._current_index*self.specific_batch_size: self._current_index*self.specific_batch_size + self.specific_batch_size]
         self._current_index += 1
-
-        yield batch, np.ones(len(batch)) * self.class_label
+        self._batch_len = len(batch)
+        return batch, np.ones(len(batch)) * self.class_label
 
 
     def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=20):
@@ -132,7 +100,7 @@ class DataLoader:
         np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables))
         return np_arrays
 
-    def load_batch_from_data(self, idx):
+    def load_batch_from_data(self):
         """
         Loads a batch of data of a specific data type. Pads ragged track and cluster arrays to make them rectilinear
         and reshapes arrays into correct shape for training. The clip option in ak.pad_none will truncate/extend each
@@ -142,7 +110,7 @@ class DataLoader:
             [Tracks, Clusters, Jets, Labels, Weight]
         """
 
-        batch, sig_bkg_labels_np_array = next(self.get_next_batch(idx))
+        batch, sig_bkg_labels_np_array = self.get_next_batch()
 
         track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=20)
         conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=20)
@@ -166,8 +134,21 @@ class DataLoader:
 
         weight_np_array = ak.to_numpy(batch[self._variables_dict["Weight"]])
 
-        yield track_np_arrays, conv_track_np_arrays, shot_pfo_np_arrays, neutral_pfo_np_arrays, jet_np_arrays, \
+        logger.log(f"Loaded batch {self._current_index} from {self._data_type}", "DEBUG")
+
+        return track_np_arrays, conv_track_np_arrays, shot_pfo_np_arrays, neutral_pfo_np_arrays, jet_np_arrays, \
                labels_np_array, weight_np_array
+
+    def __next__(self):
+        if self._current_index < self._num_real_batches:
+            return self.load_batch_from_data()
+        raise StopIteration
+
+    def __len__(self):
+        return self._batch_len
+
+    def __iter__(self):
+        return self
 
     def num_events(self):
         return self._num_events
@@ -181,3 +162,6 @@ class DataLoader:
     def get_batch_generator(self):
         return self._batches_generator
 
+
+if __name__ == "__main__":
+    pass

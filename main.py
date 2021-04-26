@@ -8,13 +8,14 @@ import os
 
 from variables import variables_dictionary
 from models import tauid_rnn_model, ModelDSNN
+from TFDDataGenerator import DataSet
 from DataGenerator import DataGenerator
 from files import training_files_dictionary, validation_files_dictionary
 import time
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from keras.callbacks import ModelCheckpoint
 from utils import logger
-
+import tensorflow as tf
 
 logger.set_log_level('INFO')
 
@@ -35,7 +36,9 @@ def main():
 
     # Initialize Generators
     cuts = {"Gammatautau": "TauJets.truthProng == 1"}
-    training_batch_generator = DataGenerator(training_files_dictionary, variables_dictionary, nbatches=1500, cuts=cuts)
+    training_batch_generator = DataGenerator(training_files_dictionary, variables_dictionary, nbatches=100000, cuts=cuts)
+    validation_batch_generator = DataGenerator(validation_files_dictionary, variables_dictionary, nbatches=100000, cuts=cuts)
+
 
     # Initialize Model
 
@@ -44,14 +47,44 @@ def main():
     for i in range(0, len(training_batch_generator)):
         shape_trk, shape_neut_pfo, shape_shot_pfo, shape_conv_trk, shape_jet, shape_label, shape_weight = training_batch_generator.get_batch_shapes()
         logger.log(f"TauTracks Shape = {shape_trk}")
-        logger.log(f"ConvTracks Shape = {shape_conv_trk}")
-        logger.log(f"ShotPFO Shape = {shape_shot_pfo}")
         logger.log(f"NeutralPFO Shape = {shape_neut_pfo}")
+        logger.log(f"ShotPFO Shape = {shape_shot_pfo}")
+        logger.log(f"ConvTracks Shape = {shape_conv_trk}")
         logger.log(f"TauJets Shape = {shape_jet}")
         logger.log(f"Labels Shape = {shape_label}")
         logger.log(f"Weight Shape = {shape_weight}")
         break
     training_batch_generator.reset_generator()
+
+   # gen = lambda: (row for row in training_batch_generator)
+    def batch_generator(data_generator):
+        for _ in range(0, len(data_generator)):
+            yield data_generator.load_batch()
+
+    types = (
+            (tf.float32,
+             tf.float32,
+             tf.float32,
+             tf.float32,
+             tf.float32),
+            tf.float32,
+            tf.float32)
+
+
+    shapes = (
+              (tf.TensorShape([None, 14, 20]),
+               tf.TensorShape([None, 22, 20]),
+               tf.TensorShape([None, 6, 20]),
+               tf.TensorShape([None, 10, 20]),
+               tf.TensorShape([None, 9])),
+              tf.TensorShape([None, 4]),
+              tf.TensorShape([None])
+            )
+
+
+    train_dataset = tf.data.Dataset.from_generator(training_batch_generator, output_types=types, output_shapes=shapes)
+    val_dataset = tf.data.Dataset.from_generator(validation_batch_generator, output_types=types, output_shapes=shapes)
+
 
     config_dict = {"shapes":
                        {"TauTrack": shape_trk[1:],
@@ -96,7 +129,6 @@ def main():
     print(config_dict["shapes"])
 
     model = ModelDSNN(config_dict)
-    validation_batch_generator = DataGenerator(validation_files_dictionary, variables_dictionary, nbatches=1500, cuts=cuts)
 
     # Configure callbacks
     early_stopping = EarlyStopping(
@@ -116,11 +148,18 @@ def main():
     model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 
     # Train Model
-    history = model.fit(training_batch_generator, epochs=100, callbacks=callbacks,
-                        validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
-                        )
 
-    #max_queue_size=6, workers=6, use_multiprocessing=True
+    train_dataset = tf.data.Dataset.range(2).interleave(lambda _: train_dataset, num_parallel_calls=tf.data.AUTOTUNE)
+    train_dataset = train_dataset.prefetch(tf.data.AUTOTUNE)
+    val_dataset = tf.data.Dataset.range(2).interleave(lambda _: val_dataset, num_parallel_calls=tf.data.AUTOTUNE)
+    val_dataset = val_dataset.prefetch(tf.data.AUTOTUNE)
+
+    history = model.fit(train_dataset, epochs=100, callbacks=callbacks,
+                        validation_data=val_dataset, validation_freq=1, verbose=1, shuffle=True,
+                        steps_per_epoch=len(training_batch_generator),
+                        workers=2, use_multiprocessing=True)
+
+    #max_queue_size=6, workers=6,  tf.data.AUTOTUNE
 
 if __name__ == "__main__":
     main()

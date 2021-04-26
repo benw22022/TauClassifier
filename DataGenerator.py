@@ -6,26 +6,23 @@ data into memory at once
 TODO: Potential performance improvement could be found by loading up the next batch of training whilst the the previous
 TODO: batch is being trained on
 """
+
 import numpy as np
 import keras
-import awkward as ak
 from DataLoader import DataLoader
 from utils import logger
-import time
-import datetime
 import tensorflow as tf
-from preprocessing import finite_log
-import time
 import datetime
-from multiprocessing import Pool
 from functools import partial
 import time
-import threading
-from multiprocessing.dummy import Pool  # dummy uses threads
+import multiprocessing as mp
+
+def f(x):
+    return x*x
 
 N_WORKERS = 10
 
-
+"""
 def multi_threaded(gens):
     combi_g = mt_gen(gens)
     results = []
@@ -41,8 +38,11 @@ def mt_gen(gens):
         try:
             results = [r.get() for r in async_results]
         except StopIteration:  # needed for Python 3.7+, PEP 479, bpo-32670
+            pool.close()
             return
-        yield results
+        pool.close()
+        return results
+"""
 
 class DataGenerator(keras.utils.Sequence):
 
@@ -123,14 +123,15 @@ class DataGenerator(keras.utils.Sequence):
         label_array = np.array([])
         weight_array = np.array([])
 
+
         for i in range(0, len(self.data_loaders)):
             if i == 0:
                 track_array, conv_track_array, shot_pfo_array, neutral_pfo_array, jet_array, \
-                label_array, weight_array = self.data_loaders[i].load_batch_from_data(idx)
+                label_array, weight_array = self.data_loaders[i].load_batch_from_data()
                 logger.log(f"Preparing batch: Done {self.data_loaders[i].data_type} {i+1}/{len(self.data_loaders)}", 'HELPME')
             else:
                 tmp_track_array, tmp_conv_track_array, tmp_shot_pfo_array, tmp_neutral_pfo_array, tmp_jet_array, \
-                tmp_label_array, tmp_weight_array =  self.data_loaders[i].load_batch_from_data(idx)
+                tmp_label_array, tmp_weight_array = self.data_loaders[i].load_batch_from_data()
                 track_array = np.concatenate((tmp_track_array, track_array))
                 conv_track_array = np.concatenate((tmp_conv_track_array, conv_track_array))
                 shot_pfo_array = np.concatenate((tmp_shot_pfo_array, shot_pfo_array))
@@ -143,14 +144,6 @@ class DataGenerator(keras.utils.Sequence):
         logger.log(f"Loaded batch {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "DEBUG")
         self._current_index += 1
 
-        track_array = tf.convert_to_tensor(track_array.astype("float32"))
-        conv_track_array = tf.convert_to_tensor(conv_track_array.astype("float32"))
-        shot_pfo_array = tf.convert_to_tensor(shot_pfo_array.astype("float32"))
-        neutral_pfo_array = tf.convert_to_tensor(neutral_pfo_array.astype("float32"))
-        jet_array = tf.convert_to_tensor(jet_array.astype("float32"))
-        label_array = tf.convert_to_tensor(label_array.astype("float32"))
-        weight_array = tf.convert_to_tensor(weight_array.astype("float32"))
-
         logger.log(f"Batch: {self._current_index}/{self.__len__()} - shapes:", 'DEBUG')
         logger.log(f"TauTracks Shape = {track_array.shape}", 'DEBUG')
         logger.log(f"ConvTracks Shape = {conv_track_array.shape}", 'DEBUG')
@@ -160,59 +153,24 @@ class DataGenerator(keras.utils.Sequence):
         logger.log(f"Labels Shape = {label_array.shape}", 'DEBUG')
         logger.log(f"Weight Shape = {weight_array.shape}", 'DEBUG')
 
-        return [track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array], label_array, weight_array
+        track_array = track_array.astype("float32")
+        conv_track_array = conv_track_array.astype("float32")
+        shot_pfo_array = shot_pfo_array.astype("float32")
+        neutral_pfo_array = neutral_pfo_array.astype("float32")
+        jet_array = jet_array.astype("float32")
+        label_array = label_array.astype("float32")
+        weight_array = weight_array.astype("float32")
 
+        track_array = tf.convert_to_tensor(track_array.astype("float32"))#.set_shape(trk_shape)
+        conv_track_array = tf.convert_to_tensor(conv_track_array.astype("float32"))#.set_shape(conv_trk_shape)
+        shot_pfo_array = tf.convert_to_tensor(shot_pfo_array.astype("float32"))#.set_shape(shot_pfo_shape)
+        neutral_pfo_array = tf.convert_to_tensor(neutral_pfo_array.astype("float32"))#.set_shape(neutral_pfo_shape)
+        jet_array = tf.convert_to_tensor(jet_array.astype("float32"))#.set_shape(jet_shape)
+        label_array = tf.convert_to_tensor(label_array.astype("float32"))#.set_shape(label_shape)
+        weight_array = tf.convert_to_tensor(weight_array.astype("float32"))#.set_shape(weight_shape)
 
-    def multithreaded_load(self, idx):
+        return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array)
 
-        gens = []
-        for dataloader in self.data_loaders:
-            gens.append(dataloader.load_batch_from_data(idx))
-        results = np.array(multi_threaded(gens), dtype='object')
-
-        track_array = np.array([], dtype="float32")
-        conv_track_array = np.array([], dtype="float32")
-        shot_pfo_array = np.array([], dtype="float32")
-        neutral_pfo_array = np.array([], dtype="float32")
-        jet_array = np.array([], dtype="float32")
-        label_array = np.array([], dtype="float32")
-        weight_array = np.array([], dtype="float32")
-
-        for i in range(0, results.shape[1]):
-            if i == 0:
-                track_array, conv_track_array, shot_pfo_array, neutral_pfo_array, jet_array, \
-                label_array, weight_array = results[0][i]
-            else:
-                tmp_track_array, tmp_conv_track_array, tmp_shot_pfo_array, tmp_neutral_pfo_array, tmp_jet_array, \
-                tmp_label_array, tmp_weight_array = results[0][i]
-                track_array = np.concatenate((tmp_track_array, track_array))
-                conv_track_array = np.concatenate((tmp_conv_track_array, conv_track_array))
-                shot_pfo_array = np.concatenate((tmp_shot_pfo_array, shot_pfo_array))
-                neutral_pfo_array = np.concatenate((tmp_neutral_pfo_array, neutral_pfo_array))
-                jet_array = np.concatenate((tmp_jet_array, jet_array))
-                label_array = np.concatenate((tmp_label_array, label_array))
-                weight_array = np.concatenate((tmp_weight_array, weight_array))
-
-
-        track_array = tf.convert_to_tensor(track_array.astype("float32"))
-        conv_track_array = tf.convert_to_tensor(conv_track_array.astype("float32"))
-        shot_pfo_array = tf.convert_to_tensor(shot_pfo_array.astype("float32"))
-        neutral_pfo_array = tf.convert_to_tensor(neutral_pfo_array.astype("float32"))
-        jet_array = tf.convert_to_tensor(jet_array.astype("float32"))
-        label_array = tf.convert_to_tensor(label_array.astype("float32"))
-        weight_array = tf.convert_to_tensor(weight_array.astype("float32"))
-
-        """
-        logger.log(f"Batch: {self._current_index}/{self.__len__()} - shapes:", 'DEBUG')
-        logger.log(f"TauTracks Shape = {track_array.shape}", 'DEBUG')
-        logger.log(f"ConvTracks Shape = {conv_track_array.shape}", 'DEBUG')
-        logger.log(f"ShotPFO Shape = {shot_pfo_array.shape}", 'DEBUG')
-        logger.log(f"NeutralPFO Shape = {neutral_pfo_array.shape}", 'DEBUG')
-        logger.log(f"TauJets Shape = {jet_array.shape}", 'DEBUG')
-        logger.log(f"Labels Shape = {label_array.shape}", 'DEBUG')
-        logger.log(f"Weight Shape = {weight_array.shape}", 'DEBUG')
-        """
-        return [track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array], label_array, weight_array
 
     def get_batch_shapes(self):
         """
@@ -223,8 +181,7 @@ class DataGenerator(keras.utils.Sequence):
             tracks.shape, clusters.shape, jets.shape, labels.shape, weights.shape
         """
 
-        #batch = self.load_batch(0)
-        batch = self.multithreaded_load(0)
+        batch = self.load_batch(0)
         shapes = []
 
         for item in batch[0]:
@@ -251,8 +208,17 @@ class DataGenerator(keras.utils.Sequence):
         """
         logger.log(f"loaded batch {idx}/{self.__len__()}", 'DEBUG')
 
-        #return self.load_batch(idx)
-        return self.multithreaded_load(idx)
+        return self.load_batch(idx)
+
+
+    def __next__(self):
+        return self.load_batch(0)
+
+    def __iter__(self):
+        return self
+
+    def __call__(self):
+        return self
 
     def reset_generator(self):
         """
@@ -280,3 +246,7 @@ class DataGenerator(keras.utils.Sequence):
         :return:
         """
         self._num_batches = max_itr
+
+
+if __name__ == "__main__":
+    pass
