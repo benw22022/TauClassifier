@@ -8,6 +8,7 @@ import math
 
 import awkward as ak
 import numpy as np
+#import cupy as np
 import uproot
 
 from preprocessing import finite_log
@@ -46,6 +47,14 @@ class DataLoader:
         else:
             self.specific_batch_size = batch_size
 
+
+        self._variables_list = []
+        for _, variable_list in variables_dict.items():
+            self._variables_list += variable_list
+
+        self._batches_generator = uproot.lazy(self.files, filter_name=self._variables_list, step_size=10000,
+                                       library="ak", cut=self.cut)
+
         # Work out how many batches there will actually be in the iterator. Make sure we don't miss too many events
         self._num_real_batches = nbatches
         self._num_truncated_events = 0
@@ -77,21 +86,35 @@ class DataLoader:
 
     def get_next_batch(self):
         #batch = next(self._batches_generator)
-        batch = self._batches_generator[self._current_index*self.specific_batch_size: self._current_index*self.specific_batch_size + self.specific_batch_size]
+        end_point = self._current_index*self.specific_batch_size + self.specific_batch_size
+        if self._current_index*self.specific_batch_size + self.specific_batch_size >= self.num_events():
+            end_point = self.num_events() - 1
+        batch = self._batches_generator[self._current_index*self.specific_batch_size: end_point]
         self._current_index += 1
         self._batch_len = len(batch)
         return batch, np.ones(len(batch)) * self.class_label
 
+    def get_batch_from_index(self, idx):
+        end_point = idx*self.specific_batch_size + self.specific_batch_size
+        if idx*self.specific_batch_size + self.specific_batch_size >= self.num_events():
+            end_point = self.num_events() - 1
+        batch = self._batches_generator[idx*self.specific_batch_size: end_point]
+        return batch, np.ones(len(batch)) * self.class_label
 
     def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=20):
-        variables = self._variables_dict[variable_type]
-        ak_arrays = ak.concatenate([batch[var][:, :, None] for var in variables], axis=0)
-        ak_arrays = ak.pad_none(ak_arrays, max_items, clip=True)
-        np_arrays = ak.to_numpy(ak_arrays)
-        np.arrays = np.abs(np_arrays)
-        np_arrays = finite_log(np_arrays)
-        np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables), np_arrays.shape[1])
-        return np_arrays
+        try:
+            variables = self._variables_dict[variable_type]
+            ak_arrays = ak.concatenate([batch[var][:, :, None] for var in variables], axis=0)
+            ak_arrays = ak.pad_none(ak_arrays, max_items, clip=True)
+            np_arrays = ak.to_numpy(abs(ak_arrays))
+            #np.arrays = np.abs(np_arrays)
+            np_arrays = finite_log(np_arrays)
+            np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables), np_arrays.shape[1])
+            return np_arrays
+        except ValueError as err:
+            logger.log("An error occurred! - dumping info ".format(err), 'ERROR')
+            logger.log(f"Batch = {batch}")
+            logger.log(f"Batch = {variable_type}")
 
     def reshape_arrays(self, batch, variable_type):
         variables = self._variables_dict[variable_type]
@@ -100,7 +123,7 @@ class DataLoader:
         np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables))
         return np_arrays
 
-    def load_batch_from_data(self):
+    def load_batch_from_data(self, idx=0):
         """
         Loads a batch of data of a specific data type. Pads ragged track and cluster arrays to make them rectilinear
         and reshapes arrays into correct shape for training. The clip option in ak.pad_none will truncate/extend each
@@ -112,6 +135,9 @@ class DataLoader:
 
         batch, sig_bkg_labels_np_array = self.get_next_batch()
 
+        if batch is None or len(batch) == 0:
+            return None
+
         track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=20)
         conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=20)
         shot_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ShotPFO", max_items=20)
@@ -119,24 +145,25 @@ class DataLoader:
         jet_np_arrays = self.reshape_arrays(batch, "TauJets")
 
         # Just do the 1-prong case for now
-        labels_np_array = np.zeros((len(sig_bkg_labels_np_array), 4), dtype="object")
+        labels_np_array = np.zeros((len(sig_bkg_labels_np_array), 4))
         if sig_bkg_labels_np_array[0] == 0:
-            labels_np_array[:] = np.array([1, 0, 0, 0])
+            labels_np_array[:, 0] = 1
         else:
             truth_decay_mode_np_array = ak.to_numpy(batch[self._variables_dict["DecayMode"]])
             for i in range(0, len(truth_decay_mode_np_array, )):
-                if truth_decay_mode_np_array[i][0] == 0:  # Note reason for calling truth_decay_mode_np_array[i][0]
-                    labels_np_array[i] = np.array([0, 1, 0, 0])  # and not truth_decay_mode_np_array[i] is not because
-                elif truth_decay_mode_np_array[i][0] == 1:  # truth_decay_mode_np_array[i] is multidimensional
-                    labels_np_array[i] = np.array([0, 0, 1, 0])  # but because it is a tuple and in order for numpy
-                else:  # not to throw warnings we need to convert it to an int
-                    labels_np_array[i] = np.array([0, 0, 0, 1])
+                if truth_decay_mode_np_array[i][0] == 0:
+                    labels_np_array[:, 1] = 1
+                elif truth_decay_mode_np_array[i][0] == 1:
+                    labels_np_array[:, 2] = 1
+                else:
+                    labels_np_array[:, 3] = 1
 
-        weight_np_array = ak.to_numpy(batch[self._variables_dict["Weight"]])
+        weight_np_array = ak.to_numpy(batch[self._variables_dict["Weight"]]).astype("float32")
 
         logger.log(f"Loaded batch {self._current_index} from {self._data_type}", "DEBUG")
 
-        return track_np_arrays, conv_track_np_arrays, shot_pfo_np_arrays, neutral_pfo_np_arrays, jet_np_arrays, \
+
+        return (track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays), \
                labels_np_array, weight_np_array
 
     def __next__(self):
@@ -149,6 +176,16 @@ class DataLoader:
 
     def __iter__(self):
         return self
+
+    def __call__(self):
+        self._current_index = 0
+        return self
+
+    def __getitem__(self, idx):
+        return self.load_batch_from_data(idx=idx)
+
+    def reset_index(self):
+        self._current_index = 0
 
     def num_events(self):
         return self._num_events

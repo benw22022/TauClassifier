@@ -8,6 +8,7 @@ TODO: batch is being trained on
 """
 
 import numpy as np
+#import cupy as np
 import keras
 from DataLoader import DataLoader
 from utils import logger
@@ -17,32 +18,7 @@ from functools import partial
 import time
 import multiprocessing as mp
 
-def f(x):
-    return x*x
 
-N_WORKERS = 10
-
-"""
-def multi_threaded(gens):
-    combi_g = mt_gen(gens)
-    results = []
-    for item in combi_g:
-        results.append(item)
-    return results
-
-
-def mt_gen(gens):
-    with Pool(N_WORKERS) as pool:
-        #while True:
-        async_results = [pool.apply_async(next, args=(g,)) for g in gens]
-        try:
-            results = [r.get() for r in async_results]
-        except StopIteration:  # needed for Python 3.7+, PEP 479, bpo-32670
-            pool.close()
-            return
-        pool.close()
-        return results
-"""
 
 class DataGenerator(keras.utils.Sequence):
 
@@ -115,33 +91,16 @@ class DataGenerator(keras.utils.Sequence):
 
         batch_load_time = time.time()
 
-        track_array = np.array([])
-        conv_track_array = np.array([])
-        shot_pfo_array = np.array([])
-        neutral_pfo_array = np.array([])
-        jet_array = np.array([])
-        label_array = np.array([])
-        weight_array = np.array([])
+        batch = [dl.load_batch_from_data() for dl in self.data_loaders]
+        track_array = np.concatenate([sub_batch[0][0] for sub_batch in batch])
+        neutral_pfo_array = np.concatenate([sub_batch[0][1] for sub_batch in batch])
+        shot_pfo_array = np.concatenate([sub_batch[0][2] for sub_batch in batch])
+        conv_track_array = np.concatenate([sub_batch[0][3] for sub_batch in batch])
+        jet_array = np.concatenate([sub_batch[0][4] for sub_batch in batch])
+        label_array = np.concatenate([sub_batch[1] for sub_batch in batch])
+        weight_array = np.concatenate([sub_batch[2] for sub_batch in batch])
 
-
-        for i in range(0, len(self.data_loaders)):
-            if i == 0:
-                track_array, conv_track_array, shot_pfo_array, neutral_pfo_array, jet_array, \
-                label_array, weight_array = self.data_loaders[i].load_batch_from_data()
-                logger.log(f"Preparing batch: Done {self.data_loaders[i].data_type} {i+1}/{len(self.data_loaders)}", 'HELPME')
-            else:
-                tmp_track_array, tmp_conv_track_array, tmp_shot_pfo_array, tmp_neutral_pfo_array, tmp_jet_array, \
-                tmp_label_array, tmp_weight_array = self.data_loaders[i].load_batch_from_data()
-                track_array = np.concatenate((tmp_track_array, track_array))
-                conv_track_array = np.concatenate((tmp_conv_track_array, conv_track_array))
-                shot_pfo_array = np.concatenate((tmp_shot_pfo_array, shot_pfo_array))
-                neutral_pfo_array = np.concatenate((tmp_neutral_pfo_array, neutral_pfo_array))
-                jet_array = np.concatenate((tmp_jet_array, jet_array))
-                label_array = np.concatenate((tmp_label_array, label_array))
-                weight_array = np.concatenate((tmp_weight_array, weight_array))
-                logger.log(f"Preparing batch: Done {self.data_loaders[i].data_type} {i+1}/{len(self.data_loaders)}", 'HELPME')
-
-        logger.log(f"Loaded batch {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "DEBUG")
+        logger.log(f"Loaded batch {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "INFO")
         self._current_index += 1
 
         logger.log(f"Batch: {self._current_index}/{self.__len__()} - shapes:", 'DEBUG')
@@ -153,21 +112,13 @@ class DataGenerator(keras.utils.Sequence):
         logger.log(f"Labels Shape = {label_array.shape}", 'DEBUG')
         logger.log(f"Weight Shape = {weight_array.shape}", 'DEBUG')
 
-        track_array = track_array.astype("float32")
-        conv_track_array = conv_track_array.astype("float32")
-        shot_pfo_array = shot_pfo_array.astype("float32")
-        neutral_pfo_array = neutral_pfo_array.astype("float32")
-        jet_array = jet_array.astype("float32")
-        label_array = label_array.astype("float32")
-        weight_array = weight_array.astype("float32")
-
-        track_array = tf.convert_to_tensor(track_array.astype("float32"))#.set_shape(trk_shape)
-        conv_track_array = tf.convert_to_tensor(conv_track_array.astype("float32"))#.set_shape(conv_trk_shape)
-        shot_pfo_array = tf.convert_to_tensor(shot_pfo_array.astype("float32"))#.set_shape(shot_pfo_shape)
-        neutral_pfo_array = tf.convert_to_tensor(neutral_pfo_array.astype("float32"))#.set_shape(neutral_pfo_shape)
-        jet_array = tf.convert_to_tensor(jet_array.astype("float32"))#.set_shape(jet_shape)
-        label_array = tf.convert_to_tensor(label_array.astype("float32"))#.set_shape(label_shape)
-        weight_array = tf.convert_to_tensor(weight_array.astype("float32"))#.set_shape(weight_shape)
+        track_array = tf.convert_to_tensor(track_array.astype("float32"))
+        conv_track_array = tf.convert_to_tensor(conv_track_array.astype("float32"))
+        shot_pfo_array = tf.convert_to_tensor(shot_pfo_array.astype("float32"))
+        neutral_pfo_array = tf.convert_to_tensor(neutral_pfo_array.astype("float32"))
+        jet_array = tf.convert_to_tensor(jet_array.astype("float32"))
+        label_array = tf.convert_to_tensor(label_array.astype("float32"))
+        weight_array = tf.convert_to_tensor(weight_array.astype("float32"))
 
         return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array)
 
@@ -218,6 +169,7 @@ class DataGenerator(keras.utils.Sequence):
         return self
 
     def __call__(self):
+        self.on_epoch_end()
         return self
 
     def reset_generator(self):
@@ -228,7 +180,8 @@ class DataGenerator(keras.utils.Sequence):
         """
         self._current_index = 0
         for data_loader in self.data_loaders:
-            data_loader.set_batches(self._variables_list)
+            #data_loader.set_batches(self._variables_list)
+            data_loader.reset_index()
 
     def on_epoch_end(self):
         """

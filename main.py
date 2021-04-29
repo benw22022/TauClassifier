@@ -5,61 +5,39 @@ import os
 #os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'    # Acclerated Linear Algbra (XLA) Seems to actually make things slower
 #os.environ["CUDA_VISIBLE_DEVICES"] = "-1"                     # Disables GPU
 
-
 from variables import variables_dictionary
 from models import tauid_rnn_model, ModelDSNN
-from TFDDataGenerator import DataSet
 from DataGenerator import DataGenerator
 from files import training_files_dictionary, validation_files_dictionary
 import time
+from callbacks import ParallelModelCheckpoint
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from keras.callbacks import ModelCheckpoint
 from utils import logger
+import numpy as np
 import tensorflow as tf
+from config import config_dict
+from DataLoader import DataLoader
 
 logger.set_log_level('INFO')
-
-
-# custom callback for multi-gpu model saving
-class ParallelModelCheckpoint(ModelCheckpoint):
-    def __init__(self, model, path, monitor='val_loss', verbose=1,
-                 save_best_only=False, save_weights_only=True):
-        self._model = model
-        super(ParallelModelCheckpoint, self).__init__(path, monitor, verbose, save_best_only, save_weights_only)
-
-    def set_model(self, model):
-        super(ParallelModelCheckpoint, self).set_model(self._model)
-
 
 def main():
     logger.log("Beginning dataset preparation", 'INFO')
 
     # Initialize Generators
     cuts = {"Gammatautau": "TauJets.truthProng == 1"}
-    training_batch_generator = DataGenerator(training_files_dictionary, variables_dictionary, nbatches=100000, cuts=cuts)
-    validation_batch_generator = DataGenerator(validation_files_dictionary, variables_dictionary, nbatches=100000, cuts=cuts)
-
-
-    # Initialize Model
+    training_batch_generator = DataGenerator(training_files_dictionary, variables_dictionary, nbatches=250, cuts=cuts)
 
     # Work out input shapes
-    shape_trk, shape_conv_trk, shape_shot_pfo, shape_neut_pfo, shape_jet = None, None, None, None, None
-    for i in range(0, len(training_batch_generator)):
-        shape_trk, shape_neut_pfo, shape_shot_pfo, shape_conv_trk, shape_jet, shape_label, shape_weight = training_batch_generator.get_batch_shapes()
-        logger.log(f"TauTracks Shape = {shape_trk}")
-        logger.log(f"NeutralPFO Shape = {shape_neut_pfo}")
-        logger.log(f"ShotPFO Shape = {shape_shot_pfo}")
-        logger.log(f"ConvTracks Shape = {shape_conv_trk}")
-        logger.log(f"TauJets Shape = {shape_jet}")
-        logger.log(f"Labels Shape = {shape_label}")
-        logger.log(f"Weight Shape = {shape_weight}")
-        break
-    training_batch_generator.reset_generator()
-
-   # gen = lambda: (row for row in training_batch_generator)
-    def batch_generator(data_generator):
-        for _ in range(0, len(data_generator)):
-            yield data_generator.load_batch()
+    # shape_trk, shape_neut_pfo, shape_shot_pfo, shape_conv_trk, shape_jet, shape_label, shape_weight = training_batch_generator.get_batch_shapes()
+    # training_batch_generator.reset_generator()
+    # logger.log(f"TauTracks Shape = {shape_trk}")
+    # logger.log(f"NeutralPFO Shape = {shape_neut_pfo}")
+    # logger.log(f"ShotPFO Shape = {shape_shot_pfo}")
+    # logger.log(f"ConvTracks Shape = {shape_conv_trk}")
+    # logger.log(f"TauJets Shape = {shape_jet}")
+    # logger.log(f"Labels Shape = {shape_label}")
+    # logger.log(f"Weight Shape = {shape_weight}")
 
     types = (
             (tf.float32,
@@ -81,53 +59,18 @@ def main():
               tf.TensorShape([None])
             )
 
+    #train_dataset = tf.data.Dataset.from_generator(training_batch_generator, output_types=types, output_shapes=shapes)
+    #train_dataset = tf.data.Dataset.range(2).interleave(lambda _: train_dataset, num_parallel_calls=tf.data.AUTOTUNE,)
+    #train_dataset = train_dataset.prefetch(tf.data.AUTOTUNE)
 
-    train_dataset = tf.data.Dataset.from_generator(training_batch_generator, output_types=types, output_shapes=shapes)
-    val_dataset = tf.data.Dataset.from_generator(validation_batch_generator, output_types=types, output_shapes=shapes)
+    validation_batch_generator = DataGenerator(validation_files_dictionary, variables_dictionary, nbatches=250, cuts=cuts)
+    #val_dataset = tf.data.Dataset.from_generator(validation_batch_generator, output_types=types, output_shapes=shapes)
+    ##val_dataset = tf.data.Dataset.range(2).interleave(lambda _: val_dataset, num_parallel_calls=tf.data.AUTOTUNE)
+    #val_dataset = val_dataset.prefetch(tf.data.AUTOTUNE)
 
-
-    config_dict = {"shapes":
-                       {"TauTrack": shape_trk[1:],
-                        "ConvTrack": shape_conv_trk[1:],
-                        "ShotPFO": shape_shot_pfo[1:],
-                        "NeutralPFO": shape_neut_pfo[1:],
-                        "TauJets": shape_jet[1:],
-                        },
-                   "n_tdd":
-                       {"TauTrack": 3,
-                        "ConvTrack": 3,
-                        "ShotPFO": 3,
-                        "NeutralPFO": 4,
-                        "TauJets": 3,
-                        },
-                   "n_h":
-                       {"TauTrack": 3,
-                        "ConvTrack": 3,
-                        "ShotPFO": 3,
-                        "NeutralPFO": 3,
-                        "TauJets": 3,
-                        },
-                   "n_hiddens":
-                       {"TauTrack": [20, 20, 20],
-                        "ConvTrack": [20, 20, 20],
-                        "ShotPFO": [20, 20, 20],
-                        "NeutralPFO": [60, 40, 40],
-                        "TauJets": [20, 20, 20],
-                        },
-                   "n_inputs":
-                       {"TauTrack": [20, 20, 20],
-                        "ConvTrack": [20, 20, 20],
-                        "ShotPFO": [20, 20, 20],
-                        "NeutralPFO": [80, 80, 60, 60],
-                        "TauJets": [20, 20, 20],
-                        },
-                   "n_fc1": 100,
-                   "n_fc2": 50,
-                   "n_classes": 4,
-                   }
-
-    print(config_dict["shapes"])
-
+    #==================================================================================================================#
+    # Initialize Model
+    #==================================================================================================================#
     model = ModelDSNN(config_dict)
 
     # Configure callbacks
@@ -147,17 +90,21 @@ def main():
     model.summary()
     model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 
+    # Now initialise an iterator
+    #train_iterator = iter(train_dataset)
+    #val_iterator = iter(val_dataset)
+
+    # Create two objects, x & y, from batch
+    #train_x, train_y, train_weights =train_iterator.get_next()
+    #val_x, val_y, val_weights = val_iterator.get_next()
+
+    # ==================================================================================================================#
     # Train Model
-
-    train_dataset = tf.data.Dataset.range(2).interleave(lambda _: train_dataset, num_parallel_calls=tf.data.AUTOTUNE)
-    train_dataset = train_dataset.prefetch(tf.data.AUTOTUNE)
-    val_dataset = tf.data.Dataset.range(2).interleave(lambda _: val_dataset, num_parallel_calls=tf.data.AUTOTUNE)
-    val_dataset = val_dataset.prefetch(tf.data.AUTOTUNE)
-
-    history = model.fit(train_dataset, epochs=100, callbacks=callbacks,
-                        validation_data=val_dataset, validation_freq=1, verbose=1, shuffle=True,
-                        steps_per_epoch=len(training_batch_generator),
-                        workers=2, use_multiprocessing=True)
+    # ==================================================================================================================#
+    history = model.fit(training_batch_generator, epochs=100, callbacks=callbacks,
+                        validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
+                        batch_size=1000
+                        )
 
     #max_queue_size=6, workers=6,  tf.data.AUTOTUNE
 
