@@ -96,13 +96,14 @@ def plot_ROC(y_true, y_pred, weights):
 
 
 def make_predictions(testing_files_dictionary, variables_dictionary, model_weights, cuts=None):
-	testing_batch_generator = DataGenerator(testing_files_dictionary, variables_dictionary, nbatches=1500, cuts=cuts)
 
+	testing_batch_generator = DataGenerator(testing_files_dictionary, variables_dictionary, nbatches=1500, cuts=cuts)
 	model = load_model(model_weights)
 
 	y_pred = []
 	y_true = []
 	weights = []
+
 	for i in range(0, len(testing_batch_generator)):
 		batch_tmp, y_true_tmp = testing_batch_generator.load_batch(0)
 		y_pred_tmp = model.predict(batch_tmp)

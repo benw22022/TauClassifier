@@ -45,4 +45,4 @@ procs = {"Log": [
 }
 
 def finite_log(m):
-	return  np.log2(m, out=np.zeros_like(m), where=(m > 1))
+	return  np.log(m, out=np.zeros_like(m), where=(m > 1))

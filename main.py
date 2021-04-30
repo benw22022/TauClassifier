@@ -10,7 +10,7 @@ from models import tauid_rnn_model, ModelDSNN
 from DataGenerator import DataGenerator
 from files import training_files_dictionary, validation_files_dictionary
 import time
-from callbacks import ParallelModelCheckpoint
+from callbacks import ParallelModelCheckpoint, TimingCallback
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from keras.callbacks import ModelCheckpoint
 from utils import logger
@@ -19,14 +19,15 @@ import tensorflow as tf
 from config import config_dict
 from DataLoader import DataLoader
 
-logger.set_log_level('INFO')
+logger.set_log_level('DEBUG')
 
 def main():
     logger.log("Beginning dataset preparation", 'INFO')
 
     # Initialize Generators
     cuts = {"Gammatautau": "TauJets.truthProng == 1"}
-    training_batch_generator = DataGenerator(training_files_dictionary, variables_dictionary, nbatches=250, cuts=cuts)
+    training_batch_generator = DataGenerator(training_files_dictionary, variables_dictionary, nbatches=250, cuts=cuts,
+                                             label="Training Generator")
 
     # Work out input shapes
     # shape_trk, shape_neut_pfo, shape_shot_pfo, shape_conv_trk, shape_jet, shape_label, shape_weight = training_batch_generator.get_batch_shapes()
@@ -59,14 +60,15 @@ def main():
               tf.TensorShape([None])
             )
 
-    #train_dataset = tf.data.Dataset.from_generator(training_batch_generator, output_types=types, output_shapes=shapes)
-    #train_dataset = tf.data.Dataset.range(2).interleave(lambda _: train_dataset, num_parallel_calls=tf.data.AUTOTUNE,)
-    #train_dataset = train_dataset.prefetch(tf.data.AUTOTUNE)
+    train_dataset = tf.data.Dataset.from_generator(training_batch_generator, output_types=types, output_shapes=shapes)
+    train_dataset = tf.data.Dataset.range(2).interleave(lambda _: train_dataset, num_parallel_calls=tf.data.AUTOTUNE,)
+    train_dataset = train_dataset.prefetch(tf.data.AUTOTUNE)
 
-    validation_batch_generator = DataGenerator(validation_files_dictionary, variables_dictionary, nbatches=250, cuts=cuts)
-    #val_dataset = tf.data.Dataset.from_generator(validation_batch_generator, output_types=types, output_shapes=shapes)
-    ##val_dataset = tf.data.Dataset.range(2).interleave(lambda _: val_dataset, num_parallel_calls=tf.data.AUTOTUNE)
-    #val_dataset = val_dataset.prefetch(tf.data.AUTOTUNE)
+    validation_batch_generator = DataGenerator(validation_files_dictionary, variables_dictionary, nbatches=250, cuts=cuts,
+                                               label="Validation Generator")
+    val_dataset = tf.data.Dataset.from_generator(validation_batch_generator, output_types=types, output_shapes=shapes)
+    val_dataset = tf.data.Dataset.range(2).interleave(lambda _: val_dataset, num_parallel_calls=tf.data.AUTOTUNE)
+    val_dataset = val_dataset.prefetch(tf.data.AUTOTUNE)
 
     #==================================================================================================================#
     # Initialize Model
@@ -84,6 +86,7 @@ def main():
                                                verbose=0)
 
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.4, patience=3, min_lr=4e-6)
+    cb = TimingCallback()
 
     callbacks = [early_stopping, model_checkpoint,  reduce_lr]
 
@@ -101,12 +104,12 @@ def main():
     # ==================================================================================================================#
     # Train Model
     # ==================================================================================================================#
-    history = model.fit(training_batch_generator, epochs=100, callbacks=callbacks,
-                        validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
-                        batch_size=1000
+    history = model.fit(train_dataset, epochs=100, callbacks=callbacks,
+                         validation_data=val_dataset, validation_freq=1, verbose=1, shuffle=True,
+                        workers=12, steps_per_epoch=len(training_batch_generator)
                         )
 
-    #max_queue_size=6, workers=6,  tf.data.AUTOTUNE
+    #max_queue_size=6, workers=6,  tf.data.AUTOTUNE,
 
 if __name__ == "__main__":
     main()

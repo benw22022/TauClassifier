@@ -8,21 +8,18 @@ TODO: batch is being trained on
 """
 
 import numpy as np
-#import cupy as np
 import keras
 from DataLoader import DataLoader
 from utils import logger
 import tensorflow as tf
 import datetime
-from functools import partial
 import time
-import multiprocessing as mp
 
 
 
 class DataGenerator(keras.utils.Sequence):
 
-    def __init__(self, file_dict, variables_dict, nbatches=1000, cuts=None):
+    def __init__(self, file_dict, variables_dict, nbatches=1000, cuts=None, label="DataGenerator"):
         """
         Class constructor - loads batches of data in a way that can be fed one by one to Keras - avoids having to load
         entire dataset into memory prior to training
@@ -38,6 +35,7 @@ class DataGenerator(keras.utils.Sequence):
         self.data_loaders = []
         self.cuts = cuts
         self._current_index = 0
+        self.label = label
 
         self.nprocs = 12
 
@@ -54,9 +52,9 @@ class DataGenerator(keras.utils.Sequence):
                 class_label = 1
             if cuts is not None and data_type in cuts:
                 logger.log(f"Cuts applied to {data_type}: {self.cuts[data_type]}")
-                self.data_loaders.append(DataLoader(data_type, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[data_type]))
+                self.data_loaders.append(DataLoader(data_type, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[data_type], label=label))
             else:
-                self.data_loaders.append(DataLoader(data_type, file_list, class_label, nbatches,  variables_dict))
+                self.data_loaders.append(DataLoader(data_type, file_list, class_label, nbatches,  variables_dict, label=label))
 
         # Get number of events in each dataset
         self._total_num_events = []
@@ -100,7 +98,7 @@ class DataGenerator(keras.utils.Sequence):
         label_array = np.concatenate([sub_batch[1] for sub_batch in batch])
         weight_array = np.concatenate([sub_batch[2] for sub_batch in batch])
 
-        logger.log(f"Loaded batch {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "INFO")
+        logger.log(f"Loaded batch {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "DEBUG")
         self._current_index += 1
 
         logger.log(f"Batch: {self._current_index}/{self.__len__()} - shapes:", 'DEBUG')
@@ -188,7 +186,7 @@ class DataGenerator(keras.utils.Sequence):
         This function is called by Keras at the end of every epoch. Here it is used to reset the iterators to the start
         :return:
         """
-        logger.log_memory_usage(level='INFO')
+        logger.log_memory_usage(level='DEBUG')
         self.reset_generator()
 
     def set_max_itr(self, max_itr):

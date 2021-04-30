@@ -8,17 +8,24 @@ import math
 
 import awkward as ak
 import numpy as np
-#import cupy as np
 import uproot
-
 from preprocessing import finite_log
 from utils import logger
-from DataIterator import DataIterator
-import numba
+from variables import log_list
+
+
+def apply_logs(np_arrays, variables, log_list):
+    for i in range(0, len(variables)):
+        if variables[i] in log_list:
+            np_arrays[:, i] = np.log(np_arrays[:, i], out=np.zeros_like(np_arrays[:, i]), where=(np_arrays[:, i] > 1))
+    return np_arrays
+
+
 
 class DataLoader:
 
-    def __init__(self, data_type, files, class_label, nbatches, variables_dict, dummy_var="truthProng", cuts=None,  batch_size=None):
+    def __init__(self, data_type, files, class_label, nbatches, variables_dict, dummy_var="truthProng", cuts=None,  batch_size=None,
+                 label="Dataloader"):
         """
         Class constructor - fills in meta-data for the data type
         :param data_type: The type of data file being loaded e.g. Gammatautau, JZ1, ect...
@@ -28,6 +35,7 @@ class DataLoader:
         of events in the data files
         """
         self._data_type = data_type
+        self.label = label
         self.files = files
         self.dummy_var = dummy_var
         self.cut = cuts
@@ -87,11 +95,14 @@ class DataLoader:
     def get_next_batch(self):
         #batch = next(self._batches_generator)
         end_point = self._current_index*self.specific_batch_size + self.specific_batch_size
-        if self._current_index*self.specific_batch_size + self.specific_batch_size >= self.num_events():
-            end_point = self.num_events() - 1
         batch = self._batches_generator[self._current_index*self.specific_batch_size: end_point]
         self._current_index += 1
-        self._batch_len = len(batch)
+
+        # If we run out of data reset the generator
+        if batch is None:
+            self._current_index = 0
+            return self.get_next_batch()
+
         return batch, np.ones(len(batch)) * self.class_label
 
     def get_batch_from_index(self, idx):
@@ -102,25 +113,21 @@ class DataLoader:
         return batch, np.ones(len(batch)) * self.class_label
 
     def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=20):
-        try:
-            variables = self._variables_dict[variable_type]
-            ak_arrays = ak.concatenate([batch[var][:, :, None] for var in variables], axis=0)
-            ak_arrays = ak.pad_none(ak_arrays, max_items, clip=True)
-            np_arrays = ak.to_numpy(abs(ak_arrays))
-            #np.arrays = np.abs(np_arrays)
-            np_arrays = finite_log(np_arrays)
-            np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables), np_arrays.shape[1])
-            return np_arrays
-        except ValueError as err:
-            logger.log("An error occurred! - dumping info ".format(err), 'ERROR')
-            logger.log(f"Batch = {batch}")
-            logger.log(f"Batch = {variable_type}")
+        variables = self._variables_dict[variable_type]
+        ak_arrays = ak.concatenate([batch[var][:, :, None] for var in variables], axis=0)
+        ak_arrays = ak.pad_none(ak_arrays, max_items, clip=True)
+        np_arrays = ak.to_numpy(abs(ak_arrays))
+        #np_arrays = finite_log(np_arrays)
+        np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables), np_arrays.shape[1])
+        np_arrays = apply_logs(np_arrays, variables, log_list)
+        return np_arrays
 
     def reshape_arrays(self, batch, variable_type):
         variables = self._variables_dict[variable_type]
         ak_arrays = ak.concatenate([batch[var][:] for var in variables], axis=0)
         np_arrays = ak.to_numpy(ak_arrays)
         np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables))
+        np_arrays = apply_logs(np_arrays, variables, log_list)
         return np_arrays
 
     def load_batch_from_data(self, idx=0):
@@ -136,6 +143,7 @@ class DataLoader:
         batch, sig_bkg_labels_np_array = self.get_next_batch()
 
         if batch is None or len(batch) == 0:
+            logger.log(f"{self.label} - {self._data_type} ran out of data - repeating data", 'DEBUG')
             return None
 
         track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=20)
@@ -160,7 +168,7 @@ class DataLoader:
 
         weight_np_array = ak.to_numpy(batch[self._variables_dict["Weight"]]).astype("float32")
 
-        logger.log(f"Loaded batch {self._current_index} from {self._data_type}", "DEBUG")
+        logger.log(f"Loaded batch {self._current_index} from {self._data_type}: {self.label}", "DEBUG")
 
 
         return (track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays), \
