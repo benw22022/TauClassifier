@@ -6,20 +6,16 @@ import os
 #os.environ["CUDA_VISIBLE_DEVICES"] = "-1"                     # Disables GPU
 
 from variables import variables_dictionary
-from models import tauid_rnn_model, ModelDSNN
+from models import ModelDSNN
 from DataGenerator import DataGenerator
 from files import training_files_dictionary, validation_files_dictionary
-import time
 from callbacks import ParallelModelCheckpoint, TimingCallback
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from keras.callbacks import ModelCheckpoint
 from utils import logger
-import numpy as np
 import tensorflow as tf
 from config import config_dict
-from DataLoader import DataLoader
+logger.set_log_level('INFO')
 
-logger.set_log_level('DEBUG')
 
 def main():
     logger.log("Beginning dataset preparation", 'INFO')
@@ -61,14 +57,16 @@ def main():
             )
 
     train_dataset = tf.data.Dataset.from_generator(training_batch_generator, output_types=types, output_shapes=shapes)
-    train_dataset = tf.data.Dataset.range(2).interleave(lambda _: train_dataset, num_parallel_calls=tf.data.AUTOTUNE,)
+    train_dataset = tf.data.Dataset.range(2).interleave(lambda _: train_dataset, num_parallel_calls=12,)
     train_dataset = train_dataset.prefetch(tf.data.AUTOTUNE)
+    train_dataset = train_dataset.repeat(100)
 
     validation_batch_generator = DataGenerator(validation_files_dictionary, variables_dictionary, nbatches=250, cuts=cuts,
                                                label="Validation Generator")
     val_dataset = tf.data.Dataset.from_generator(validation_batch_generator, output_types=types, output_shapes=shapes)
-    val_dataset = tf.data.Dataset.range(2).interleave(lambda _: val_dataset, num_parallel_calls=tf.data.AUTOTUNE)
+    val_dataset = tf.data.Dataset.range(2).interleave(lambda _: val_dataset, num_parallel_calls=12)
     val_dataset = val_dataset.prefetch(tf.data.AUTOTUNE)
+    #val_dataset  =val_dataset.repeat()
 
     #==================================================================================================================#
     # Initialize Model
@@ -106,7 +104,7 @@ def main():
     # ==================================================================================================================#
     history = model.fit(train_dataset, epochs=100, callbacks=callbacks,
                          validation_data=val_dataset, validation_freq=1, verbose=1, shuffle=True,
-                        workers=12, steps_per_epoch=len(training_batch_generator)
+                        workers=6, steps_per_epoch=len(training_batch_generator), use_multiprocessing=True
                         )
 
     #max_queue_size=6, workers=6,  tf.data.AUTOTUNE,

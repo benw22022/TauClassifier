@@ -3,8 +3,7 @@ DataGenerator Class Definition
 ________________________________________________________________________________________________________________________
 Class that is used to feed Keras batches of data for training/testing/validation so that we don't have to load all the
 data into memory at once
-TODO: Potential performance improvement could be found by loading up the next batch of training whilst the the previous
-TODO: batch is being trained on
+TODO: Make this generalisable to different problems
 """
 
 import numpy as np
@@ -27,17 +26,18 @@ class DataGenerator(keras.utils.Sequence):
         a list of files corresponding to that data type
         :param variables_dict: A dictionary of input variables with keys labeling the variable type (Tracks, Clusters, etc...)
         and values being a list of branch names of the variables associated with that type
-        :param batch_size: The number of events to train on per batch of data
+        :param nbatches: Number of batches to *roughly* split the dataset into (not exact due to uproot inconstantly
+        changing batch size when moving from one file to another)
+        :param cuts: A dictionary of cuts with keys the same as file_dict. The values should be a string or list of
+        strings which can be parsed by uproot.lazy's cut options
+        :param label: A string to label the generator with - useful when debugging multiple generators
         """
         logger.log("Initializing DataGenerator", 'INFO')
-        self._nbatches = 10000
         self._file_dict = file_dict
+        self.label = label
         self.data_loaders = []
         self.cuts = cuts
         self._current_index = 0
-        self.label = label
-
-        self.nprocs = 12
 
         # Organise a list of all variables
         self._variables_dict = variables_dict
@@ -45,9 +45,10 @@ class DataGenerator(keras.utils.Sequence):
         for _, variable_list in variables_dict.items():
             self._variables_list += variable_list
 
-        # Load each data type separately
+        # Load each data type separately and apply cuts
         for data_type, file_list in file_dict.items():
             class_label = 0
+            # TODO: Implement a proper file class so that this doesn't have to be hardcoded into the DataGenerator
             if data_type == "Gammatautau":
                 class_label = 1
             if cuts is not None and data_type in cuts:
@@ -69,7 +70,6 @@ class DataGenerator(keras.utils.Sequence):
 
         # Lazily load batches of data for each dataset
         for data_loader in self.data_loaders:
-            data_loader.set_batches(self._variables_list)
             logger.log(f"Number of batches in {data_loader.data_type()} = {data_loader.number_of_batches()}")
 
         # Work out the number of batches for training epoch (important)
@@ -77,19 +77,16 @@ class DataGenerator(keras.utils.Sequence):
         logger.log("DataGenerator initialized", 'INFO')
 
 
-    def load_batch(self, idx):
+    def load_batch(self, idx=0):
         """
         Loads a batch of data from each data type and concatenates them into single arrays for training
-        NOTE: idx argument is still being passed but is actually unused. This is for compatibility reasons - I would like
-        to test uproot.lazy still in the wider tensorflow context so will keep idx for the time being
         :param idx: The index of the batch of data to retrieve
         :return: A list of arrays to be passed to model.fit()
-            [[Tracks, Clusters, Jets], labels, weights]
         """
 
         batch_load_time = time.time()
 
-        batch = [dl.load_batch_from_data() for dl in self.data_loaders]
+        batch = [dl.load_batch_from_data(idx=idx) for dl in self.data_loaders]
         track_array = np.concatenate([sub_batch[0][0] for sub_batch in batch])
         neutral_pfo_array = np.concatenate([sub_batch[0][1] for sub_batch in batch])
         shot_pfo_array = np.concatenate([sub_batch[0][2] for sub_batch in batch])
@@ -98,9 +95,7 @@ class DataGenerator(keras.utils.Sequence):
         label_array = np.concatenate([sub_batch[1] for sub_batch in batch])
         weight_array = np.concatenate([sub_batch[2] for sub_batch in batch])
 
-        logger.log(f"Loaded batch {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "DEBUG")
-        self._current_index += 1
-
+        logger.log(f"Loaded batch {self.label} {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "DEBUG")
         logger.log(f"Batch: {self._current_index}/{self.__len__()} - shapes:", 'DEBUG')
         logger.log(f"TauTracks Shape = {track_array.shape}", 'DEBUG')
         logger.log(f"ConvTracks Shape = {conv_track_array.shape}", 'DEBUG')
@@ -125,9 +120,7 @@ class DataGenerator(keras.utils.Sequence):
         """
         Loads a batch at a specific index and returns the shapes of the returned arrays
         Used for debugging and initializing network input layers
-        :param idx: An index (default is zero)
         :return: A list of all the array shapes.
-            tracks.shape, clusters.shape, jets.shape, labels.shape, weights.shape
         """
 
         batch = self.load_batch(0)
@@ -151,17 +144,24 @@ class DataGenerator(keras.utils.Sequence):
 
     def __getitem__(self, idx):
         """
-        The function that Keras will call in order to get a new batch of data to train on. Same as self.load_batch().
-        :param idx: An index - set by Keras
+        Overloads [] operator - allows generator to be indexable. This must be provided so that Keras can use generator
+        :param idx: An index
         :return: A full batch of data
         """
         logger.log(f"loaded batch {idx}/{self.__len__()}", 'DEBUG')
-
+        self._current_index += 1
         return self.load_batch(idx)
 
 
     def __next__(self):
-        return self.load_batch(0)
+        """
+        Overloads next() operator - allows generator to be iterable
+        :return:
+        """
+        if self._current_index < self._num_batches:
+            self._current_index += 1
+            return self.load_batch(0)
+        raise StopIteration
 
     def __iter__(self):
         return self
@@ -172,7 +172,7 @@ class DataGenerator(keras.utils.Sequence):
 
     def reset_generator(self):
         """
-        Function that will reset the generator by recreating the uproot.iterator object for each dataloader
+        Function that will reset the generator and reset the dataloader objects
         index will also get reset to zero
         :return:
         """
@@ -188,16 +188,6 @@ class DataGenerator(keras.utils.Sequence):
         """
         logger.log_memory_usage(level='DEBUG')
         self.reset_generator()
-
-    def set_max_itr(self, max_itr):
-        """
-        A function to set the max number of iterations to go through so that we don't run into errors. I really need to
-        find a better solution to this.
-        :param max_itr:
-        :return:
-        """
-        self._num_batches = max_itr
-
 
 if __name__ == "__main__":
     pass

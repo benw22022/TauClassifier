@@ -3,6 +3,7 @@
 *.npy
 *.pkl
 *.awkd
+*.h5
 
 
 # ignore directories
