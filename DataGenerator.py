@@ -18,7 +18,7 @@ import time
 
 class DataGenerator(keras.utils.Sequence):
 
-    def __init__(self, file_dict, variables_dict, nbatches=1000, cuts=None, label="DataGenerator"):
+    def __init__(self, file_dict, variables_dict, nbatches=1000, epochs=50, cuts=None, label="DataGenerator"):
         """
         Class constructor - loads batches of data in a way that can be fed one by one to Keras - avoids having to load
         entire dataset into memory prior to training
@@ -28,8 +28,8 @@ class DataGenerator(keras.utils.Sequence):
         and values being a list of branch names of the variables associated with that type
         :param nbatches: Number of batches to *roughly* split the dataset into (not exact due to uproot inconstantly
         changing batch size when moving from one file to another)
-        :param cuts: A dictionary of cuts with keys the same as file_dict. The values should be a string or list of
-        strings which can be parsed by uproot.lazy's cut options
+        :param cuts: A dictionary of cuts with keys the same as file_dict. The values should be a string which can be
+        parsed by uproot's cut option e.g. "(pt1 > 50) & ((E1>100) | (E1<90))"
         :param label: A string to label the generator with - useful when debugging multiple generators
         """
         logger.log("Initializing DataGenerator", 'INFO')
@@ -38,6 +38,9 @@ class DataGenerator(keras.utils.Sequence):
         self.data_loaders = []
         self.cuts = cuts
         self._current_index = 0
+        self._epochs = epochs
+        self._epoch_index = 0
+
 
         # Organise a list of all variables
         self._variables_dict = variables_dict
@@ -77,7 +80,7 @@ class DataGenerator(keras.utils.Sequence):
         logger.log("DataGenerator initialized", 'INFO')
 
 
-    def load_batch(self, idx=0):
+    def load_batch(self, idx=None):
         """
         Loads a batch of data from each data type and concatenates them into single arrays for training
         :param idx: The index of the batch of data to retrieve
@@ -86,7 +89,11 @@ class DataGenerator(keras.utils.Sequence):
 
         batch_load_time = time.time()
 
-        batch = [dl.load_batch_from_data(idx=idx) for dl in self.data_loaders]
+        index = idx
+        if idx is None:
+            index = self._current_index
+
+        batch = [dl.load_batch_from_data(idx=index) for dl in self.data_loaders]
         track_array = np.concatenate([sub_batch[0][0] for sub_batch in batch])
         neutral_pfo_array = np.concatenate([sub_batch[0][1] for sub_batch in batch])
         shot_pfo_array = np.concatenate([sub_batch[0][2] for sub_batch in batch])
@@ -95,7 +102,7 @@ class DataGenerator(keras.utils.Sequence):
         label_array = np.concatenate([sub_batch[1] for sub_batch in batch])
         weight_array = np.concatenate([sub_batch[2] for sub_batch in batch])
 
-        logger.log(f"Loaded batch {self.label} {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "DEBUG")
+        logger.log(f"Loaded batch {self.label} {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "INFO")
         logger.log(f"Batch: {self._current_index}/{self.__len__()} - shapes:", 'DEBUG')
         logger.log(f"TauTracks Shape = {track_array.shape}", 'DEBUG')
         logger.log(f"ConvTracks Shape = {conv_track_array.shape}", 'DEBUG')
@@ -140,7 +147,7 @@ class DataGenerator(keras.utils.Sequence):
         run into memory access violations when Keras oversteps bounds of array)
         :return: The number of batches in an epoch
         """
-        return self._num_batches - 1
+        return self._num_batches
 
     def __getitem__(self, idx):
         """
@@ -148,19 +155,31 @@ class DataGenerator(keras.utils.Sequence):
         :param idx: An index
         :return: A full batch of data
         """
-        logger.log(f"loaded batch {idx}/{self.__len__()}", 'DEBUG')
+        #logger.log(f"loaded batch {idx}/{self.__len__()}", 'DEBUG')
+        logger.log(f"{self.label} __getitem__ called")
         self._current_index += 1
         return self.load_batch(idx)
 
 
     def __next__(self):
         """
-        Overloads next() operator - allows generator to be iterable
+        Overloads next() operator - allows generator to be iterable - This is what will be called when
+        tf.data.Dataset.from_generator() is called
         :return:
         """
-        if self._current_index < self._num_batches:
-            self._current_index += 1
-            return self.load_batch(0)
+
+        #if self._current_index < self._num_batches:
+        #    self._current_index += 1
+        #    return self.load_batch(0)
+        logger.log(f"{self.label} __next__ called")
+        if self._epoch_index < self._epochs:
+            if self._current_index < self._num_batches:
+                self._current_index += 1
+                return self.load_batch()
+            self.on_epoch_end()
+            self._epoch_index += 1
+            logger.log(f"Completed {self._epoch_index} epochs")
+            return self.load_batch()
         raise StopIteration
 
     def __iter__(self):
@@ -180,6 +199,7 @@ class DataGenerator(keras.utils.Sequence):
         for data_loader in self.data_loaders:
             #data_loader.set_batches(self._variables_list)
             data_loader.reset_index()
+        logger.log(f"reset_generator called on {self.label}")
 
     def on_epoch_end(self):
         """

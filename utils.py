@@ -32,6 +32,7 @@ class Logger:
     def __init__(self, log_level='INFO'):
         self._start_time = time.time()
         self._log_level = LogLevels[log_level]
+        self._log_file = open("data\\train.log", 'w')
         tracemalloc.start()
 
     def log(self, message, level='INFO'):
@@ -41,7 +42,9 @@ class Logger:
             filename = caller.filename
             line_num = caller.lineno
             filename = os.path.basename(filename)
-            print(f"{time_now} {filename}:{line_num} {level} - {message}")
+            log_message = f"{time_now} {filename}:{line_num} {level} - {message}"
+            print(log_message)
+            self._log_file.write(f"{log_message}\n")
 
     def set_log_level(self, level):
         self._log_level = LogLevels[level]
@@ -51,6 +54,8 @@ class Logger:
         message = f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB"
         self.log(message, level)
 
+    def __del__(self):
+        self._log_file.close()
 
 # Initialize logger as global variable
 logger = Logger()

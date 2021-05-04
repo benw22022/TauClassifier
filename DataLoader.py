@@ -9,15 +9,18 @@ import math
 import awkward as ak
 import numpy as np
 import uproot
-from preprocessing import finite_log
+from preprocessing import finite_log, pt_reweight
 from utils import logger
 from variables import log_list
 
 
 def apply_logs(np_arrays, variables, log_list):
-    for i in range(0, len(variables)):
-        if variables[i] in log_list:
-            np_arrays[:, i] = np.log(np_arrays[:, i], out=np.zeros_like(np_arrays[:, i]), where=(np_arrays[:, i] > 1))
+    #for i in range(0, len(variables)):
+    #    if variables[i] in log_list:
+    # Take logs of everything where the mean of the column is > 1
+    for i in range(0, np_arrays.shape[1]):
+        if np.mean(np_arrays[:, i]) > 1:
+            np_arrays[:, i] = np.log(np_arrays[:, i], out=np.zeros_like(np_arrays[:, i]), where=(np_arrays[:, i] > 0))
     return np_arrays
 
 
@@ -35,7 +38,7 @@ class DataLoader:
         :param nbatches: number of batches to *roughly* split the data into
         :param dummy_var: A variable to be loaded from the file to be loaded and iterated through to work out the number
         of events in the data files.
-        :param cuts: A string or list of strings that can be parsed by uproot.lazy to apply cuts to the data
+        :param cuts: A string which can be parsed by uproot's cut option e.g. "(pt1 > 50) & ((E1>100) | (E1<90))"
         :param batch_size: Allows you to manually set the batch size for the data. This will override the automatically
         calculated batch size inferred from nbatches
         """
@@ -170,7 +173,9 @@ class DataLoader:
                 else:
                     labels_np_array[:, 3] = 1
 
-        weight_np_array = ak.to_numpy(batch[self._variables_dict["Weight"]]).astype("float32")
+        # weight_np_array = ak.to_numpy(batch[self._variables_dict["Weight"]]).astype("float32")
+        # Apply pT re-weighting
+        weight_np_array = pt_reweight(ak.to_numpy(batch[self._variables_dict["TauJets.jet_pt"]]).astype("float32"))
 
         logger.log(f"Loaded batch {self._current_index} from {self._data_type}: {self.label}", "DEBUG")
 
@@ -210,6 +215,9 @@ class DataLoader:
     def reset_index(self):
         self._current_index = 0
         self._disable_indexing = False
+        self._batches_generator = None
+        self._batches_generator = uproot.lazy(self.files, filter_name=self._variables_list, cut=self.cut,
+                                              step_size=int(self.specific_batch_size * 1.5))
 
     def num_events(self):
         return self._num_events
