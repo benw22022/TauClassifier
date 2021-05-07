@@ -10,6 +10,7 @@ from functools import total_ordering
 from datetime import datetime
 import os
 from inspect import getframeinfo, stack
+import tracemalloc
 
 
 @total_ordering
@@ -31,6 +32,8 @@ class Logger:
     def __init__(self, log_level='INFO'):
         self._start_time = time.time()
         self._log_level = LogLevels[log_level]
+        self._log_file = open("data\\train.log", 'w')
+        tracemalloc.start()
 
     def log(self, message, level='INFO'):
         if LogLevels[level] <= self._log_level:
@@ -39,10 +42,20 @@ class Logger:
             filename = caller.filename
             line_num = caller.lineno
             filename = os.path.basename(filename)
-            print(f"{time_now} {filename}:{line_num} {level} - {message}")
+            log_message = f"{time_now} {filename}:{line_num} {level} - {message}"
+            print(log_message)
+            self._log_file.write(f"{log_message}\n")
 
     def set_log_level(self, level):
         self._log_level = LogLevels[level]
+
+    def log_memory_usage(self, level='DEBUG'):
+        current, peak = tracemalloc.get_traced_memory()
+        message = f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB"
+        self.log(message, level)
+
+    def __del__(self):
+        self._log_file.close()
 
 # Initialize logger as global variable
 logger = Logger()

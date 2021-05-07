@@ -1,14 +1,20 @@
-#Ignore data files
+# Ignore data files
 *.npz
 *.npy
 *.pkl
 *.awkd
+*.h5
 
+# Ignore any plots
+*.png
+*.jpeg
+*.svg
 
-# ignore directories
+# Ignore directories
 venv*
 *.idea
 data
+plots
 
 # Ignore logs
 *.log
