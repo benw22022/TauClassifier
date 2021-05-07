@@ -11,17 +11,7 @@ import numpy as np
 import uproot
 from preprocessing import finite_log, pt_reweight
 from utils import logger
-from variables import log_list
 
-
-def apply_logs(np_arrays, variables, log_list):
-    #for i in range(0, len(variables)):
-    #    if variables[i] in log_list:
-    # Take logs of everything where the mean of the column is > 1
-    for i in range(0, np_arrays.shape[1]):
-        if np.mean(np_arrays[:, i]) > 1:
-            np_arrays[:, i] = np.log(np_arrays[:, i], out=np.zeros_like(np_arrays[:, i]), where=(np_arrays[:, i] > 0))
-    return np_arrays
 
 
 
@@ -89,7 +79,20 @@ class DataLoader:
             self._num_real_batches += 1
         logger.log(f"Number of batches in {self.label} {self.data_type()} = {self._num_real_batches}", 'DEBUG')
 
-        self._n_events_in_batch = 0
+        # Work out mean and std of data for rescaling calculations
+        # self._mean_dict = variables_dict
+        # self._std_dict = variables_dict
+        #
+        # for key, item in variables_dict.items():
+        #     self._mean_dict[key] = []
+        #     self._std_dict[key] = []
+        #     for variable in item:
+        #         tmp_arr = uproot.concatenate(files, filter_name=item, cut=cuts, library='np')[variable]
+        #         self._mean_dict[key].append(np.mean(tmp_arr))
+        #         self._std_dict[key].append(np.std(tmp_arr))
+        #
+        # logger.log(f"DataLoader {self._data_type} - data means: {self._mean_dict}")
+        # logger.log(f"DataLoader {self._data_type} - data std: {self._std_dict}")
 
         logger.log(f"Found {len(files)} files for {data_type}", 'INFO')
         logger.log(f"Found these files: {files}", 'INFO')
@@ -121,20 +124,37 @@ class DataLoader:
         return batch, np.ones(len(batch)) * self.class_label
 
     def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=20):
+        """
+        Function that acts on nested data to read relevant variables, pad, reshape and convert data from uproot into
+        rectilinear numpy arrays
+        :param batch: A dict of awkward arrays from uproot
+        :param variable_type: Variable type to be selected e.g. Tracks, Neutral PFO, Jets etc...
+        :param max_items: Maximum number of tracks/PFOs etc... to be associated to event
+        :return: a rectilinear numpy array of shape:
+                 (num events in batch, number of variables belonging to variable type, max_items)
+        """
         variables = self._variables_dict[variable_type]
         ak_arrays = ak.concatenate([batch[var][:, :, None] for var in variables], axis=0)
         ak_arrays = ak.pad_none(ak_arrays, max_items, clip=True)
         np_arrays = ak.to_numpy(abs(ak_arrays))
         np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables), np_arrays.shape[1])
-        np_arrays = apply_logs(np_arrays, variables, log_list)
+        np_arrays = self.apply_scaling(np_arrays)
         return np_arrays
 
     def reshape_arrays(self, batch, variable_type):
+        """
+        Function that acts on flat data to read relevant variables, reshape and convert data from uproot into
+        rectilinear numpy arrays
+        :param batch: A dict of awkward arrays from uproot
+        :param variable_type: Variable type to be selected e.g. Tracks, Neutral PFO, Jets etc...
+        :return: a rectilinear numpy array of shape:
+                 (num events in batch, number of variables belonging to variable type)
+        """
         variables = self._variables_dict[variable_type]
         ak_arrays = ak.concatenate([batch[var][:] for var in variables], axis=0)
-        np_arrays = ak.to_numpy(ak_arrays)
+        np_arrays = ak.to_numpy(abs(ak_arrays))
         np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables))
-        np_arrays = apply_logs(np_arrays, variables, log_list)
+        np_arrays = self.apply_scaling(np_arrays)
         return np_arrays
 
     def load_batch_from_data(self, idx=None):
@@ -167,20 +187,44 @@ class DataLoader:
             truth_decay_mode_np_array = ak.to_numpy(batch[self._variables_dict["DecayMode"]])
             for i in range(0, len(truth_decay_mode_np_array, )):
                 if truth_decay_mode_np_array[i][0] == 0:
-                    labels_np_array[:, 1] = 1
+                    labels_np_array[i][1] = 1
                 elif truth_decay_mode_np_array[i][0] == 1:
-                    labels_np_array[:, 2] = 1
+                    labels_np_array[i][2] = 1
                 else:
-                    labels_np_array[:, 3] = 1
+                    labels_np_array[i][3] = 1
 
-        # weight_np_array = ak.to_numpy(batch[self._variables_dict["Weight"]]).astype("float32")
         # Apply pT re-weighting
-        weight_np_array = pt_reweight(ak.to_numpy(batch[self._variables_dict["TauJets.jet_pt"]]).astype("float32"))
+        weight_np_array = np.ones(len(labels_np_array))
+        if self.class_label == 0:
+            weight_np_array = pt_reweight(ak.to_numpy(batch[self._variables_dict["Weight"]]).astype("float32"))
 
         logger.log(f"Loaded batch {self._current_index} from {self._data_type}: {self.label}", "DEBUG")
 
         return (track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays), \
                 labels_np_array, weight_np_array
+
+    def apply_scaling(self, np_arrays):
+        """
+        Applies scaling to data to bring values into sensible ranges
+        Checks:
+            1. If the mean of the data is < 1 -> do nothing data is already fine
+            2. Check if data is within 3 std of mean -> if not clip to mean + 3 std
+            3. Divide data by mean value
+            4. Take robust log of data -> if entry is < 1 do not take log but return 0 instead
+        :param np_arrays:
+        :return:
+        """
+        np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False)
+        for i in range(0, np_arrays.shape[1]):
+            mean = np.mean(abs(np_arrays[:, i]))
+            std_dev = np.std(abs(np_arrays[:, i]))
+            if mean > 1:
+                np_arrays[:, i][abs(np_arrays[:, i]) > mean + 3 * std_dev] = mean + 5 * std_dev
+                min_val = 0 #np.amin(np_arrays[:, i].flatten())
+                max_val = mean + 5 * std_dev  #np.amax(np_arrays[:, i].flatten())
+                np_arrays[:, i] = (np_arrays[:, i] - min_val) / (max_val - min_val)
+                np_arrays[:, i] = np.log10(np_arrays[:, i], out=np.zeros_like(np_arrays[:, i]), where=(np_arrays[:, i] > 1))
+        return np_arrays
 
     def __next__(self):
         if self._current_index < self._num_real_batches:

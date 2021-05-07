@@ -13,12 +13,12 @@ from utils import logger
 import tensorflow as tf
 import datetime
 import time
-
+from utils import find_anomalous_entries
 
 
 class DataGenerator(keras.utils.Sequence):
 
-    def __init__(self, file_dict, variables_dict, nbatches=1000, epochs=50, cuts=None, label="DataGenerator"):
+    def __init__(self, file_handler_list, variables_dict, nbatches=1000, epochs=50, cuts=None, label="DataGenerator"):
         """
         Class constructor - loads batches of data in a way that can be fed one by one to Keras - avoids having to load
         entire dataset into memory prior to training
@@ -33,7 +33,7 @@ class DataGenerator(keras.utils.Sequence):
         :param label: A string to label the generator with - useful when debugging multiple generators
         """
         logger.log("Initializing DataGenerator", 'INFO')
-        self._file_dict = file_dict
+        self._file_handlers =  file_handler_list
         self.label = label
         self.data_loaders = []
         self.cuts = cuts
@@ -48,17 +48,17 @@ class DataGenerator(keras.utils.Sequence):
         for _, variable_list in variables_dict.items():
             self._variables_list += variable_list
 
-        # Load each data type separately and apply cuts
-        for data_type, file_list in file_dict.items():
-            class_label = 0
-            # TODO: Implement a proper file class so that this doesn't have to be hardcoded into the DataGenerator
-            if data_type == "Gammatautau":
-                class_label = 1
-            if cuts is not None and data_type in cuts:
-                logger.log(f"Cuts applied to {data_type}: {self.cuts[data_type]}")
-                self.data_loaders.append(DataLoader(data_type, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[data_type], label=label))
+        for file_handler in self._file_handlers:
+            if cuts is not None and file_handler.label in cuts:
+                logger.log(f"Cuts applied to {file_handler.label}: {self.cuts[file_handler.label]}")
+                self.data_loaders.append(DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
+                                                    nbatches, variables_dict, cuts=self.cuts[file_handler.label],
+                                                    label=label))
             else:
-                self.data_loaders.append(DataLoader(data_type, file_list, class_label, nbatches,  variables_dict, label=label))
+                self.data_loaders.append(
+                    DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
+                               nbatches, variables_dict, label=label))
+
 
         # Get number of events in each dataset
         self._total_num_events = []
@@ -101,6 +101,13 @@ class DataGenerator(keras.utils.Sequence):
         jet_array = np.concatenate([sub_batch[0][4] for sub_batch in batch])
         label_array = np.concatenate([sub_batch[1] for sub_batch in batch])
         weight_array = np.concatenate([sub_batch[2] for sub_batch in batch])
+
+        #find_anomalous_entries(track_array, 20, logger, arr_name="tracks")
+        #find_anomalous_entries(neutral_pfo_array, 20, logger, arr_name="neutral PFO")
+        #find_anomalous_entries(shot_pfo_array, 20, logger, arr_name="shot PFO")
+        #find_anomalous_entries(conv_track_array, 20, logger, arr_name="conv track")
+        #find_anomalous_entries(jet_array, 20, logger, arr_name="jets")
+        #find_anomalous_entries(weight_array, 5, logger, arr_name="weights")
 
         logger.log(f"Loaded batch {self.label} {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "INFO")
         logger.log(f"Batch: {self._current_index}/{self.__len__()} - shapes:", 'DEBUG')
@@ -164,22 +171,25 @@ class DataGenerator(keras.utils.Sequence):
     def __next__(self):
         """
         Overloads next() operator - allows generator to be iterable - This is what will be called when
-        tf.data.Dataset.from_generator() is called
+        tf.data.Dataset.from_generator() is used
         :return:
         """
 
-        #if self._current_index < self._num_batches:
-        #    self._current_index += 1
-        #    return self.load_batch(0)
-        logger.log(f"{self.label} __next__ called")
-        if self._epoch_index < self._epochs:
-            if self._current_index < self._num_batches:
-                self._current_index += 1
-                return self.load_batch()
-            self.on_epoch_end()
-            self._epoch_index += 1
-            logger.log(f"Completed {self._epoch_index} epochs")
+        if self._current_index < self._num_batches:
+            self._current_index += 1
             return self.load_batch()
+        #logger.log(f"{self.label} __next__ called")
+        #if self._epoch_index < self._epochs:
+        #    if self._current_index < self._num_batches:
+        #        self._current_index += 1
+        #        return self.load_batch()
+        #    self.on_epoch_end()
+        #    self._epoch_index += 1
+        #    if self.label == "Validation Generator":
+        #        logger.log(f"StopIteration raised by __next__ in {self.label}")
+        #        raise StopIteration
+        #    logger.log(f"Completed {self._epoch_index} epochs")
+        #    return self.load_batch()
         raise StopIteration
 
     def __iter__(self):
@@ -197,7 +207,6 @@ class DataGenerator(keras.utils.Sequence):
         """
         self._current_index = 0
         for data_loader in self.data_loaders:
-            #data_loader.set_batches(self._variables_list)
             data_loader.reset_index()
         logger.log(f"reset_generator called on {self.label}")
 
@@ -209,5 +218,6 @@ class DataGenerator(keras.utils.Sequence):
         logger.log_memory_usage(level='DEBUG')
         self.reset_generator()
 
-if __name__ == "__main__":
-    pass
+    def number_events(self):
+        return self._total_num_events
+
