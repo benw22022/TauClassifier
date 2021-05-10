@@ -13,7 +13,15 @@ from utils import logger
 import tensorflow as tf
 import datetime
 import time
+from multiprocessing import Pool
+from itertools import product, repeat
+from multiprocessing import Process, Manager
+from multiprocessing.managers import BaseManager
 from utils import find_anomalous_entries
+
+
+def process_wrapper(dl, idx):
+    dl.set_batch(idx)
 
 
 class DataGenerator(keras.utils.Sequence):
@@ -48,17 +56,31 @@ class DataGenerator(keras.utils.Sequence):
         for _, variable_list in variables_dict.items():
             self._variables_list += variable_list
 
+        # Managers
+        BaseManager.register('DataLoader', DataLoader)
+        self.manager = BaseManager()
+        self.manager.start()
+        self.inst = []
+
+
         for file_handler in self._file_handlers:
             if cuts is not None and file_handler.label in cuts:
                 logger.log(f"Cuts applied to {file_handler.label}: {self.cuts[file_handler.label]}")
                 self.data_loaders.append(DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
                                                     nbatches, variables_dict, cuts=self.cuts[file_handler.label],
                                                     label=label))
+
+                self.inst.append(self.manager.DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
+                                                    nbatches, variables_dict, cuts=self.cuts[file_handler.label],
+                                                    label=label))
+
             else:
                 self.data_loaders.append(
                     DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
                                nbatches, variables_dict, label=label))
-
+                self.inst.append(self.manager.DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
+                                                    nbatches, variables_dict, cuts=self.cuts[file_handler.label],
+                                                    label=label))
 
         # Get number of events in each dataset
         self._total_num_events = []
@@ -80,6 +102,8 @@ class DataGenerator(keras.utils.Sequence):
         logger.log("DataGenerator initialized", 'INFO')
 
 
+
+
     def load_batch(self, idx=None):
         """
         Loads a batch of data from each data type and concatenates them into single arrays for training
@@ -93,7 +117,27 @@ class DataGenerator(keras.utils.Sequence):
         if idx is None:
             index = self._current_index
 
-        batch = [dl.load_batch_from_data(idx=index) for dl in self.data_loaders]
+
+        batch = None
+        ncores = 0
+
+        if ncores < 1:
+            batch = [dl.load_batch_from_data(idx=index) for dl in self.data_loaders]
+        else:
+
+            pool = [Process(target=process_wrapper, args=(self.inst[i], idx))
+                    for i in range(9)]
+
+            for p in pool:
+                p.start()
+
+            for p in pool:
+                p.join()
+
+            batch = [inst.get() for inst in self.inst]
+
+            logger.log(f"batch = {batch}")
+
         track_array = np.concatenate([sub_batch[0][0] for sub_batch in batch])
         neutral_pfo_array = np.concatenate([sub_batch[0][1] for sub_batch in batch])
         shot_pfo_array = np.concatenate([sub_batch[0][2] for sub_batch in batch])
@@ -129,7 +173,6 @@ class DataGenerator(keras.utils.Sequence):
 
         return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array)
 
-
     def get_batch_shapes(self):
         """
         Loads a batch at a specific index and returns the shapes of the returned arrays
@@ -163,7 +206,7 @@ class DataGenerator(keras.utils.Sequence):
         :return: A full batch of data
         """
         #logger.log(f"loaded batch {idx}/{self.__len__()}", 'DEBUG')
-        logger.log(f"{self.label} __getitem__ called")
+        logger.log(f"{self.label} __getitem__ called with index = {idx}")
         self._current_index += 1
         return self.load_batch(idx)
 

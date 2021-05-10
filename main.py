@@ -23,28 +23,28 @@ def main():
     logger.log("Beginning dataset preparation", 'INFO')
 
     # Initialize Generators
-    training_batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=250, cuts=cuts,
+    training_batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=2500, cuts=cuts,
                                              label="Training Generator")
     train_dataset = tf.data.Dataset.from_generator(training_batch_generator, output_types=types, output_shapes=shapes)
     #train_dataset = tf.data.Dataset.range(2).interleave(lambda _: train_dataset, num_parallel_calls=12,)
-    train_dataset = train_dataset.prefetch(tf.data.AUTOTUNE)
-    train_dataset.flat_map(lambda t1, t2, t3: tf.data.Dataset.from_tensors((t1, t2, t3)).repeat(2))
+    # train_dataset = train_dataset.prefetch(tf.data.AUTOTUNE)
+    # train_dataset.flat_map(lambda t1, t2, t3: tf.data.Dataset.from_tensors((t1, t2, t3)).repeat(2))
 
 
     train_dataset = train_dataset.repeat(100)
 
-    validation_batch_generator = DataGenerator(validation_files, variables_dictionary, nbatches=100, cuts=cuts,
+    validation_batch_generator = DataGenerator(validation_files, variables_dictionary, nbatches=2500, cuts=cuts,
                                                label="Validation Generator")
-    val_dataset = tf.data.Dataset.from_generator(validation_batch_generator, output_types=types, output_shapes=shapes)
+    #val_dataset = tf.data.Dataset.from_generator(validation_batch_generator, output_types=types, output_shapes=shapes)
     #val_dataset = tf.data.Dataset.range(2).interleave(lambda _: val_dataset, num_parallel_calls=12)
     #val_dataset = val_dataset.prefetch(tf.data.AUTOTUNE)
     #val_dataset  =val_dataset.repeat()
 
-    val_iterator = iter(val_dataset)
-
-    # Create two objects, x & y, from batch
-    # train_x, train_y, train_weights =train_iterator.get_next()
-    val_x, val_y, val_weights = val_iterator.get_next()
+    # val_iterator = iter(val_dataset)
+    #
+    # # Create two objects, x & y, from batch
+    # # train_x, train_y, train_weights =train_iterator.get_next()
+    # val_x, val_y, val_weights = val_iterator.get_next()
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Model
@@ -72,9 +72,9 @@ def main():
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
      Train Model
      """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    history = model.fit(train_dataset, epochs=100, callbacks=callbacks,
-                        validation_data=(val_x, val_y, val_weights), validation_freq=1, verbose=1, shuffle=True,
-                        workers=6, steps_per_epoch=10, use_multiprocessing=True,
+    history = model.fit(training_batch_generator, epochs=100, callbacks=callbacks,
+                        validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
+                        #workers=6, steps_per_epoch=10, use_multiprocessing=True, #(val_x, val_y, val_weights)
                         )
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Make Plots 

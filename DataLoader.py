@@ -41,6 +41,7 @@ class DataLoader:
         self.class_label = class_label
         self._variables_dict = variables_dict
         self._current_index = 0
+        self._current_batch = None
 
         # If we run out of data in this data loader
         self._disable_indexing = False
@@ -166,6 +167,8 @@ class DataLoader:
         :return: A list of arrays - [x1, x2, ... xn], labels, weight
         """
 
+        logger.log(f"{self.label} - Loading batch {idx} from {self._data_type}")
+
         batch, sig_bkg_labels_np_array = self.get_next_batch(idx)
 
         if batch is None or len(batch) == 0:
@@ -274,6 +277,57 @@ class DataLoader:
 
     def get_batch_generator(self):
         return self._batches_generator
+
+    def get(self):
+        return self._current_batch
+
+    def set_batch(self, idx):
+        """
+           Loads a batch of data of a specific data type and then stores it for later retrieval.
+           Pads ragged track and PFO arrays to make them rectilinear
+           and reshapes arrays into correct shape for training. The clip option in ak.pad_none will truncate/extend each
+           array so that they are all of a specific length- here we limit nested arrays to 20 items
+           :param idx: The index of the batch to be processed
+           """
+
+        logger.log(f"{self.label} - Loading batch {idx} from {self._data_type}")
+
+        batch, sig_bkg_labels_np_array = self.get_next_batch(idx)
+
+        if batch is None or len(batch) == 0:
+            logger.log(f"{self.label} - {self._data_type} ran out of data - repeating data", 'DEBUG')
+            self._current_index = 0
+            batch, sig_bkg_labels_np_array = self.get_next_batch()
+
+        track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=20)
+        conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=20)
+        shot_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ShotPFO", max_items=20)
+        neutral_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "NeutralPFO", max_items=20)
+        jet_np_arrays = self.reshape_arrays(batch, "TauJets")
+
+        # Just do the 1-prong case for now
+        labels_np_array = np.zeros((len(sig_bkg_labels_np_array), 4))
+        if sig_bkg_labels_np_array[0] == 0:
+            labels_np_array[:, 0] = 1
+        else:
+            truth_decay_mode_np_array = ak.to_numpy(batch[self._variables_dict["DecayMode"]])
+            for i in range(0, len(truth_decay_mode_np_array, )):
+                if truth_decay_mode_np_array[i][0] == 0:
+                    labels_np_array[i][1] = 1
+                elif truth_decay_mode_np_array[i][0] == 1:
+                    labels_np_array[i][2] = 1
+                else:
+                    labels_np_array[i][3] = 1
+
+        # Apply pT re-weighting
+        weight_np_array = np.ones(len(labels_np_array))
+        if self.class_label == 0:
+            weight_np_array = pt_reweight(ak.to_numpy(batch[self._variables_dict["Weight"]]).astype("float32"))
+
+        logger.log(f"Loaded batch {self._current_index} from {self._data_type}: {self.label}", "DEBUG")
+
+        self._current_batch = (track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays), \
+                                labels_np_array, weight_np_array
 
 
 if __name__ == "__main__":

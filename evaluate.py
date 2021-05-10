@@ -130,7 +130,7 @@ if __name__ == "__main__":
 	from config import config_dict, cuts
 
 
-	model_weights = "data\\weights-50.h5"
+	model_weights = "data\\weights-62.h5"
 	read = True
 
 	model = ModelDSNN(config_dict)
