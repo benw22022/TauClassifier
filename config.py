@@ -9,7 +9,7 @@ import tensorflow as tf
 
 # Bowen's DSNN config dictionary
 config_dict = {"shapes":
-				   {"TauTrack": (14, 20),
+				   {"TauTrack": (10, 20),
 					"NeutralPFO": (22, 20),
 					"ShotPFO": (6, 20),
 					"ConvTrack": (10, 20),
@@ -73,7 +73,7 @@ types = (
 
 # Tensorflow output shapes
 shapes = (
-	(tf.TensorShape([None, 14, 20]),
+	(tf.TensorShape([None, 10, 20]),
 	 tf.TensorShape([None, 22, 20]),
 	 tf.TensorShape([None, 6, 20]),
 	 tf.TensorShape([None, 10, 20]),
