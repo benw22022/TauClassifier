@@ -20,9 +20,11 @@ jz6_files = FileHandler("JZ6", f"{ntuple_dir}\\*JZ6*\\*.root", class_label=0)
 jz7_files = FileHandler("JZ7", f"{ntuple_dir}\\*JZ7*\\*.root", class_label=0)
 jz8_files = FileHandler("JZ8", f"{ntuple_dir}\\*JZ8*\\*.root", class_label=0)
 
-
 training_files = [gammatautau_files[:-2], jz1_files[:-2], jz2_files[:-2], jz3_files[:-2], jz4_files[:-2], jz5_files[:-2],
                   jz6_files[:-2], jz7_files[:-2], jz8_files[:-2]]
+
+#training_files = [gammatautau_files[0], jz1_files[0], jz2_files[0], jz3_files[0], jz4_files[0], jz5_files[0],
+#                  jz6_files[0], jz7_files[0], jz8_files[0]]
 
 validation_files = [gammatautau_files[-2:-1], jz1_files[-2:-1], jz2_files[-2:-1], jz3_files[-2:-1], jz4_files[-2:-1],
                     jz5_files[-2:-1], jz6_files[-2:-1], jz7_files[-2:-1], jz8_files[-2:-1]]

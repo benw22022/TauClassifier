@@ -18,11 +18,14 @@ from itertools import product, repeat
 from multiprocessing import Process, Manager
 from multiprocessing.managers import BaseManager
 from utils import find_anomalous_entries
+import ray
+from ray.util import inspect_serializability
+from DataIterator import DataIterator
+import gc
 
 
 def process_wrapper(dl, idx):
     dl.set_batch(idx)
-
 
 class DataGenerator(keras.utils.Sequence):
 
@@ -46,8 +49,8 @@ class DataGenerator(keras.utils.Sequence):
         self.data_loaders = []
         self.cuts = cuts
         self._current_index = 0
-        self._epochs = epochs
-        self._epoch_index = 0
+        self._epochs = 0
+
 
 
         # Organise a list of all variables
@@ -57,49 +60,67 @@ class DataGenerator(keras.utils.Sequence):
             self._variables_list += variable_list
 
         # Managers
-        BaseManager.register('DataLoader', DataLoader)
-        self.manager = BaseManager()
-        self.manager.start()
-        self.inst = []
-
+        # self.manager = BaseManager()
+        # self.manager.register('DataLoader', DataLoader)
+        # self.manager.start()
+        # self.inst = []
+        #ray.init(object_store_memory=1e9, _memory=1e9)
+        #ray.init(object_store_memory=1e9)
+        ray.init()
 
         for file_handler in self._file_handlers:
             if cuts is not None and file_handler.label in cuts:
                 logger.log(f"Cuts applied to {file_handler.label}: {self.cuts[file_handler.label]}")
-                self.data_loaders.append(DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
-                                                    nbatches, variables_dict, cuts=self.cuts[file_handler.label],
-                                                    label=label))
 
-                self.inst.append(self.manager.DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
-                                                    nbatches, variables_dict, cuts=self.cuts[file_handler.label],
-                                                    label=label))
+                label = file_handler.label
+                file_list = file_handler.file_list
+                class_label = file_handler.class_label
+                inspect_serializability(DataLoader, name="test")
+                #.options(memory=500 * 1024 * 1024)
+                dl = DataLoader.remote(label, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[label],
+                                                    label=label)
+                self.data_loaders.append(dl)
+
+                # self.inst.append(self.manager.DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
+                #                                     nbatches, variables_dict, cuts=self.cuts[file_handler.label],
+                #                                     label=label))
 
             else:
-                self.data_loaders.append(
-                    DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
-                               nbatches, variables_dict, label=label))
-                self.inst.append(self.manager.DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
-                                                    nbatches, variables_dict, cuts=self.cuts[file_handler.label],
-                                                    label=label))
+                label = file_handler.label
+                file_list = file_handler.file_list
+                class_label = file_handler.class_label
+                inspect_serializability(DataLoader, name="test")
+                #.options(memory=500 * 1024 * 1024)
+                dl = DataLoader.remote(label, file_list, class_label, nbatches, variables_dict,
+                                                    label=label)
+                self.data_loaders.append(dl)
+
+                #
+                # self.data_loaders.append(
+                #     DataLoader.options(memory=500 * 1024 * 1024)(file_handler.label, file_handler.file_list, file_handler.class_label,
+                #                nbatches, variables_dict, label=label))
+                # self.inst.append(self.manager.DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
+                #                                     nbatches, variables_dict, cuts=self.cuts[file_handler.label],
+                #                                     label=label))
 
         # Get number of events in each dataset
         self._total_num_events = []
-        self._num_batches_list = []
+        num_batches_list = []
         for data_loader in self.data_loaders:
-            self._total_num_events.append(data_loader.num_events())
-            self._num_batches_list.append(data_loader.number_of_batches())
-        logger.log(f"Found {sum(self._total_num_events)} events total", "INFO")
+            self._total_num_events.append(data_loader.num_events.remote())
+            num_batches_list.append(ray.get(data_loader.number_of_batches.remote()))
+        #logger.log(f"Found {sum(self._total_num_events)} events total", "INFO")
 
         # Work out how many batches to split the data into
-        self._num_batches = min(self._num_batches_list)
+        self._num_batches = min(num_batches_list)
 
-        # Lazily load batches of data for each dataset
-        for data_loader in self.data_loaders:
-            logger.log(f"Number of batches in {data_loader.data_type()} = {data_loader.number_of_batches()}")
-
-        # Work out the number of batches for training epoch (important)
-        logger.log(f"Number of batches per epoch: {self._num_batches}", 'DEBUG')
-        logger.log("DataGenerator initialized", 'INFO')
+        # # Lazily load batches of data for each dataset
+        # for data_loader in self.data_loaders:
+        #     logger.log(f"Number of batches in {data_loader.data_type()} = {data_loader.number_of_batches()}")
+        #
+        # # Work out the number of batches for training epoch (important)
+        # logger.log(f"Number of batches per epoch: {self._num_batches}", 'DEBUG')
+        # logger.log("DataGenerator initialized", 'INFO')
 
 
 
@@ -119,24 +140,34 @@ class DataGenerator(keras.utils.Sequence):
 
 
         batch = None
-        ncores = 0
+        multiprocess = True
 
-        if ncores < 1:
+
+        if not multiprocess:
             batch = [dl.load_batch_from_data(idx=index) for dl in self.data_loaders]
         else:
 
-            pool = [Process(target=process_wrapper, args=(self.inst[i], idx))
-                    for i in range(9)]
+            [dl.set_batch.remote(idx) for dl in self.data_loaders]
+            futures = [dl.get.remote() for dl in self.data_loaders]
+            batch = ray.get(futures)
 
-            for p in pool:
-                p.start()
+            print(len(batch[0]))
 
-            for p in pool:
-                p.join()
+        # print(batch)  # [1, 1, 1, 1]
 
-            batch = [inst.get() for inst in self.inst]
+            # pool = [Process(target=process_wrapper, args=(self.inst[i], idx))
+            #         for i in range(len(self.inst))]
+            #
+            # for p in pool:
+            #     p.start()
+            #
+            # for p in pool:
+            #     p.join()
+            #
+            # batch = [inst.get() for inst in self.inst]
 
-            logger.log(f"batch = {batch}")
+        logger.log(f"Loaded batch {self.label} {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "DEBUG")
+
 
         track_array = np.concatenate([sub_batch[0][0] for sub_batch in batch])
         neutral_pfo_array = np.concatenate([sub_batch[0][1] for sub_batch in batch])
@@ -153,7 +184,6 @@ class DataGenerator(keras.utils.Sequence):
         #find_anomalous_entries(jet_array, 20, logger, arr_name="jets")
         #find_anomalous_entries(weight_array, 5, logger, arr_name="weights")
 
-        logger.log(f"Loaded batch {self.label} {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "INFO")
         logger.log(f"Batch: {self._current_index}/{self.__len__()} - shapes:", 'DEBUG')
         logger.log(f"TauTracks Shape = {track_array.shape}", 'DEBUG')
         logger.log(f"ConvTracks Shape = {conv_track_array.shape}", 'DEBUG')
@@ -171,7 +201,20 @@ class DataGenerator(keras.utils.Sequence):
         label_array = tf.convert_to_tensor(label_array.astype("float32"))
         weight_array = tf.convert_to_tensor(weight_array.astype("float32"))
 
-        return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array)
+        logger.log(f"Processed batch {self.label} {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "INFO")
+
+        for elem in batch:
+            del elem
+        del batch
+        for elem in futures:
+            del elem
+        del futures
+        gc.collect()
+
+        try:
+            return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array)
+        finally:
+            del track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array, label_array, weight_array
 
     def get_batch_shapes(self):
         """
@@ -206,9 +249,9 @@ class DataGenerator(keras.utils.Sequence):
         :return: A full batch of data
         """
         #logger.log(f"loaded batch {idx}/{self.__len__()}", 'DEBUG')
-        logger.log(f"{self.label} __getitem__ called with index = {idx}")
+        logger.log(f"{self.label} __getitem__ called with index = {idx}", 'DEBUG')
         self._current_index += 1
-        return self.load_batch(idx)
+        return self.load_batch(idx=self._current_index)
 
 
     def __next__(self):
@@ -221,6 +264,12 @@ class DataGenerator(keras.utils.Sequence):
         if self._current_index < self._num_batches:
             self._current_index += 1
             return self.load_batch()
+
+        self._epochs += 1
+        if self._epochs < self._num_batches * self.__len__():
+            self._current_index = -1
+            return self.__next__()
+
         #logger.log(f"{self.label} __next__ called")
         #if self._epoch_index < self._epochs:
         #    if self._current_index < self._num_batches:
@@ -250,7 +299,7 @@ class DataGenerator(keras.utils.Sequence):
         """
         self._current_index = 0
         for data_loader in self.data_loaders:
-            data_loader.reset_index()
+            data_loader.reset_index.remote()
         logger.log(f"reset_generator called on {self.label}")
 
     def on_epoch_end(self):
@@ -264,3 +313,5 @@ class DataGenerator(keras.utils.Sequence):
     def number_events(self):
         return self._total_num_events
 
+    def __del__(self):
+        ray.shutdown()

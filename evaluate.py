@@ -124,13 +124,15 @@ if __name__ == "__main__":
 	import os
 	# Disable GPU - cannot simultaneously use GPU for training and testing
 	os.environ["CUDA_VISIBLE_DEVICES"] = "-1"                     # Disables GPU
+	os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'                      # Sets Tensorflow Logging Level
+
 	from files import testing_files
 	from variables import variables_dictionary
 	from models import ModelDSNN
 	from config import config_dict, cuts
 
 
-	model_weights = "data\\weights-62.h5"
+	model_weights = "weights-06.h5"
 	read = True
 
 	model = ModelDSNN(config_dict)

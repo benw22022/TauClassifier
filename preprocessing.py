@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob
 from scipy.optimize import curve_fit
+import math
 
 procs = {"Log": [
 
@@ -54,7 +55,11 @@ def finite_log(m):
 
 
 def pt_reweight(pt):
-	return 4.486717192254409 * np.exp(12.230191960759665* pt/1e6) + 0.14197785024185136
+	# Hardcode coeffs for now for convenience- TODO: make this an automated routine
+	result = 4.486717192254409 * np.exp(12.230191960759665* pt/1e6) + 0.14197785024185136
+	result = np.nan_to_num(result, posinf=0, neginf=0, copy=False)  # Make sure nothing dodgy happens!
+	result[result > 4] = 4  # Clip weights to a maximum value of 5 to prevent abnormally large weights
+	return result
 
 
 def reweight_func(x, a, b, c):

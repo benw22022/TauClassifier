@@ -4,7 +4,9 @@ Class for a lazy iterator
 
 import uproot
 import numba
+import ray
 
+@ray.remote
 class DataIterator:
 
 	def __init__(self, file_list, var_list, batch_size, step_size='10000 MB', cuts=""):
