@@ -8,7 +8,8 @@ TODO: We don't really want other people to have to edit .py files unless necessa
 
 from utils import FileHandler
 
-ntuple_dir = "E:\\NTuples\\TauClassifier"
+#ntuple_dir = "E:\\NTuples\\TauClassifier"
+ntuple_dir = "C:\\Users\\benwi\\TauClassifier"
 
 gammatautau_files = FileHandler("Gammatautau", f"{ntuple_dir}\\*Gammatautau*\\*.root", class_label=1)
 jz1_files = FileHandler("JZ1", f"{ntuple_dir}\\*JZ1*\\*.root", class_label=0)

@@ -12,7 +12,8 @@ import numpy as np
 import seaborn as sns
 import numba as nb
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-
+import ray
+ray.init()
 
 def make_history_plots(history, metric, show_val=True, saveas=None):
 	plt.plot(history.history[metric], label='train')
@@ -132,7 +133,7 @@ if __name__ == "__main__":
 	from config import config_dict, cuts
 
 
-	model_weights = "weights-06.h5"
+	model_weights = "data\\weights-01.h5"
 	read = True
 
 	model = ModelDSNN(config_dict)
@@ -143,7 +144,7 @@ if __name__ == "__main__":
 	weights = []
 
 	if read:
-		testing_batch_generator = DataGenerator(testing_files, variables_dictionary, nbatches=100, cuts=cuts)
+		testing_batch_generator = DataGenerator(testing_files, variables_dictionary, nbatches=50, cuts=cuts)
 		for i in range(0, len(testing_batch_generator)):
 			batch_tmp, y_true_tmp, weights_tmp = testing_batch_generator[i]
 			y_pred_tmp = model.predict(batch_tmp)
@@ -215,12 +216,13 @@ if __name__ == "__main__":
 	results_dict = {"jets": y_true[:,0], "1p0n": y_true[:,1], "1p1n": y_true[:,2], "1pxn": y_true[:,3],
 					"jets pred": y_pred[:,0], "1p0n pred": y_pred[:,1], "1p1n pred": y_pred[:,2], "1pxn pred": y_pred[:,3]}
 
+	print(results_dict)
 
 	fig, ax = plt.subplots()
-	ax.hist(results_dict["jets pred"], 5, histtype='step', label="jets", color="blue")
-	ax.hist(results_dict["1p0n pred"], 5, histtype='step', label="1p0n", color="orange")
-	ax.hist(results_dict["1p1n pred"], 5, histtype='step', label="1p1n", color="red")
-	ax.hist(results_dict["1pxn pred"], 5, histtype='step', label="1pxn", color="green")
+	ax.hist(results_dict["jets pred"], range=(0, 1), histtype='step', label="jets", color="blue")
+	ax.hist(results_dict["1p0n pred"], range=(0, 1), histtype='step', label="1p0n", color="orange")
+	ax.hist(results_dict["1p1n pred"], range=(0, 1), histtype='step', label="1p1n", color="red")
+	ax.hist(results_dict["1pxn pred"], range=(0, 1), histtype='step', label="1pxn", color="green")
 	plt.legend()
 	plt.savefig("plots\\response.svg")
 	plt.show()
@@ -237,6 +239,12 @@ if __name__ == "__main__":
 																 "1pxn"])
 
 	print(confusion_mat)
+	confusion_mat[:, 0] = confusion_mat[:, 0] / len(results_dict["jets"])
+	confusion_mat[:, 1] = confusion_mat[:, 1] / len(results_dict["1p0n"])
+	confusion_mat[:, 2] = confusion_mat[:, 2] / len(results_dict["1p1n"])
+	confusion_mat[:, 3] = confusion_mat[:, 3] / len(results_dict["1pxn"])
+	print(confusion_mat)
+
 
 	disp = ConfusionMatrixDisplay(confusion_matrix=confusion_mat, display_labels = ["jets",
 																					 "1p0n",

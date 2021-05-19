@@ -5,7 +5,7 @@ import os
 # os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'    # Accelerated Linear Algebra (XLA) actually seems slower
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"                     # Disables GPU
 #os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'                        # Sets Tensorflow Logging Level
-
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 from variables import variables_dictionary
 from models import ModelDSNN
 from DataGenerator import DataGenerator
@@ -17,6 +17,8 @@ import tensorflow as tf
 import pickle
 import matplotlib.pyplot as plt
 from config import config_dict, cuts, types, shapes
+import ray
+ray.init()
 logger.set_log_level('INFO')
 
 
@@ -24,9 +26,9 @@ def main():
     logger.log("Beginning dataset preparation", 'INFO')
 
     # Initialize Generators
-    training_batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=250, cuts=cuts,
+    training_batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=175, cuts=cuts,
                                              label="Training Generator")
-    train_dataset = tf.data.Dataset.from_generator(training_batch_generator, output_types=types, output_shapes=shapes)
+    #train_dataset = tf.data.Dataset.from_generator(training_batch_generator, output_types=types, output_shapes=shapes)
     #train_dataset = tf.data.Dataset.range(2).interleave(lambda _: train_dataset, num_parallel_calls=12,)
     #train_dataset = train_dataset.prefetch(tf.data.AUTOTUNE)
     # train_dataset.flat_map(lambda t1, t2, t3: tf.data.Dataset.from_tensors((t1, t2, t3)).repeat(2))
@@ -34,11 +36,11 @@ def main():
 
     #train_dataset = train_dataset.repeat(100)
 
-    # validation_batch_generator = DataGenerator(validation_files, variables_dictionary, nbatches=250, cuts=cuts,
-    #                                            label="Validation Generator")
+    validation_batch_generator = DataGenerator(validation_files, variables_dictionary, nbatches=100, cuts=cuts,
+                                                label="Validation Generator")
     # val_dataset = tf.data.Dataset.from_generator(validation_batch_generator, output_types=types, output_shapes=shapes)
-    # #val_dataset = tf.data.Dataset.range(2).interleave(lambda _: val_dataset, num_parallel_calls=12)
-    # #val_dataset = val_dataset.prefetch(tf.data.AUTOTUNE)
+    # val_dataset = tf.data.Dataset.range(2).interleave(lambda _: val_dataset, num_parallel_calls=12)
+    # val_dataset = val_dataset.prefetch(tf.data.AUTOTUNE)
     # #val_dataset  =val_dataset.repeat()
     #
     # val_iterator = iter(val_dataset)
@@ -73,8 +75,8 @@ def main():
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
      Train Model
      """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    history = model.fit(training_batch_generator, epochs=100,# callbacks=callbacks,
-                         verbose=1, shuffle=True,
+    history = model.fit(training_batch_generator, epochs=100, callbacks=callbacks,
+                         validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
                         steps_per_epoch=len(training_batch_generator),##workers=6, use_multiprocessing=True, #(val_x, val_y, val_weights)
                         )
     #validation_data=(val_x, val_y, val_weights), validation_freq=1,
@@ -89,9 +91,9 @@ def main():
     plt.savefig("plots\\loss_history.svg")
     plt.show()
     # Save results
-    with open('data\\loss_history.pkl', 'wb') as filehandle:
-        # store the data as binary data stream
-        pickle.dump(history["loss"], filehandle)
+    # with open('data\\loss_history.pkl', 'wb') as filehandle:
+    #     # store the data as binary data stream
+    #     pickle.dump(history["loss"], filehandle)
 
     plt.plot(history.history['accuracy'], label='train')
     plt.plot(history.history['val_loss'], label='val')
@@ -101,9 +103,9 @@ def main():
     plt.savefig("plots\\accuracy_history.svg")
     plt.show()
     # Save results
-    with open('data\\loss_history.pkl', 'wb') as filehandle:
-        # store the data as binary data stream
-        pickle.dump(history["accuracy"], filehandle)
+    # with open('data\\loss_history.pkl', 'wb') as filehandle:
+    #     # store the data as binary data stream
+    #     pickle.dump(history["accuracy"], filehandle)
 
     #max_queue_size=6, workers=6,  tf.data.AUTOTUNE,
 

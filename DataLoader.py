@@ -152,7 +152,7 @@ class DataLoader(object):
         ak_arrays = ak.concatenate([batch[var][:] for var in variables], axis=0)
         np_arrays = ak.to_numpy(abs(ak_arrays))
         np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables))
-        np_arrays = self.apply_scaling(np_arrays)
+        #np_arrays = self.apply_scaling(np_arrays)
         return np_arrays
     #
     # def load_batch_from_data(self, idx=None):

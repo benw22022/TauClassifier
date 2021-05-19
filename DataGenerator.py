@@ -8,28 +8,25 @@ TODO: Make this generalisable to different problems
 
 import numpy as np
 import keras
-from DataLoader import DataLoader
+from DataLoaderMK2 import DataLoader
 from utils import logger
 import tensorflow as tf
 import datetime
 import time
-from multiprocessing import Pool
-from itertools import product, repeat
-from multiprocessing import Process, Manager
-from multiprocessing.managers import BaseManager
-from utils import find_anomalous_entries
+import gc
 import ray
 from ray.util import inspect_serializability
-from DataIterator import DataIterator
-import gc
+
 
 
 def process_wrapper(dl, idx):
     dl.set_batch(idx)
 
+
 class DataGenerator(keras.utils.Sequence):
 
-    def __init__(self, file_handler_list, variables_dict, nbatches=1000, epochs=50, cuts=None, label="DataGenerator"):
+    def __init__(self, file_handler_list, variables_dict, nbatches=1000, epochs=50, cuts=None, label="DataGenerator",
+                 _benchmark=False):
         """
         Class constructor - loads batches of data in a way that can be fed one by one to Keras - avoids having to load
         entire dataset into memory prior to training
@@ -43,13 +40,14 @@ class DataGenerator(keras.utils.Sequence):
         parsed by uproot's cut option e.g. "(pt1 > 50) & ((E1>100) | (E1<90))"
         :param label: A string to label the generator with - useful when debugging multiple generators
         """
-        logger.log("Initializing DataGenerator", 'INFO')
-        self._file_handlers =  file_handler_list
+        logger.log(f"Initializing DataGenerator: {label}", 'INFO')
+        self._file_handlers = file_handler_list
         self.label = label
         self.data_loaders = []
         self.cuts = cuts
         self._current_index = 0
         self._epochs = 0
+        self.__benchmark = _benchmark
 
 
 
@@ -66,7 +64,6 @@ class DataGenerator(keras.utils.Sequence):
         # self.inst = []
         #ray.init(object_store_memory=1e9, _memory=1e9)
         #ray.init(object_store_memory=1e9)
-        ray.init()
 
         for file_handler in self._file_handlers:
             if cuts is not None and file_handler.label in cuts:
@@ -75,33 +72,22 @@ class DataGenerator(keras.utils.Sequence):
                 label = file_handler.label
                 file_list = file_handler.file_list
                 class_label = file_handler.class_label
+
+                # Check that dataloader is serializable - needs to be for ray to work
                 inspect_serializability(DataLoader, name="test")
-                #.options(memory=500 * 1024 * 1024)
                 dl = DataLoader.remote(label, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[label],
                                                     label=label)
                 self.data_loaders.append(dl)
-
-                # self.inst.append(self.manager.DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
-                #                                     nbatches, variables_dict, cuts=self.cuts[file_handler.label],
-                #                                     label=label))
 
             else:
                 label = file_handler.label
                 file_list = file_handler.file_list
                 class_label = file_handler.class_label
-                inspect_serializability(DataLoader, name="test")
-                #.options(memory=500 * 1024 * 1024)
+                logger.log(inspect_serializability(DataLoader, name="test"))
                 dl = DataLoader.remote(label, file_list, class_label, nbatches, variables_dict,
                                                     label=label)
                 self.data_loaders.append(dl)
 
-                #
-                # self.data_loaders.append(
-                #     DataLoader.options(memory=500 * 1024 * 1024)(file_handler.label, file_handler.file_list, file_handler.class_label,
-                #                nbatches, variables_dict, label=label))
-                # self.inst.append(self.manager.DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
-                #                                     nbatches, variables_dict, cuts=self.cuts[file_handler.label],
-                #                                     label=label))
 
         # Get number of events in each dataset
         self._total_num_events = []
@@ -138,10 +124,8 @@ class DataGenerator(keras.utils.Sequence):
         if idx is None:
             index = self._current_index
 
-
         batch = None
         multiprocess = True
-
 
         if not multiprocess:
             batch = [dl.load_batch_from_data(idx=index) for dl in self.data_loaders]
@@ -151,23 +135,7 @@ class DataGenerator(keras.utils.Sequence):
             futures = [dl.get.remote() for dl in self.data_loaders]
             batch = ray.get(futures)
 
-            print(len(batch[0]))
-
-        # print(batch)  # [1, 1, 1, 1]
-
-            # pool = [Process(target=process_wrapper, args=(self.inst[i], idx))
-            #         for i in range(len(self.inst))]
-            #
-            # for p in pool:
-            #     p.start()
-            #
-            # for p in pool:
-            #     p.join()
-            #
-            # batch = [inst.get() for inst in self.inst]
-
         logger.log(f"Loaded batch {self.label} {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "DEBUG")
-
 
         track_array = np.concatenate([sub_batch[0][0] for sub_batch in batch])
         neutral_pfo_array = np.concatenate([sub_batch[0][1] for sub_batch in batch])
@@ -193,6 +161,7 @@ class DataGenerator(keras.utils.Sequence):
         logger.log(f"Labels Shape = {label_array.shape}", 'DEBUG')
         logger.log(f"Weight Shape = {weight_array.shape}", 'DEBUG')
 
+        start_time = time.time()
         track_array = tf.convert_to_tensor(track_array.astype("float32"))
         conv_track_array = tf.convert_to_tensor(conv_track_array.astype("float32"))
         shot_pfo_array = tf.convert_to_tensor(shot_pfo_array.astype("float32"))
@@ -200,9 +169,14 @@ class DataGenerator(keras.utils.Sequence):
         jet_array = tf.convert_to_tensor(jet_array.astype("float32"))
         label_array = tf.convert_to_tensor(label_array.astype("float32"))
         weight_array = tf.convert_to_tensor(weight_array.astype("float32"))
+        logger.log(f"Tensor Conversion time = {time.time() - start_time} seconds", level='DEBUG')
 
-        logger.log(f"Processed batch {self.label} {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "INFO")
 
+        load_time = str(datetime.timedelta(seconds=time.time()-batch_load_time))
+        logger.log(f"{self.label}: Processed batch {self._current_index}/{self.__len__()} - {len(label_array)} events"
+                   f" in {load_time}", "INFO")
+
+        # Make sure we clear up after ourselves
         for elem in batch:
             del elem
         del batch
@@ -211,28 +185,12 @@ class DataGenerator(keras.utils.Sequence):
         del futures
         gc.collect()
 
-        try:
-            return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array)
-        finally:
-            del track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array, label_array, weight_array
+        if self.__benchmark:
+            return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array),\
+                    self._current_index, len(label_array), load_time
 
-    def get_batch_shapes(self):
-        """
-        Loads a batch at a specific index and returns the shapes of the returned arrays
-        Used for debugging and initializing network input layers
-        :return: A list of all the array shapes.
-        """
 
-        batch = self.load_batch(0)
-        shapes = []
-
-        for item in batch[0]:
-            shapes.append(item.shape)
-        shapes.append(batch[1].shape)
-        shapes.append(batch[2].shape)
-
-        return shapes
-
+        return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
 
     def __len__(self):
         """
@@ -248,11 +206,14 @@ class DataGenerator(keras.utils.Sequence):
         :param idx: An index
         :return: A full batch of data
         """
-        #logger.log(f"loaded batch {idx}/{self.__len__()}", 'DEBUG')
         logger.log(f"{self.label} __getitem__ called with index = {idx}", 'DEBUG')
         self._current_index += 1
-        return self.load_batch(idx=self._current_index)
-
+        try:
+            return self.load_batch(idx=self._current_index)
+        finally:
+            # Clear Memory of last batch before the end of the epoch -
+            if self._current_index == len(self):
+                self.reset_generator()
 
     def __next__(self):
         """
@@ -299,19 +260,15 @@ class DataGenerator(keras.utils.Sequence):
         """
         self._current_index = 0
         for data_loader in self.data_loaders:
-            data_loader.reset_index.remote()
-        logger.log(f"reset_generator called on {self.label}")
+            data_loader.reset_dataloader.remote()
+        gc.collect()
 
     def on_epoch_end(self):
         """
         This function is called by Keras at the end of every epoch. Here it is used to reset the iterators to the start
         :return:
         """
-        logger.log_memory_usage(level='DEBUG')
         self.reset_generator()
 
     def number_events(self):
         return self._total_num_events
-
-    def __del__(self):
-        ray.shutdown()

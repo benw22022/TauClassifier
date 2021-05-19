@@ -10,9 +10,11 @@ from functools import total_ordering
 from datetime import datetime
 import os
 from inspect import getframeinfo, stack
-import tracemalloc
 import glob
 import numpy as np
+import tracemalloc
+tracemalloc.start()
+
 
 @total_ordering
 class LogLevels(Enum):
@@ -33,10 +35,8 @@ class Logger:
     def __init__(self, log_level='INFO'):
         self._start_time = time.time()
         self._log_level = LogLevels[log_level]
-        self._log_file = open("data\\train.log", 'w')
-        tracemalloc.start()
 
-    def log(self, message, level='INFO'):
+    def log(self, message, level='INFO', log_mem=False):
         if LogLevels[level] <= self._log_level:
             time_now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             caller = getframeinfo(stack()[1][0])
@@ -44,8 +44,12 @@ class Logger:
             line_num = caller.lineno
             filename = os.path.basename(filename)
             log_message = f"{time_now} {filename}:{line_num} {level} - {message}"
+            if log_mem:
+                current, peak = tracemalloc.get_traced_memory()
+                message = f"Current memory usage is {current / 10 ** 6}MB; Peak was {peak / 10 ** 6}MB"
+                log_message += f" - {message}"
+
             print(log_message)
-            self._log_file.write(f"{log_message}\n")
 
     def set_log_level(self, level):
         self._log_level = LogLevels[level]
@@ -54,9 +58,6 @@ class Logger:
         current, peak = tracemalloc.get_traced_memory()
         message = f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB"
         self.log(message, level)
-
-    def __del__(self):
-        self._log_file.close()
 
 
 class FileHandler:
@@ -105,6 +106,7 @@ class FileHandler:
             ret_str += f"\n{file}"
         return ret_str
 
+
 def find_anomalous_entries(array, thresh, logger, arr_name=""):
     """
     Debugging function to look for strange entries - useful when trying to understand why loss is looking weird
@@ -126,7 +128,6 @@ def find_anomalous_entries(array, thresh, logger, arr_name=""):
     inf_arr = np.where(np.isinf(array))
     if len(inf_arr) > 0:
         logger.log(f"{arr_name} - found {len(inf_arr)} NaN values")
-
 
 
 # Initialize logger as global variable
