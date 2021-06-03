@@ -144,8 +144,8 @@ def ModelDSNN(para, mask_value=0.0):
     # Branch 5
     x_5 = Input(shape=para["shapes"]["TauJets"])
     dense_5_1 = Dense(20, activation="relu")(x_5)
-    dense_5_2 = Dense(20, activation="relu")(dense_5_1)
-    dense_5_3 = Dense(20, activation="relu")(dense_5_2)
+    dense_5_2 = Dense(10, activation="relu")(dense_5_1)
+    dense_5_3 = Dense(5, activation="relu")(dense_5_2)
     BatchNormalization()(x_5)
 
     # Merge
@@ -157,7 +157,8 @@ def ModelDSNN(para, mask_value=0.0):
     merged = Dense(para["n_fc2"])(merged)
     merged = Activation("relu")(merged)
 
-    y = Dense(para["n_classes"], activation="softmax")(merged)
+    #y = Dense(para["n_classes"], activation="softmax")(merged)
+    y = Dense(1, activation="sigmoid")(merged)
 
     return Model(inputs=[x_1, x_2, x_3, x_4, x_5], outputs=y)
 

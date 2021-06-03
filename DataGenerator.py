@@ -8,16 +8,14 @@ TODO: Make this generalisable to different problems
 
 import numpy as np
 import keras
-from DataLoaderMK2 import DataLoader
-from utils import logger
+from DataLoader import DataLoader
+from utils import logger, find_anomalous_entries
 import tensorflow as tf
 import datetime
 import time
 import gc
 import ray
 from ray.util import inspect_serializability
-
-
 
 def process_wrapper(dl, idx):
     dl.set_batch(idx)
@@ -49,8 +47,6 @@ class DataGenerator(keras.utils.Sequence):
         self._epochs = 0
         self.__benchmark = _benchmark
 
-
-
         # Organise a list of all variables
         self._variables_dict = variables_dict
         self._variables_list = []
@@ -69,23 +65,23 @@ class DataGenerator(keras.utils.Sequence):
             if cuts is not None and file_handler.label in cuts:
                 logger.log(f"Cuts applied to {file_handler.label}: {self.cuts[file_handler.label]}")
 
-                label = file_handler.label
+                dl_label = file_handler.label + "_" + self.label
                 file_list = file_handler.file_list
                 class_label = file_handler.class_label
 
                 # Check that dataloader is serializable - needs to be for ray to work
                 inspect_serializability(DataLoader, name="test")
-                dl = DataLoader.remote(label, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[label],
+                dl = DataLoader.options(name=dl_label).remote(label, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[file_handler.label],
                                                     label=label)
                 self.data_loaders.append(dl)
 
             else:
-                label = file_handler.label
+                dl_label = file_handler.label + "_" + self.label
                 file_list = file_handler.file_list
                 class_label = file_handler.class_label
                 logger.log(inspect_serializability(DataLoader, name="test"))
-                dl = DataLoader.remote(label, file_list, class_label, nbatches, variables_dict,
-                                                    label=label)
+                dl = DataLoader.options(name=dl_label).remote(label, file_list, class_label, nbatches, variables_dict,
+                                                    label=dl_label)
                 self.data_loaders.append(dl)
 
 
@@ -93,23 +89,12 @@ class DataGenerator(keras.utils.Sequence):
         self._total_num_events = []
         num_batches_list = []
         for data_loader in self.data_loaders:
-            self._total_num_events.append(data_loader.num_events.remote())
+            self._total_num_events.append(ray.get(data_loader.num_events.remote()))
             num_batches_list.append(ray.get(data_loader.number_of_batches.remote()))
-        #logger.log(f"Found {sum(self._total_num_events)} events total", "INFO")
+        logger.log(f"{self.label} - Found {sum(self._total_num_events)} events total", "INFO")
 
         # Work out how many batches to split the data into
         self._num_batches = min(num_batches_list)
-
-        # # Lazily load batches of data for each dataset
-        # for data_loader in self.data_loaders:
-        #     logger.log(f"Number of batches in {data_loader.data_type()} = {data_loader.number_of_batches()}")
-        #
-        # # Work out the number of batches for training epoch (important)
-        # logger.log(f"Number of batches per epoch: {self._num_batches}", 'DEBUG')
-        # logger.log("DataGenerator initialized", 'INFO')
-
-
-
 
     def load_batch(self, idx=None):
         """
@@ -120,75 +105,64 @@ class DataGenerator(keras.utils.Sequence):
 
         batch_load_time = time.time()
 
-        index = idx
-        if idx is None:
-            index = self._current_index
-
-        batch = None
-        multiprocess = True
-
-        if not multiprocess:
-            batch = [dl.load_batch_from_data(idx=index) for dl in self.data_loaders]
-        else:
-
-            [dl.set_batch.remote(idx) for dl in self.data_loaders]
-            futures = [dl.get.remote() for dl in self.data_loaders]
-            batch = ray.get(futures)
-
         logger.log(f"Loaded batch {self.label} {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "DEBUG")
 
-        track_array = np.concatenate([sub_batch[0][0] for sub_batch in batch])
-        neutral_pfo_array = np.concatenate([sub_batch[0][1] for sub_batch in batch])
-        shot_pfo_array = np.concatenate([sub_batch[0][2] for sub_batch in batch])
-        conv_track_array = np.concatenate([sub_batch[0][3] for sub_batch in batch])
-        jet_array = np.concatenate([sub_batch[0][4] for sub_batch in batch])
-        label_array = np.concatenate([sub_batch[1] for sub_batch in batch])
-        weight_array = np.concatenate([sub_batch[2] for sub_batch in batch])
+        # Concatenate the results from each file stream together
+        batch = ray.get([dl.set_batch.remote(idx) for dl in self.data_loaders])
+        track_array = np.concatenate([result.tracks for result in batch])
+        neutral_pfo_array = np.concatenate([result.neutral_PFOs for result in batch])
+        shot_pfo_array = np.concatenate([result.shot_PFOs for result in batch])
+        conv_track_array = np.concatenate([result.conv_tracks for result in batch])
+        jet_array = np.concatenate([result.jets for result in batch])
+        label_array = np.concatenate([result.labels for result in batch])
+        weight_array = np.concatenate([result.weights for result in batch])
 
-        #find_anomalous_entries(track_array, 20, logger, arr_name="tracks")
-        #find_anomalous_entries(neutral_pfo_array, 20, logger, arr_name="neutral PFO")
-        #find_anomalous_entries(shot_pfo_array, 20, logger, arr_name="shot PFO")
-        #find_anomalous_entries(conv_track_array, 20, logger, arr_name="conv track")
-        #find_anomalous_entries(jet_array, 20, logger, arr_name="jets")
-        #find_anomalous_entries(weight_array, 5, logger, arr_name="weights")
+        # logger.log(f"Tracks type = {type(track_array)}")
+        # logger.log(f"ConvTracks type = {type(conv_track_array)}")
+        # logger.log(f"ShotPFOs type = {type(shot_pfo_array)}")
+        # logger.log(f"NeutralPFOs type = {type(neutral_pfo_array)}")
+        #
+        # logger.log(f"Tracks max = {np.amax(track_array)}")
+        # logger.log(f"ConvTracks max = {np.amax(conv_track_array)}")
+        # logger.log(f"ShotPFOs max = {np.amax(shot_pfo_array)}")
+        # logger.log(f"NeutralPFOs max = {np.amax(neutral_pfo_array)}")
+        # logger.log(f"Jets max = {np.amax(jet_array)}")
+        # logger.log(f"Labels max = {np.amax(label_array)}")
+        # logger.log(f"Weights max = {np.amax(weight_array)}")
+        #
+        # logger.log(f"Tracks min = {np.amin(track_array)}")
+        # logger.log(f"ConvTracks min = {np.amin(conv_track_array)}")
+        # logger.log(f"ShotPFOs min = {np.amin(shot_pfo_array)}")
+        # logger.log(f"NeutralPFOs min = {np.amin(neutral_pfo_array)}")
+        # logger.log(f"Jets min = {np.amin(jet_array)}")
+        # logger.log(f"Labels min = {np.amin(label_array)}")
+        # logger.log(f"Weights min = {np.amin(weight_array)}")
 
-        logger.log(f"Batch: {self._current_index}/{self.__len__()} - shapes:", 'DEBUG')
-        logger.log(f"TauTracks Shape = {track_array.shape}", 'DEBUG')
-        logger.log(f"ConvTracks Shape = {conv_track_array.shape}", 'DEBUG')
-        logger.log(f"ShotPFO Shape = {shot_pfo_array.shape}", 'DEBUG')
-        logger.log(f"NeutralPFO Shape = {neutral_pfo_array.shape}", 'DEBUG')
-        logger.log(f"TauJets Shape = {jet_array.shape}", 'DEBUG')
-        logger.log(f"Labels Shape = {label_array.shape}", 'DEBUG')
-        logger.log(f"Weight Shape = {weight_array.shape}", 'DEBUG')
 
-        start_time = time.time()
-        track_array = tf.convert_to_tensor(track_array.astype("float32"))
-        conv_track_array = tf.convert_to_tensor(conv_track_array.astype("float32"))
-        shot_pfo_array = tf.convert_to_tensor(shot_pfo_array.astype("float32"))
-        neutral_pfo_array = tf.convert_to_tensor(neutral_pfo_array.astype("float32"))
-        jet_array = tf.convert_to_tensor(jet_array.astype("float32"))
-        label_array = tf.convert_to_tensor(label_array.astype("float32"))
-        weight_array = tf.convert_to_tensor(weight_array.astype("float32"))
-        logger.log(f"Tensor Conversion time = {time.time() - start_time} seconds", level='DEBUG')
+        # find_anomalous_entries(track_array, 1, logger, arr_name="tracks")
+        # find_anomalous_entries(neutral_pfo_array, 1, logger, arr_name="neutral PFO")
+        # find_anomalous_entries(shot_pfo_array, 1, logger, arr_name="shot PFO")
+        # find_anomalous_entries(conv_track_array, 1, logger, arr_name="conv track")
+        # find_anomalous_entries(jet_array, 1, logger, arr_name="jets")
+        # find_anomalous_entries(weight_array, 5, logger, arr_name="weights")
+
+        # logger.log(f"Batch: {self._current_index}/{self.__len__()} - shapes:", 'DEBUG')
+        # logger.log(f"TauTracks Shape = {track_array.shape}", )
+        # logger.log(f"ConvTracks Shape = {conv_track_array.shape}", )
+        # logger.log(f"ShotPFO Shape = {shot_pfo_array.shape}", )
+        # logger.log(f"NeutralPFO Shape = {neutral_pfo_array.shape}", )
+        # logger.log(f"TauJets Shape = {jet_array.shape}", )
+        # logger.log(f"Labels Shape = {label_array.shape}", )
+        # logger.log(f"Weight Shape = {weight_array.shape}", )
 
 
         load_time = str(datetime.timedelta(seconds=time.time()-batch_load_time))
         logger.log(f"{self.label}: Processed batch {self._current_index}/{self.__len__()} - {len(label_array)} events"
                    f" in {load_time}", "INFO")
 
-        # Make sure we clear up after ourselves
-        for elem in batch:
-            del elem
-        del batch
-        for elem in futures:
-            del elem
-        del futures
-        gc.collect()
-
         if self.__benchmark:
             return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array),\
                     self._current_index, len(label_array), load_time
-
 
         return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
 
@@ -230,19 +204,6 @@ class DataGenerator(keras.utils.Sequence):
         if self._epochs < self._num_batches * self.__len__():
             self._current_index = -1
             return self.__next__()
-
-        #logger.log(f"{self.label} __next__ called")
-        #if self._epoch_index < self._epochs:
-        #    if self._current_index < self._num_batches:
-        #        self._current_index += 1
-        #        return self.load_batch()
-        #    self.on_epoch_end()
-        #    self._epoch_index += 1
-        #    if self.label == "Validation Generator":
-        #        logger.log(f"StopIteration raised by __next__ in {self.label}")
-        #        raise StopIteration
-        #    logger.log(f"Completed {self._epoch_index} epochs")
-        #    return self.load_batch()
         raise StopIteration
 
     def __iter__(self):

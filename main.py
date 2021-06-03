@@ -18,7 +18,12 @@ import pickle
 import matplotlib.pyplot as plt
 from config import config_dict, cuts, types, shapes
 import ray
-ray.init()
+import json
+ray.init(    _system_config={
+        "object_spilling_config": json.dumps(
+            {"type": "filesystem", "params": {"directory_path": "/tmp/spill"}},
+        )
+    },)
 logger.set_log_level('INFO')
 
 
@@ -26,7 +31,7 @@ def main():
     logger.log("Beginning dataset preparation", 'INFO')
 
     # Initialize Generators
-    training_batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=175, cuts=cuts,
+    training_batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=250, cuts=cuts,
                                              label="Training Generator")
     #train_dataset = tf.data.Dataset.from_generator(training_batch_generator, output_types=types, output_shapes=shapes)
     #train_dataset = tf.data.Dataset.range(2).interleave(lambda _: train_dataset, num_parallel_calls=12,)
@@ -36,7 +41,7 @@ def main():
 
     #train_dataset = train_dataset.repeat(100)
 
-    validation_batch_generator = DataGenerator(validation_files, variables_dictionary, nbatches=100, cuts=cuts,
+    validation_batch_generator = DataGenerator(validation_files, variables_dictionary, nbatches=50, cuts=cuts,
                                                 label="Validation Generator")
     # val_dataset = tf.data.Dataset.from_generator(validation_batch_generator, output_types=types, output_shapes=shapes)
     # val_dataset = tf.data.Dataset.range(2).interleave(lambda _: val_dataset, num_parallel_calls=12)
@@ -65,12 +70,12 @@ def main():
                                                verbose=0)
 
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.4, patience=3, min_lr=4e-6)
-    cb = TimingCallback()
 
     callbacks = [early_stopping, model_checkpoint, reduce_lr]
 
     model.summary()
-    model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
+    # model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()])
+    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
      Train Model

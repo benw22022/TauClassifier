@@ -12,8 +12,14 @@ import numpy as np
 import seaborn as sns
 import numba as nb
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from pathlib import Path
 import ray
-ray.init()
+import json
+ray.init(_system_config={
+        "object_spilling_config": json.dumps(
+            {"type": "filesystem", "params": {"directory_path": "/tmp/spill"}},
+        )
+    },)
 
 def make_history_plots(history, metric, show_val=True, saveas=None):
 	plt.plot(history.history[metric], label='train')
@@ -133,7 +139,7 @@ if __name__ == "__main__":
 	from config import config_dict, cuts
 
 
-	model_weights = "data\\weights-01.h5"
+	model_weights = str(Path("data/weights_25_05_2021/weights-12.h5"))
 	read = True
 
 	model = ModelDSNN(config_dict)
@@ -194,8 +200,10 @@ if __name__ == "__main__":
 		print(count_1p0n)
 		print(count_1p1n)
 		print(count_1pxn)
+		return count_jets, count_1p0n, count_1p1n, count_1pxn
 
-	count(y_true)
+
+	count_jets, count_1p0n, count_1p1n, count_1pxn = count(y_true)
 
 	if len(nan_idx) > 0:
 		y_pred_new = []
@@ -236,13 +244,14 @@ if __name__ == "__main__":
 	confusion_mat = confusion_matrix(y_true_v, y_pred_v, labels=["jets",
 																 "1p0n",
 																 "1p1n",
-																 "1pxn"])
+																 "1pxn"]).astype("float32")
 
 	print(confusion_mat)
-	confusion_mat[:, 0] = confusion_mat[:, 0] / len(results_dict["jets"])
-	confusion_mat[:, 1] = confusion_mat[:, 1] / len(results_dict["1p0n"])
-	confusion_mat[:, 2] = confusion_mat[:, 2] / len(results_dict["1p1n"])
-	confusion_mat[:, 3] = confusion_mat[:, 3] / len(results_dict["1pxn"])
+
+	confusion_mat[:, 0] = (confusion_mat[:, 0] / count_jets) * 100
+	confusion_mat[:, 1] = (confusion_mat[:, 1] / count_1p0n) * 100
+	confusion_mat[:, 2] = (confusion_mat[:, 2] / count_1p1n) * 100
+	confusion_mat[:, 3] = (confusion_mat[:, 3] / count_1pxn) * 100
 	print(confusion_mat)
 
 
@@ -254,6 +263,8 @@ if __name__ == "__main__":
 	disp.plot()
 	plt.savefig("plots\\confusion_matrix.svg")
 	plt.show()
+
+	ray.shutdown()
 
 	# jet_to_jet = 0
 	# jet_to_p0n = 0
