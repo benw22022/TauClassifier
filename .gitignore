@@ -16,6 +16,8 @@ venv*
 data/*
 plots/*
 *training
+*tmp
+
 
 # Ignore logs
 *.log
