@@ -45,7 +45,8 @@ def labeler(truth_decay_mode_np_array, labels_np_array):
 
 
 #@nb.njit()
-def apply_scaling(np_arrays, name=None):
+
+def apply_scaling(np_arrays, dummy_val=None, thresh=45):
     """
     Rescales each varaible to be between zero and one. Function is jitted for speed
     :param np_arrays: The numpy arrays containing a set of input variables
@@ -54,108 +55,23 @@ def apply_scaling(np_arrays, name=None):
 
     if len(np_arrays.shape) == 3:
         for i in range(0, np_arrays.shape[1]):
-            if np.amax(np_arrays[:, i]) > 30:
+            arr = np.ravel(np_arrays[:, i])
+            arr = arr[arr != dummy_val]
+            arr_median = np.median(arr)
+            q75, q25 = np.percentile(arr, [75, 25])
+            arr_iqr = q75 - q25
 
-                a = np.ravel(np_arrays[:, i])
-                arr = a[a != 0]
-                arr_mean = np.mean(arr)
-                arr_median = np.median(arr)
-                q75, q25 = np.percentile(arr, [75, 25])
-                arr_iqr = q75 - q25
+            if arr_iqr > 0:
+                np_arrays[:, i] = np.where(np_arrays[:, i] != dummy_val, (np_arrays[:, i] - arr_median) / arr_iqr, dummy_val)
+                np_arrays[:, i] = np.where(np_arrays[:, i] < thresh, np_arrays[:, i], thresh)
+                np_arrays[:, i] = np.where(np_arrays[:, i] > -thresh, np_arrays[:, i], -thresh)
 
-                if arr_mean > 1:
-                    if arr_iqr > 0:
-                        np_arrays[:, i] = np.where(np_arrays[:, i] > 0, (np_arrays[:, i] - arr_median) / arr_iqr, 0)
-                    else:
-                        arr_std = np.std(np.ravel(np_arrays[:, i]))
-                        if arr_std > 0:
-                            np_arrays[:, i] = np.where(np_arrays[:, i] > 0, 1 + (np_arrays[:, i] - arr_mean) / arr_std, 0)
-                        else:
-                            np_arrays[:, i]= np_arrays[:, i] / arr_mean
-                # else:
-                #     new_arr[:, i] = np_arrays[:, i]
-                # np_arrays[:, i] = np.where(np_arrays[:, i] > 10**-6, np_arrays[:, i], 10**-6)
-                # np_arrays[:, i] = np.where(np_arrays[:, i] > 10**-6, np.log10(np_arrays[:,i]), 0)
-        # scaler = StandardScaler()
-        # num_instances, num_features, num_time_steps,  = np_arrays.shape
-        # new_arr = np_arrays.reshape(-1, np_arrays.shape[-2])
-        # #np_arrays = np_arrays.reshape((-1, num_time_steps))
-        # # for i in range(0, num_features):
-        # #
-        # #     logger.log(f"New Shape = {new_arr.shape} -- Old Shape = {np.squ(np_arrays[:, i]).shape}")
-        # #
-        # #     new_arr[i] = np.ravel(np_arrays[:, i])
-        # new_arr = scaler.fit_transform(new_arr)
-        # for i in range(0, num_features):
-        #     np_arrays[:, i] = new_arr[:, i].reshape(num_instances, num_time_steps)
-        # logger.log(f"In shape = {in_shape} -- out_shape = {np_arrays.shape}")
-        # np_arrays = np.where(np_arrays < 1, np_arrays, 1)
         return np_arrays
     else:
         scaler = StandardScaler()
         np_arrays = scaler.fit_transform(np_arrays)
-        #logger.log(f"In shape = {in_shape} -- out_shape = {np_arrays.shape}")
         return np_arrays
 
-    # for i in range(0, np_arrays.shape[1]):
-    #
-    #     arr_mean = np.mean(np_arrays[:, i])
-    #     arr_std = np.std(np_arrays[:, i])
-    #     arr_median = np.median(np_arrays[:, i])
-    #     q75, q25 = np.percentile(np_arrays[:, i], [75, 25])
-    #     arr_iqr = q75 - q25
-    #
-    #     if arr_mean > 1:
-    #         arr = np.where(np_arrays[:, i] > 1.0e-10, np_arrays[:, i], 1.0e-10)
-    #         #arr = np.where(arr < 1e6, arr, 1.0e-10)
-    #         arr = np.where(arr > 1, np.log10(arr), 0)
-    #         #new_arr[:, i] = arr
-    #         scalar = StandardScaler()
-    #         scalar = scalar.fit(np.ravel(arr).reshape(-1, 1))
-    #         arr_shape = new_arr[:, i].shape
-    #         new_arr[:, i] = scalar.transform(np.ravel(arr).reshape(-1, 1)).reshape(arr_shape) + 1
-    #         new_arr[:, i] = np.where(new_arr[:, i] < 7, new_arr[:, i], 7)
-    #         #new_arr[:, i] = np_arrays[:, i]
-    #     else:
-    #         new_arr[:, i] = np_arrays[:, i]
-    return new_arr
-
-@nb.njit()
-def scale_data(np_arrays):
-    # https: // stats.stackexchange.com / questions / 46429 / transform - data - to - desired - mean - and -standard - deviation
-    # https://machinelearningmastery.com/robust-scaler-transforms-for-machine-learning/
-    new_arr = np.ones_like(np_arrays) * -999
-    for i in range(0, np_arrays.shape[1]):
-
-        a = np.ravel(np_arrays[:, i])
-
-        arr = a[a != 0]
-        arr_mean = np.mean(arr)
-        arr_median = np.median(arr)
-        q75, q25 = np.percentile(arr, [75, 25])
-        arr_iqr = q75 - q25
-
-        if arr_mean > 1:
-            if arr_iqr > 0:
-                new_arr[:, i] = np.where(np_arrays[:, i] > 0, (np_arrays[:, i] - arr_median) / arr_iqr, 0)
-            else:
-                arr_std = np.std(np.ravel(np_arrays[:, i]))
-                if arr_std > 0:
-                    new_arr[:, i] = np.where(np_arrays[:, i] > 0, 1 + (np_arrays[:, i] - arr_mean) / arr_std, 0)
-                else:
-                    new_arr[:, i] = np_arrays[:, i] / arr_mean
-        else:
-            new_arr[:, i] = np_arrays[:, i]
-
-        # Not robust enough!
-        # arr_mean = np.mean(np.ravel(np_arrays[:, i]))
-        # arr_std = np.std(np.ravel(np_arrays[:, i]))
-        # if arr_mean > 1:
-        #     if arr_std > 0:
-        #         new_arr[:, i] = 1 + (np_arrays[:, i] - arr_mean) / arr_std
-        #     else:
-        #         new_arr[:, i] = np_arrays[:, i] / arr_mean
-    return new_arr
 
 @ray.remote
 class DataLoader:
@@ -184,7 +100,6 @@ class DataLoader:
         self.class_label = class_label
         self._variables_dict = variables_dict
         self._current_index = 0
-        self._current_batch = None
 
         # Parse variables
         self._variables_list = []
@@ -193,8 +108,8 @@ class DataLoader:
 
         # Work out how many events there in the sample
         test_arr = uproot.concatenate(self.files, filter_name="TauJets." + self.dummy_var, step_size=10000,
-                                      cut=self.cut)
-        self._num_events = len(test_arr)
+                                      cut=self.cut, library='np')
+        self._num_events = len(test_arr["TauJets." + self.dummy_var])
 
         # Set the DataLoader's batch size
         if batch_size is None:
@@ -211,14 +126,6 @@ class DataLoader:
         for _ in uproot.iterate(self.files, filter_name=self._variables_list[0], cut=self.cut,
                                 step_size=self.specific_batch_size):
             self._num_real_batches += 1
-
-        self.tracks = None
-        self.neutral_pfo = None
-        self.shot_pfo = None
-        self.conv_track = None
-        self.jets = None
-        self.labels = None
-        self.weights = None
 
         logger.log(f"Found {len(files)} files for {data_type}", 'INFO')
         logger.log(f"Found these files: {files}", 'INFO')
@@ -247,17 +154,17 @@ class DataLoader:
                 (num events in batch, number of variables belonging to variable type, max_items)
         """
         variables = self._variables_dict[variable_type]
-        # logger.log(f"AK {variables[0]} max = {np.amax(batch[variables[0]])}")
         np_arrays = np.zeros((ak.num(batch[variables[0]], axis=0), len(variables), max_items))
-
+        dummy_val = 0
+        thresh = 45
         for i in range(0, len(variables)):
             ak_arr = batch[variables[i]]
             ak_arr = ak.pad_none(ak_arr, max_items, clip=True, axis=1)
-            arr = ak.to_numpy(abs(ak_arr)).filled(0)
+            arr = ak.to_numpy(abs(ak_arr)).filled(dummy_val)
             np_arrays[:, i] = arr
-        np_arrays = apply_scaling(np_arrays, name=variable_type)
+        np_arrays = apply_scaling(np_arrays, thresh=thresh, dummy_val=dummy_val)
         np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float64")
-        return np_arrays#.filled(0)
+        return np_arrays
 
     def reshape_arrays(self, batch, variable_type):
         """
@@ -269,14 +176,13 @@ class DataLoader:
                 (num events in batch, number of variables belonging to variable type)
         """
         variables = self._variables_dict[variable_type]
-        # logger.log(f"AK {variables[0]} max = {np.amax(batch[variables[0]])}")
         np_arrays = np.zeros((ak.num(batch[variables[0]], axis=0), len(variables)))
 
         for i in range(0, len(variables)):
             ak_arr = batch[variables[i]]
             arr = ak.to_numpy(abs(ak_arr))
             np_arrays[:, i] = arr
-        np_arrays = apply_scaling(np_arrays, name=variable_type)
+        np_arrays = apply_scaling(np_arrays)
         np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float64")
         return np_arrays
 
@@ -311,7 +217,7 @@ class DataLoader:
             weight_np_array = pt_reweight(ak.to_numpy(batch[self._variables_dict["Weight"]]).astype("float32"))
 
         result = Result(track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays,
-                        jet_np_arrays, sig_bkg_labels_np_array, weight_np_array)
+                        jet_np_arrays, labels_np_array, weight_np_array)
 
         # logger.log(f"Tracks Max = {np.amax(result.tracks)}")
         # logger.log(f"NeutralPFOs Max = {np.amax(result.neutral_PFOs)}")
@@ -325,7 +231,6 @@ class DataLoader:
         self._current_index = 0
         self._batches_generator = uproot.iterate(self.files, filter_name=self._variables_list, cut=self.cut,
                                                  library='ak', step_size=self.specific_batch_size)
-        self._current_batch = None
         gc.collect()
 
     def num_events(self):
@@ -336,32 +241,3 @@ class DataLoader:
 
     def number_of_batches(self):
         return self._num_real_batches
-
-    def get(self):
-        return self._current_batch
-
-    def get_tracks(self):
-        logger.log(f"{self.label} in getter Tracks Max = {np.amax(self.tracks)}")
-        return self.tracks
-
-    def get_neutral_pfo(self):
-        logger.log(f"{self.label} in getter Neutral PFO Max = {np.amax(self.neutral_pfo)}")
-        return self.neutral_pfo
-
-    def get_shot_pfo(self):
-        return self.shot_pfo
-
-    def get_conv_tracks(self):
-        return self.conv_track
-
-    def get_jets(self):
-        return self.jets
-
-    def get_labels(self):
-        return self.labels
-
-    def get_weights(self):
-        return self.weights
-
-    def get_batch(self):
-        return self.tracks, self.neutral_pfo, self.shot_pfo, self.conv_track, self.jets, self.labels, self.weights

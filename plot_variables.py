@@ -14,6 +14,7 @@ from preprocessing import pt_reweight
 import uproot
 import glob
 import pickle
+from variables import var_lims
 ray.init()
 
 
@@ -105,21 +106,27 @@ if __name__ == "__main__":
 			for k in range(0, batch[j].shape[1]):
 
 				arr = batch[j][:, k]
+				weights = batch[2]
 
 				print(np.amax(arr))
-
 				print(arr.shape)
 				print(np.argwhere(labels == 1).shape)
 
 				jets_data = np.take(arr, np.argwhere(labels == 1))
 				taus_data = np.take(arr, np.argwhere(labels == 0))
 
+				jets_weight = np.take(weights, np.argwhere(labels == 1))
+				taus_weight = np.take(weights, np.argwhere(labels == 0))
+
 				fig, ax = plt.subplots()
-				ax.hist(jets_data.flatten(), bins=500, label="Jets", histtype="step", color="blue")
-				ax.hist(taus_data.flatten(), bins=500, label="Taus", histtype="step", color="orange")
+				ax.hist(jets_data.flatten(), bins=30, label="Jets", histtype="step", color="blue")
+				ax.hist(taus_data.flatten(), bins=30, label="Taus", histtype="step", color="orange")
 				ax.set_xlabel(variables_dictionary[names[j]][k])
 				ax.legend()
-				plt.savefig(f"plots\\variables\\batch_1_{variables_dictionary[names[j]][k]}.png")
+				var = variables_dictionary[names[j]][k]
+				if var in var_lims:
+					ax.set_xlim([-4, 5])
+				plt.savefig(f"plots\\variables\\batch_1_{var}.png")
 				plt.show()
 		break
 

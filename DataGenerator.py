@@ -53,14 +53,6 @@ class DataGenerator(keras.utils.Sequence):
         for _, variable_list in variables_dict.items():
             self._variables_list += variable_list
 
-        # Managers
-        # self.manager = BaseManager()
-        # self.manager.register('DataLoader', DataLoader)
-        # self.manager.start()
-        # self.inst = []
-        #ray.init(object_store_memory=1e9, _memory=1e9)
-        #ray.init(object_store_memory=1e9)
-
         for file_handler in self._file_handlers:
             if cuts is not None and file_handler.label in cuts:
                 logger.log(f"Cuts applied to {file_handler.label}: {self.cuts[file_handler.label]}")
@@ -71,7 +63,7 @@ class DataGenerator(keras.utils.Sequence):
 
                 # Check that dataloader is serializable - needs to be for ray to work
                 inspect_serializability(DataLoader, name="test")
-                dl = DataLoader.options(name=dl_label).remote(label, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[file_handler.label],
+                dl = DataLoader.options(name=dl_label).remote(file_handler.label, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[file_handler.label],
                                                     label=label)
                 self.data_loaders.append(dl)
 
@@ -80,7 +72,7 @@ class DataGenerator(keras.utils.Sequence):
                 file_list = file_handler.file_list
                 class_label = file_handler.class_label
                 logger.log(inspect_serializability(DataLoader, name="test"))
-                dl = DataLoader.options(name=dl_label).remote(label, file_list, class_label, nbatches, variables_dict,
+                dl = DataLoader.options(name=dl_label).remote(file_handler.label, file_list, class_label, nbatches, variables_dict,
                                                     label=dl_label)
                 self.data_loaders.append(dl)
 
@@ -163,6 +155,8 @@ class DataGenerator(keras.utils.Sequence):
         if self.__benchmark:
             return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array),\
                     self._current_index, len(label_array), load_time
+
+        print(len(weight_array))
 
         return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
 

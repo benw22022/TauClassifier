@@ -57,7 +57,15 @@ def main():
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Model
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    model = ModelDSNN(config_dict)
+
+    model_config = config_dict
+    max_items = 20
+    model_config["shapes"]["TauTracks"] = (len(variables_dictionary["TauTracks"]),) + (max_items,)
+    model_config["shapes"]["ConvTrack"] = (len(variables_dictionary["ConvTrack"]),) + (max_items,)
+    model_config["shapes"]["NeutralPFO"] = (len(variables_dictionary["NeutralPFO"]),) + (max_items,)
+    model_config["shapes"]["ShotPFO"] = (len(variables_dictionary["ShotPFO"]),) + (max_items,)
+    model_config["shapes"]["TauJets"] = (len(variables_dictionary["TauJets"]),)
+    model = ModelDSNN(model_config)
 
     # Configure callbacks
     early_stopping = EarlyStopping(
@@ -74,17 +82,16 @@ def main():
     callbacks = [early_stopping, model_checkpoint, reduce_lr]
 
     model.summary()
-    # model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()])
-    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
+    model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()])
+    #model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
      Train Model
      """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     history = model.fit(training_batch_generator, epochs=100, callbacks=callbacks,
                          validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
-                        steps_per_epoch=len(training_batch_generator),##workers=6, use_multiprocessing=True, #(val_x, val_y, val_weights)
+                        steps_per_epoch=len(training_batch_generator),
                         )
-    #validation_data=(val_x, val_y, val_weights), validation_freq=1,
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Make Plots 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""

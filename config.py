@@ -50,15 +50,18 @@ config_dict = {"shapes":
 			   }
 
 # Cuts to apply to data
-cuts = {"Gammatautau": "(TauJets.truthProng == 1) & (TauJets.ptJetSeed > 15000.0)",
-		"JZ1": "TauJets.ptJetSeed > 15000.0",
-		"JZ2": "TauJets.ptJetSeed > 15000.0",
-		"JZ3": "TauJets.ptJetSeed > 15000.0",
-		"JZ4": "TauJets.ptJetSeed > 15000.0",
-		"JZ5": "TauJets.ptJetSeed > 15000.0",
-		"JZ6": "TauJets.ptJetSeed > 15000.0",
-		"JZ7": "TauJets.ptJetSeed > 15000.0",
-		"JZ8": "TauJets.ptJetSeed > 15000.0",
+
+common_cuts = "(TauJets.ptJetSeed > 15000.0)"
+
+cuts = {"Gammatautau": "(TauJets.truthProng == 1) & " + common_cuts,
+		"JZ1": common_cuts,
+		"JZ2": common_cuts,
+		"JZ3": common_cuts,
+		"JZ4": common_cuts,
+		"JZ5": common_cuts,
+		"JZ6": common_cuts,
+		"JZ7": common_cuts,
+		"JZ8": common_cuts,
 		}
 
 # Tensorflow output types
@@ -81,3 +84,4 @@ shapes = (
 	tf.TensorShape([None, 4]),
 	tf.TensorShape([None])
 )
+

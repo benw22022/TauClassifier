@@ -44,10 +44,10 @@ def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas="ROC.svg"):
 if __name__ == "__main__":
 
 	read = False
-	plot = True
+	plot = False
 	jet_tau_comp = False
-	dm_analy = False
-	model_weights = "data\\weights-01.h5"
+	dm_analy = True
+	model_weights = "data\\weights-02.h5"
 	model = ModelDSNN(config_dict)
 	load_status = model.load_weights(model_weights)
 
@@ -79,32 +79,31 @@ if __name__ == "__main__":
 	y_pred = np.concatenate([arr for arr in y_pred])
 	weights = np.concatenate([arr for arr in weights])
 
-	true_jets = true_taus = y_true
-	#true_jets = y_true[:, 0]
-	# true_1p0n = y_true[:, 1]
-	# true_1p1n = y_true[:, 2]
-	# true_1pxn = y_true[:, 3]
-	# true_taus = np.add(np.add(true_1p0n, true_1p1n), true_1pxn)
+	#true_jets = true_taus = y_true
+	true_jets = y_true[:, 0]
+	true_1p0n = y_true[:, 1]
+	true_1p1n = y_true[:, 2]
+	true_1pxn = y_true[:, 3]
+	true_taus = np.add(np.add(true_1p0n, true_1p1n), true_1pxn)
 
 	true_n_jets = np.sum(true_jets)
-	# true_n_1p0n = np.sum(true_1p0n)
-	# true_n_1p1n = np.sum(true_1p1n)
-	# true_n_1pxn = np.sum(true_1pxn)
+	true_n_1p0n = np.sum(true_1p0n)
+	true_n_1p1n = np.sum(true_1p1n)
+	true_n_1pxn = np.sum(true_1pxn)
 	true_n_taus = np.sum(true_taus)
 
 	print(f"Number of true jets = {true_n_jets}")
 	print(f"Number of true taus = {true_n_taus}")
-	# print(f"--- Number of true 1p0n = {true_n_1p0n} ({true_n_1p0n / true_n_taus * 100} %)")
-	# print(f"--- Number of true 1p1n = {true_n_1p1n} ({true_n_1p1n / true_n_taus * 100} %)")
-	# print(f"--- Number of true 1pxn = {true_n_1pxn} ({true_n_1pxn / true_n_taus * 100} %)")
+	print(f"--- Number of true 1p0n = {true_n_1p0n} ({true_n_1p0n / true_n_taus * 100} %)")
+	print(f"--- Number of true 1p1n = {true_n_1p1n} ({true_n_1p1n / true_n_taus * 100} %)")
+	print(f"--- Number of true 1pxn = {true_n_1pxn} ({true_n_1pxn / true_n_taus * 100} %)")
 
-	pred_jets = pred_taus = y_pred
-	# pred_jets = y_pred[:, 0]
-	# pred_taus = y_pred[:, 1]
-	# pred_1p0n = y_pred[:, 1]
-	# pred_1p1n = y_pred[:, 2]
-	# pred_1pxn = y_pred[:, 3]
-	# pred_taus = np.add(pred_1p0n, pred_1p1n, pred_1pxn)
+	#pred_jets = pred_taus = y_pred
+	pred_jets = y_pred[:, 0]
+	pred_1p0n = y_pred[:, 1]
+	pred_1p1n = y_pred[:, 2]
+	pred_1pxn = y_pred[:, 3]
+	pred_taus = np.add(pred_1p0n, pred_1p1n, pred_1pxn)
 
 	print(pred_taus)
 	print(true_taus)
@@ -119,21 +118,21 @@ if __name__ == "__main__":
 
 	if plot:
 		plot_ROC(true_jets, pred_jets, title="ROC Curve: Jets", saveas="plots\\ROC_jets.png")
-		# plot_ROC(true_1p0n, pred_1p0n, title="ROC Curve: 1p0n", saveas="plots\\ROC_1p0n.png")
-		# plot_ROC(true_1p1n, pred_1p1n, title="ROC Curve: 1p1n", saveas="plots\\ROC_1p1n.png")
-		# plot_ROC(true_1pxn, pred_1pxn, title="ROC Curve: 1pxn", saveas="plots\\ROC_1pxn.png")
+		plot_ROC(true_1p0n, pred_1p0n, title="ROC Curve: 1p0n", saveas="plots\\ROC_1p0n.png")
+		plot_ROC(true_1p1n, pred_1p1n, title="ROC Curve: 1p1n", saveas="plots\\ROC_1p1n.png")
+		plot_ROC(true_1pxn, pred_1pxn, title="ROC Curve: 1pxn", saveas="plots\\ROC_1pxn.png")
 
 		fig, ax = plt.subplots()
 		ax.hist(np.array(true_pred_jets), range=(0, 1), histtype='step', label="jets prediction", color="blue")
-		ax.hist(np.array(true_pred_taus), range=(0, 1), histtype='step', label="taus prediction", color="orange")
+#		ax.hist(np.array(true_pred_taus), range=(0, 1), histtype='step', label="taus prediction", color="orange")
 
-		# ax.hist(pred_1p0n, range=(0, 1), histtype='step', label="1p0n pred", color="orange")
-		# ax.hist(pred_1p1n, range=(0, 1), histtype='step', label="1p1n pred", color="red")
-		# ax.hist(pred_1pxn, range=(0, 1), histtype='step', label="1pxn pred", color="green")
-		# ax.hist(true_jets, range=(0, 1), histtype='step', label="jets true", color="blue", linestyle=('dashed'))
-		# ax.hist(true_1p0n, range=(0, 1), histtype='step', label="1p0n true", color="orange", linestyle=('dashed'))
-		# ax.hist(true_1p1n, range=(0, 1), histtype='step', label="1p1n true", color="red", linestyle=('dashed'))
-		# ax.hist(true_1pxn, range=(0, 1), histtype='step', label="1pxn true", color="green", linestyle=('dashed'))
+		ax.hist(pred_1p0n, range=(0, 1), histtype='step', label="1p0n pred", color="orange")
+		ax.hist(pred_1p1n, range=(0, 1), histtype='step', label="1p1n pred", color="red")
+		ax.hist(pred_1pxn, range=(0, 1), histtype='step', label="1pxn pred", color="green")
+		ax.hist(true_jets, range=(0, 1), histtype='step', label="jets true", color="blue", linestyle=('dashed'))
+		ax.hist(true_1p0n, range=(0, 1), histtype='step', label="1p0n true", color="orange", linestyle=('dashed'))
+		ax.hist(true_1p1n, range=(0, 1), histtype='step', label="1p1n true", color="red", linestyle=('dashed'))
+		ax.hist(true_1pxn, range=(0, 1), histtype='step', label="1pxn true", color="green", linestyle=('dashed'))
 		plt.legend()
 		ax.set_xlabel("NN Output")
 		plt.savefig("plots\\response.png")
@@ -204,7 +203,7 @@ if __name__ == "__main__":
 																			 pred_1p0n, pred_1p1n, pred_1pxn):
 			if is_tau == 1:
 				if is_1p0n == 1:
-					#print(f"TRUE 1p0n: pred_1p0n = {p_1p0n} --- pred_1p1n = {p_1p1n} --- pred_1pxn = {p_1pxn} ")
+					print(f"TRUE 1p0n: pred_1p0n = {p_1p0n} --- pred_1p1n = {p_1p1n} --- pred_1pxn = {p_1pxn} ")
 					if p_1p0n == max([p_1p0n, p_1p1n, p_1pxn]):
 						cm[0][0] += 1
 						print(cm)
@@ -214,7 +213,7 @@ if __name__ == "__main__":
 						cm[0][2] += 1
 
 				if is_1p1n == 1:
-					#print(f"TRUE 1p1n: pred_1p0n = {p_1p0n} --- pred_1p1n = {p_1p1n} --- pred_1pxn = {p_1pxn} ")
+					print(f"TRUE 1p1n: pred_1p0n = {p_1p0n} --- pred_1p1n = {p_1p1n} --- pred_1pxn = {p_1pxn} ")
 					if p_1p0n == max([p_1p0n, p_1p1n, p_1pxn]):
 						cm[1][0] += 1
 					if p_1p1n == max([p_1p0n, p_1p1n, p_1pxn]):
@@ -223,7 +222,7 @@ if __name__ == "__main__":
 						cm[1][2] += 1
 
 				if is_1pxn == 1:
-					#print(f"TRUE 1pxn: pred_1p0n = {p_1p0n} --- pred_1p1n = {p_1p1n} --- pred_1pxn = {p_1pxn} ")
+					print(f"TRUE 1pxn: pred_1p0n = {p_1p0n} --- pred_1p1n = {p_1p1n} --- pred_1pxn = {p_1pxn} ")
 					if p_1p0n == max([p_1p0n, p_1p1n, p_1pxn]):
 						cm[2][0] += 1
 					if p_1p1n == max([p_1p0n, p_1p1n, p_1pxn]):
@@ -232,8 +231,8 @@ if __name__ == "__main__":
 						cm[2][2] += 1
 
 		# Rescale for the actual numbers of 1p0n, 1p1n, 1pxn
-		cm[0, :] = cm[0, :] / true_n_1p0n
-		cm[1, :] = cm[1, :] / true_n_1p1n
-		cm[2, :] = cm[2, :] / true_n_1pxn
+		cm[0, :] = cm[0, :] #/ true_n_1p0n
+		cm[1, :] = cm[1, :] #/ true_n_1p1n
+		cm[2, :] = cm[2, :] #/ true_n_1pxn
 
 		print(cm)
