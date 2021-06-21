@@ -8,7 +8,7 @@ TODO: Make this generalisable to different problems
 
 import numpy as np
 import keras
-from DataLoader import DataLoader
+from DataLoader import DataLoader, apply_scaling
 from utils import logger, find_anomalous_entries
 import tensorflow as tf
 import datetime
@@ -97,8 +97,6 @@ class DataGenerator(keras.utils.Sequence):
 
         batch_load_time = time.time()
 
-        logger.log(f"Loaded batch {self.label} {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "DEBUG")
-
         # Concatenate the results from each file stream together
         batch = ray.get([dl.set_batch.remote(idx) for dl in self.data_loaders])
         track_array = np.concatenate([result.tracks for result in batch])
@@ -109,45 +107,6 @@ class DataGenerator(keras.utils.Sequence):
         label_array = np.concatenate([result.labels for result in batch])
         weight_array = np.concatenate([result.weights for result in batch])
 
-        # logger.log(f"Tracks type = {type(track_array)}")
-        # logger.log(f"ConvTracks type = {type(conv_track_array)}")
-        # logger.log(f"ShotPFOs type = {type(shot_pfo_array)}")
-        # logger.log(f"NeutralPFOs type = {type(neutral_pfo_array)}")
-        #
-        # logger.log(f"Tracks max = {np.amax(track_array)}")
-        # logger.log(f"ConvTracks max = {np.amax(conv_track_array)}")
-        # logger.log(f"ShotPFOs max = {np.amax(shot_pfo_array)}")
-        # logger.log(f"NeutralPFOs max = {np.amax(neutral_pfo_array)}")
-        # logger.log(f"Jets max = {np.amax(jet_array)}")
-        # logger.log(f"Labels max = {np.amax(label_array)}")
-        # logger.log(f"Weights max = {np.amax(weight_array)}")
-        #
-        # logger.log(f"Tracks min = {np.amin(track_array)}")
-        # logger.log(f"ConvTracks min = {np.amin(conv_track_array)}")
-        # logger.log(f"ShotPFOs min = {np.amin(shot_pfo_array)}")
-        # logger.log(f"NeutralPFOs min = {np.amin(neutral_pfo_array)}")
-        # logger.log(f"Jets min = {np.amin(jet_array)}")
-        # logger.log(f"Labels min = {np.amin(label_array)}")
-        # logger.log(f"Weights min = {np.amin(weight_array)}")
-
-
-        # find_anomalous_entries(track_array, 1, logger, arr_name="tracks")
-        # find_anomalous_entries(neutral_pfo_array, 1, logger, arr_name="neutral PFO")
-        # find_anomalous_entries(shot_pfo_array, 1, logger, arr_name="shot PFO")
-        # find_anomalous_entries(conv_track_array, 1, logger, arr_name="conv track")
-        # find_anomalous_entries(jet_array, 1, logger, arr_name="jets")
-        # find_anomalous_entries(weight_array, 5, logger, arr_name="weights")
-
-        # logger.log(f"Batch: {self._current_index}/{self.__len__()} - shapes:", 'DEBUG')
-        # logger.log(f"TauTracks Shape = {track_array.shape}", )
-        # logger.log(f"ConvTracks Shape = {conv_track_array.shape}", )
-        # logger.log(f"ShotPFO Shape = {shot_pfo_array.shape}", )
-        # logger.log(f"NeutralPFO Shape = {neutral_pfo_array.shape}", )
-        # logger.log(f"TauJets Shape = {jet_array.shape}", )
-        # logger.log(f"Labels Shape = {label_array.shape}", )
-        # logger.log(f"Weight Shape = {weight_array.shape}", )
-
-
         load_time = str(datetime.timedelta(seconds=time.time()-batch_load_time))
         logger.log(f"{self.label}: Processed batch {self._current_index}/{self.__len__()} - {len(label_array)} events"
                    f" in {load_time}", "INFO")
@@ -156,9 +115,13 @@ class DataGenerator(keras.utils.Sequence):
             return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array),\
                     self._current_index, len(label_array), load_time
 
-        print(len(weight_array))
-
-        return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
+        try:
+            #return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
+            return (jet_array), label_array, weight_array
+        finally:
+            del batch
+            del track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array, label_array, weight_array
+            gc.collect()
 
     def __len__(self):
         """

@@ -51,7 +51,7 @@ config_dict = {"shapes":
 
 # Cuts to apply to data
 
-common_cuts = "(TauJets.ptJetSeed > 15000.0)"
+common_cuts = "(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0)"
 
 cuts = {"Gammatautau": "(TauJets.truthProng == 1) & " + common_cuts,
 		"JZ1": common_cuts,

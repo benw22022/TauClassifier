@@ -1,21 +1,20 @@
 """
 Plot variable distributions
 """
-
-from DataGenerator import DataGenerator
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'                        # Sets Tensorflow Logging Level
 import ray
+ray.init()
+from DataGenerator import DataGenerator
 import matplotlib.pyplot as plt
 import numpy as np
 from files import training_files
-from variables import variables_dictionary
 from config import cuts
-from variables import variables_dictionary,variables_list
-from preprocessing import pt_reweight
+from variables import variables_dictionary, variables_list
 import uproot
-import glob
-import pickle
 from variables import var_lims
-ray.init()
+import seaborn as sns
+
 
 
 # @ray.remote
@@ -23,13 +22,13 @@ class HistIterator:
 
 	def __init__(self, file_list, variables, cuts="", step_size=10000, nbins=50, label="Default"):
 
-		#file = "E:\\NTuples\\TauClassifier\\user.bewilson.TauID.364702.Pythia8EvtGen_A14NNPDF23LO_jetjet_JZ2WithSW_v0_output.root\\user.bewilson.24794900._000001.output.root"
+		# file = "E:\\NTuples\\TauClassifier\\user.bewilson.TauID.364702.Pythia8EvtGen_A14NNPDF23LO_jetjet_JZ2WithSW_v0_output.root\\user.bewilson.24794900._000001.output.root"
 
-		#file = glob.glob("E:\\NTuples\\TauClassifier\\*.*\\*.root")
+		# file = glob.glob("E:\\NTuples\\TauClassifier\\*.*\\*.root")
 
 		self._iterator = uproot.iterate(file_list, filter_name=variables_list, library="np")
 
-		#print(next(self._iterator))
+		# print(next(self._iterator))
 
 		self._nbins = nbins
 		self.hist_dict = dict.fromkeys(variables)
@@ -78,7 +77,8 @@ class HistIterator:
 		self.reset()
 
 	def reset(self):
-		self._iterator = uproot.iterate(self._file_list, cut=cuts, filter_name=self._variables, step_size=self._step_size, library='np')
+		self._iterator = uproot.iterate(self._file_list, cut=cuts, filter_name=self._variables,
+										step_size=self._step_size, library='np')
 
 	def get_range(self):
 		self.find_max_min()
@@ -88,45 +88,104 @@ class HistIterator:
 			max_val = self._var_max_min_dict[variable][1]
 			print(f"{variable} --- range: {min_val} <-> {max_val}")
 		return self._var_max_min_dict
-# class MaxMinFinder:
-#
-# 	def __init__(self, file_handler_list, variables_list, cut=cuts):
-# 		self._var_max_min_dict = dict.fromkeys(variables_list)
-# 		self._variables = variables_list
+
+
 
 if __name__ == "__main__":
 
 	# Initialize Generators
-	training_batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=250, cuts=cuts,
-											 label="Training Generator")
+	batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=250, cuts=cuts)
 	names = ["TauTracks", "NeutralPFO", "ShotPFO", "ConvTrack", "TauJets"]
-	for i in range(0, len(training_batch_generator)):
-		batch, labels, _ = training_batch_generator[i]
+	max_items = {"TauTracks" : 8 , "NeutralPFO": 3, "ShotPFO" : 8, "ConvTrack" : 4}
+	for i in range(0, len(batch_generator)):
+		batch, labels, weights = batch_generator[i]
+
+		print(len(batch))
+
+		# Loop over all variables types
 		for j in range(0, len(batch)):
-			for k in range(0, batch[j].shape[1]):
+			# Loop over all variables in type
+			for k in range(0, len(batch[j][:, ])):
+				try:
+					arr = batch[j][:, k]
+				except IndexError:
+					break
 
-				arr = batch[j][:, k]
-				weights = batch[2]
+				jets_data = np.take(arr, np.argwhere(labels[:, 0] == 1))
+				taus_data = np.take(arr, np.argwhere(labels[:, 0] == 0))
 
-				print(np.amax(arr))
-				print(arr.shape)
-				print(np.argwhere(labels == 1).shape)
+				jets_weight = np.take(weights, np.argwhere(labels[:, 0] == 1))
+				taus_weight = np.take(weights, np.argwhere(labels[:, 0] == 0))
 
-				jets_data = np.take(arr, np.argwhere(labels == 1))
-				taus_data = np.take(arr, np.argwhere(labels == 0))
+				if len(jets_data.shape) > 1:
+					max_items = 20
+					jets_weight_tmp = np.ones_like((jets_data.flatten()))
+					for w in range(max_items, len(jets_weight)):
+						jets_weight_tmp[w-max_items:w] = jets_weight[w]
+					jets_weight = jets_weight_tmp
 
-				jets_weight = np.take(weights, np.argwhere(labels == 1))
-				taus_weight = np.take(weights, np.argwhere(labels == 0))
+				if names[j] in ["ConvTrack", "ShotPFO", "NeutralPFO", "TauTracks"]:
+					pass
 
-				fig, ax = plt.subplots()
-				ax.hist(jets_data.flatten(), bins=30, label="Jets", histtype="step", color="blue")
-				ax.hist(taus_data.flatten(), bins=30, label="Taus", histtype="step", color="orange")
-				ax.set_xlabel(variables_dictionary[names[j]][k])
-				ax.legend()
-				var = variables_dictionary[names[j]][k]
-				if var in var_lims:
-					ax.set_xlim([-4, 5])
-				plt.savefig(f"plots\\variables\\batch_1_{var}.png")
-				plt.show()
-		break
+				else:
 
+					fig, ax = plt.subplots()
+					njets, jets_bins, jets_patches = ax.hist(jets_data.flatten(), weights=jets_weight,bins=50, label="Jets", histtype="step", color="blue")
+					ntaus, taus_bins, taus_patches = ax.hist(taus_data.flatten(), weights=taus_weight,bins=50, label="Taus", histtype="step", color="orange")
+
+					#weights=jets_weight
+					#weights=taus_weight
+
+					ax.set_xlabel(variables_dictionary[names[j]][k])
+					ax.legend()
+					if names[j] in ["ConvTrack", "ShotPFO", "NeutralPFO", "TauTracks"]:
+
+						def min_val(arr):
+							min_val = np.amin(np.where(arr.flatten() > -4, arr.flatten(), 0))
+							return min_val
+
+						def max_val(hist, bins):
+							cutoff = 0
+							for q in range(0, len(bins)):
+								if bins[q] > -3:
+									cutoff = q
+									break
+							return np.amax(hist[cutoff:])
+
+						plt.gca().set_xlim(left=min([min_val(jets_data), min_val(taus_data)]))
+						plt.gca().set_ylim(top=max([max_val(njets, jets_bins), max_val(ntaus, taus_bins)])*1.5)
+					var = variables_dictionary[names[j]][k]
+					plt.savefig(f"plots\\variables\\batch_1_{var}.png")
+					plt.show()
+
+
+		# variables = variables_dictionary["TauJets"]
+		# arr = batch[0]
+		# for i in range(0, len(variables)):
+		# 	for j in range(0, len(variables)):
+		# 		var1 = variables[i]
+		# 		var2 = variables[j]
+		# 		if var1 != var2:
+		#
+		# 			arr1 = arr[i]
+		# 			arr2 = arr[j]
+		#
+		# 			jets_data1 = np.take(arr1, np.argwhere(labels[:, 0] == 1))
+		# 			taus_data1 = np.take(arr1, np.argwhere(labels[:, 0] == 0))
+		#
+		# 			jets_data2 = np.take(arr2, np.argwhere(labels[:, 0] == 1))
+		# 			taus_data2 = np.take(arr2, np.argwhere(labels[:, 0] == 0))
+		#
+		# 			jets_hist1, jets_bins1 = np.histogram(jets_data1, bins=50)
+		# 			jets_hist2, jets_bins2 = np.histogram(jets_data2, bins=50)
+		#
+		# 			taus_hist1, taus_bins1 = np.histogram(jets_data1, bins=50)
+		# 			taus_hist2, taus_bins2 = np.histogram(jets_data2, bins=50)
+		#
+		# 			jet_var1_var2_data = zip(jets_hist1, jets_hist2)
+		# 			tau_var1_var2_data = zip(taus_hist1, taus_hist2)
+		#
+		# 			ax = sns.heatmap(jet_var1_var2_data, linewidth=0.5)
+		# 			plt.show()
+		# 			ax2 = sns.heatmap(tau_var1_var2_data, linewidth=0.5)
+		# 			plt.show()

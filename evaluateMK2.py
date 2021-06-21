@@ -30,6 +30,7 @@ def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas="ROC.svg"):
 
 	# Get AUC
 	auc_keras = auc(fpr_keras, tpr_keras)
+	print(f"AUC = {auc_keras}")
 	plt.figure(1)
 	plt.plot([0, 1], [0, 1], 'k--')
 	plt.plot(fpr_keras, tpr_keras, label='Keras (area = {:.3f})'.format(auc_keras))
@@ -43,12 +44,19 @@ def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas="ROC.svg"):
 
 if __name__ == "__main__":
 
-	read = False
-	plot = False
-	jet_tau_comp = False
+	read = True
+	plot = True
+	jet_tau_comp = True
 	dm_analy = True
-	model_weights = "data\\weights-02.h5"
-	model = ModelDSNN(config_dict)
+	model_weights = "data\\weights-05.h5"
+	model_config = config_dict
+	max_items = 20
+	model_config["shapes"]["TauTracks"] = (len(variables_dictionary["TauTracks"]),) + (max_items,)
+	model_config["shapes"]["ConvTrack"] = (len(variables_dictionary["ConvTrack"]),) + (max_items,)
+	model_config["shapes"]["NeutralPFO"] = (len(variables_dictionary["NeutralPFO"]),) + (max_items,)
+	model_config["shapes"]["ShotPFO"] = (len(variables_dictionary["ShotPFO"]),) + (max_items,)
+	model_config["shapes"]["TauJets"] = (len(variables_dictionary["TauJets"]),)
+	model = ModelDSNN(model_config)
 	load_status = model.load_weights(model_weights)
 
 	y_pred = []
@@ -148,45 +156,61 @@ if __name__ == "__main__":
 		# plt.show()
 
 	if jet_tau_comp:
-		true_pred_n_jets = 0
-		true_pred_n_taus = 0
-		false_pred_n_jets = 0
-		false_pred_n_taus = 0
+		true_positive = 0        # Is a jet
+		true_negative = 0        # Is a tau
+		false_positive = 0
+		false_negative = 0
+
+		tau_score = []
+		jet_score = []
 
 		for jet_prediction, is_jet, is_tau in zip(pred_jets, true_jets, true_taus):
 			if jet_prediction > 0.5: #tau_prediction:
 				if is_jet == 1 and is_tau == 0:
-					true_pred_n_jets += 1
+					true_positive += 1
+					jet_score.append(jet_prediction)
 				elif is_jet == 0 and is_tau == 1:
-					false_pred_n_jets += 1
+					tau_score.append(jet_prediction)
+					false_positive += 1
 				elif is_jet == 1 and is_tau == 1:
 					print(f"is_jet == {is_jet}  is_tau = {is_tau}")
 				elif is_jet == 0 and is_tau == 0:
 					print(f"is_jet == {is_jet}  is_tau = {is_tau}")
-			else:
+			if jet_prediction < 0.5:
 				if is_jet == 0 and is_tau == 1:
-					true_pred_n_taus += 1
+					true_negative += 1
+					tau_score.append(jet_prediction)
 				elif is_jet == 1 and is_tau == 0:
-					false_pred_n_taus += 1
+					false_negative += 1
+					jet_score.append(jet_prediction)
 				elif is_jet == 1 and is_tau == 1:
 					print(f"is_jet == {is_jet}  is_tau = {is_tau}")
 				elif is_jet == 0 and is_tau == 0:
 					print(f"is_jet == {is_jet}  is_tau = {is_tau}")
 
-		tau_jet_precision = true_pred_n_taus / (true_pred_n_taus + false_pred_n_jets)
-		tau_jet_recall = true_pred_n_taus / (true_pred_n_taus + false_pred_n_taus)
+		tau_jet_precision = true_positive / (true_positive + false_positive)
+		tau_jet_recall = true_positive / (true_positive + false_negative)
 
-		tau_jet_f1_score = 2 * true_pred_n_taus / (2 * true_pred_n_taus + false_pred_n_taus + false_pred_n_jets)
+		tau_jet_f1_score = 2 * (tau_jet_precision * tau_jet_recall) / (tau_jet_precision + tau_jet_recall)
 
-		print(f"Events tagged as jets = {true_pred_n_jets + false_pred_n_jets}")
+		print(f"Events tagged as jets = {true_positive + false_positive}")
 		print(
-			f"True number of jets = {true_n_jets} --- Correctly tagged jets = {true_pred_n_jets} ({true_pred_n_jets / true_n_jets * 100} %)"
-			f" --- Incorrectly tagged jets = {false_pred_n_taus} ({false_pred_n_taus / true_n_jets * 100} %)")
-		print(f"Events tagged as taus = {true_pred_n_taus + false_pred_n_taus}")
+			f"True number of jets = {true_n_jets} --- Correctly tagged jets = {true_positive} ({true_positive / true_n_jets * 100} %)"
+			f" --- Incorrectly tagged jets = {false_negative} ({false_negative / true_n_jets * 100} %)")
+		print(f"Events tagged as taus = {false_negative + true_negative}")
 		print(
-			f"True number of taus = {true_n_taus} --- Correctly tagged taus = {true_pred_n_taus} ({true_pred_n_taus / true_n_taus * 100} %) "
-			f"--- Incorrectly tagged taus = {false_pred_n_jets} ({false_pred_n_jets / true_n_taus * 100} %)")
+			f"True number of taus = {true_n_taus} --- Correctly tagged taus = {true_negative} ({true_negative / true_n_taus * 100} %) "
+			f"--- Incorrectly tagged taus = {false_positive} ({false_positive / true_n_taus * 100} %)")
 		print(f"Precision = {tau_jet_precision} --- Recall = {tau_jet_recall} --- F1 Score = {tau_jet_f1_score}")
+
+		fig3, ax = plt.subplots()
+		ax.hist(jet_score, range=(0, 1), histtype='step', label="jets", color="blue")
+		ax.hist(tau_score, range=(0, 1), histtype='step', label="taus", color="orange")
+		# ax.hist(true_jets, range=(0, 1), histtype='step', label="jets true", color="blue", linestyle=('dashed'))
+		# ax.hist(true_taus, range=(0, 1), histtype='step', label="1-prong true", color="orange", linestyle=('dashed'))
+		plt.legend()
+		plt.savefig("plots\\jet_tau_response.png")
+		plt.show()
 
 	if dm_analy:
 		cm = np.zeros((3, 3), dtype="float32")
@@ -203,7 +227,7 @@ if __name__ == "__main__":
 																			 pred_1p0n, pred_1p1n, pred_1pxn):
 			if is_tau == 1:
 				if is_1p0n == 1:
-					print(f"TRUE 1p0n: pred_1p0n = {p_1p0n} --- pred_1p1n = {p_1p1n} --- pred_1pxn = {p_1pxn} ")
+					#print(f"TRUE 1p0n: pred_1p0n = {p_1p0n} --- pred_1p1n = {p_1p1n} --- pred_1pxn = {p_1pxn} ")
 					if p_1p0n == max([p_1p0n, p_1p1n, p_1pxn]):
 						cm[0][0] += 1
 						print(cm)
@@ -213,7 +237,7 @@ if __name__ == "__main__":
 						cm[0][2] += 1
 
 				if is_1p1n == 1:
-					print(f"TRUE 1p1n: pred_1p0n = {p_1p0n} --- pred_1p1n = {p_1p1n} --- pred_1pxn = {p_1pxn} ")
+					#print(f"TRUE 1p1n: pred_1p0n = {p_1p0n} --- pred_1p1n = {p_1p1n} --- pred_1pxn = {p_1pxn} ")
 					if p_1p0n == max([p_1p0n, p_1p1n, p_1pxn]):
 						cm[1][0] += 1
 					if p_1p1n == max([p_1p0n, p_1p1n, p_1pxn]):
@@ -222,7 +246,7 @@ if __name__ == "__main__":
 						cm[1][2] += 1
 
 				if is_1pxn == 1:
-					print(f"TRUE 1pxn: pred_1p0n = {p_1p0n} --- pred_1p1n = {p_1p1n} --- pred_1pxn = {p_1pxn} ")
+					#print(f"TRUE 1pxn: pred_1p0n = {p_1p0n} --- pred_1p1n = {p_1p1n} --- pred_1pxn = {p_1pxn} ")
 					if p_1p0n == max([p_1p0n, p_1p1n, p_1pxn]):
 						cm[2][0] += 1
 					if p_1p1n == max([p_1p0n, p_1p1n, p_1pxn]):
@@ -231,8 +255,8 @@ if __name__ == "__main__":
 						cm[2][2] += 1
 
 		# Rescale for the actual numbers of 1p0n, 1p1n, 1pxn
-		cm[0, :] = cm[0, :] #/ true_n_1p0n
-		cm[1, :] = cm[1, :] #/ true_n_1p1n
-		cm[2, :] = cm[2, :] #/ true_n_1pxn
+		# cm[0, :] = cm[0, :] / true_n_1p0n
+		# cm[1, :] = cm[1, :] / true_n_1p1n
+		# cm[2, :] = cm[2, :] / true_n_1pxn
 
 		print(cm)
