@@ -67,19 +67,20 @@ variables_dictionary = {"TauTracks": [
                                        "NeutralPFO.secondEtaWRTClusterPosition_EM2"],
 
                         "TauJets": ["TauJets.centFrac",
-                                    #"TauJets.etOverPtLeadTrk",
+                                    "TauJets.etOverPtLeadTrk",
                                     "TauJets.dRmax",
-                                    #"TauJets.SumPtTrkFrac",
-                                    #"TauJets.ptRatioEflowApprox",
+                                    "TauJets.SumPtTrkFrac",
+                                    "TauJets.ptRatioEflowApprox",
                                     #"TauJets.ptIntermediateAxis",
-                                    #"TauJets.ptJetSeed",
+                                    "TauJets.mEflowApprox",
+                                    "TauJets.ptJetSeed",
                                     "TauJets.etaJetSeed",
                                     "TauJets.phiJetSeed",
                                     ],
 
                         "DecayMode": ["TauJets.truthDecayMode"],
                         "Prong": ["TauJets.truthProng"],
-                        "Weight": ["TauJets.ptIntermediateAxis",]}#"TauJets.mcEventWeight"
+                        "Weight": ["TauJets.ptJetSeed"]}
 
 
 

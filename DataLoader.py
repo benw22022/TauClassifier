@@ -166,6 +166,8 @@ class DataLoader:
             arr = ak.to_numpy(abs(ak_arr)).filled(dummy_val)
             #arr = recaler.rescale(arr, var)
             if np.amax(np.abs(arr)) > 50:
+                arr = np.where(arr < 10e6, arr, -4)
+                arr = np.where(arr > -1000, arr, -4)
                 arr = np.where(arr > 0, np.log10(arr), dummy_val)
                 arr = np.where(arr < 100, arr, dummy_val)
             np_arrays[:, i] = arr
@@ -190,6 +192,8 @@ class DataLoader:
             arr = ak.to_numpy(abs(ak_arr))
             dummy_val = 0
             if np.max(arr) > 50:
+                # arr = np.where(arr < 1e6, arr, -4)
+                # arr = np.where(arr > -1000, arr, -4)
                 arr = np.where(arr > 0, np.log10(arr), dummy_val)
                 arr = np.where(arr < 100, arr, dummy_val)
             np_arrays[:, i] = arr
@@ -198,7 +202,7 @@ class DataLoader:
         return np_arrays
 
 
-    def set_batch(self, idx):
+    def set_batch(self):
         """
         Loads a batch of data of a specific data type and then stores it for later retrieval.
         Pads ragged track and PFO arrays to make them rectilinear

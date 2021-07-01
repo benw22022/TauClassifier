@@ -10,38 +10,56 @@ from variables import variables_dictionary
 import numba as nb
 import ray
 #ray.init()
+import matplotlib.pyplot as plt
 
 class Reweighter:
 
-	def __init__(self, ntuple_dir):
-		sig_files = glob.glob(f"{ntuple_dir}\\*Gammatautau*\\*.root")
-		bkg_files = glob.glob(f"{ntuple_dir}\\*JZ*\\*.root")
-		bkg_cuts = "(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0)"
-		sig_cuts = "(TauJets.truthProng == 1) & "+ bkg_cuts
-		variable = "TauJets.ptJetSeed"
-		sig_data = uproot.concatenate(sig_files, filter_name=variable, cut=sig_cuts, library='np')
-		bkg_data = uproot.concatenate(bkg_files, filter_name=variable, cut=bkg_cuts, library='np')
+    def __init__(self, ntuple_dir):
+        sig_files = glob.glob(f"{ntuple_dir}\\*Gammatautau*\\*.root")
+        bkg_files = glob.glob(f"{ntuple_dir}\\*JZ*\\*.root")
 
-		bkg_pt = bkg_data[variable]
-		bkg_pt = np.sort(bkg_pt)
-		sig_pt = sig_data[variable]
-		sig_pt = np.sort(sig_pt)
+        # print(len(bkg_files))
+        # for file in bkg_files:
+        #     print(file)
 
-		bkg_pt = np.where(bkg_pt >0, np.log10(bkg_pt), -4.0)
-		sig_pt = np.where(sig_pt > 0, np.log10(sig_pt), -4.0)
+        bkg_cuts = "(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0) & (TauJets.ptRatioEflowApprox < 5) & (TauJets.etOverPtLeadTrk < 30)"
+        sig_cuts = "(TauJets.truthProng == 1) & "+ bkg_cuts
+        variable = "TauJets.ptJetSeed"
+        sig_data = uproot.concatenate(sig_files, filter_name=variable, cut=sig_cuts, library='np')
+        bkg_data = uproot.concatenate(bkg_files, filter_name=variable, cut=bkg_cuts, library='np')
 
-		# Binning
-		bin_edges = np.percentile(bkg_pt, np.linspace(0, 100, 50))
+        bkg_pt = bkg_data[variable]
+        sig_pt = sig_data[variable]
 
-		# Reweighting coefficient
-		sig_hist, _ = np.histogram(sig_pt, bins=bin_edges, density=True)
-		bkg_hist, _ = np.histogram(bkg_pt, bins=bin_edges, density=True)
+        # bkg_pt = np.where(bkg_pt > 0, np.log10(bkg_pt), 0)
+        # sig_pt = np.where(sig_pt > 0, np.log10(sig_pt), 0)
 
-		self.coeff = sig_hist / bkg_hist
-		self.bin_edges = bin_edges
+        # Binning
+        #bin_edges = np.percentile(bkg_pt, np.linspace(0, 100, 50))
+        xmax = max([np.amax(sig_pt), np.amax(bkg_pt)])
+        xmin = min([np.amin(sig_pt), np.amin(bkg_pt)])
+        bin_edges = np.linspace(xmin, xmax, 1000)
 
-	def reweight(self, bkg_pt):
-		return self.coeff[np.digitize(bkg_pt, self.bin_edges) - 2].astype(np.float32)
+        # Reweighting coefficient
+        # sig_hist, _ = np.histogram(sig_pt, bins=bin_edges, density=True)
+        # bkg_hist, _ = np.histogram(bkg_pt, bins=bin_edges, density=True)
+
+        """
+        Need to use the bin centres as weights rather than the bin edges! Otherwise you get imperfect pT reweighting!
+        Use plt.hist rather than np.histogram for this
+        """
+
+        plt.ioff()  # Disable interactive plotting so we don't see anything
+        fig = plt.figure()
+        sig_hist, _, _ = plt.hist(sig_pt, bins=bin_edges)
+        bkg_hist, _, _ = plt.hist(bkg_pt, bins=bin_edges)
+        plt.close(fig)  # Close figure so that it doesn't interfere with future plots
+
+        self.coeff = np.where(bkg_hist > 0, sig_hist / (bkg_hist + 1e-12), 1)
+        self.bin_edges = bin_edges
+
+    def reweight(self, bkg_pt):
+        return self.coeff[np.digitize(bkg_pt, self.bin_edges) - 1].astype(np.float32)
 
 reweighter = Reweighter("E:\\NTuples\\TauClassifier")
 

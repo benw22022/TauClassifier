@@ -90,13 +90,12 @@ class HistIterator:
 		return self._var_max_min_dict
 
 
-
 if __name__ == "__main__":
 
 	# Initialize Generators
 	batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=250, cuts=cuts)
 	names = ["TauTracks", "NeutralPFO", "ShotPFO", "ConvTrack", "TauJets"]
-	max_items = {"TauTracks" : 8 , "NeutralPFO": 3, "ShotPFO" : 8, "ConvTrack" : 4}
+	max_items = {"TauTracks": 8, "NeutralPFO": 3, "ShotPFO": 8, "ConvTrack": 4}
 	for i in range(0, len(batch_generator)):
 		batch, labels, weights = batch_generator[i]
 
@@ -113,7 +112,6 @@ if __name__ == "__main__":
 
 				jets_data = np.take(arr, np.argwhere(labels[:, 0] == 1))
 				taus_data = np.take(arr, np.argwhere(labels[:, 0] == 0))
-
 				jets_weight = np.take(weights, np.argwhere(labels[:, 0] == 1))
 				taus_weight = np.take(weights, np.argwhere(labels[:, 0] == 0))
 
@@ -128,10 +126,23 @@ if __name__ == "__main__":
 					pass
 
 				else:
-
 					fig, ax = plt.subplots()
-					njets, jets_bins, jets_patches = ax.hist(jets_data.flatten(), weights=jets_weight,bins=50, label="Jets", histtype="step", color="blue")
-					ntaus, taus_bins, taus_patches = ax.hist(taus_data.flatten(), weights=taus_weight,bins=50, label="Taus", histtype="step", color="orange")
+					njets, jets_bins, jets_patches = ax.hist(jets_data.flatten(), weights=jets_weight, bins=50, label="Jets", histtype="step", color="blue")
+					ntaus, taus_bins, taus_patches = ax.hist(taus_data.flatten(), weights=taus_weight, bins=50, label="Taus", histtype="step", color="orange")
+
+					# xmax = max([np.amax(taus_data), np.amax(jets_data)])
+					# xmin = min([np.amin(taus_data), np.amin(jets_data)])
+					# binning = np.linspace(xmin, xmax, 51)
+
+					# tau_hist, _ = np.histogram(taus_data.flatten(), binning, weights=taus_weight)
+					# jet_hist, _ = np.histogram(jets_data.flatten(), binning, weights=jets_weight)
+					# ax.step(binning[:-1], tau_hist, label="taus", color='orange')
+					# ax.step(binning[:-1], jet_hist, label="jets", color='blue')
+
+					# njets, jets_bins, jets_patches = ax.hist(jets_data.flatten(), bins=50,
+					# 										 label="Jets", histtype="step", color="blue")
+					# ntaus, taus_bins, taus_patches = ax.hist(taus_data.flatten(), bins=50,
+					# 										 label="Taus", histtype="step", color="orange")
 
 					#weights=jets_weight
 					#weights=taus_weight

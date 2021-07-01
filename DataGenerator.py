@@ -17,13 +17,10 @@ import gc
 import ray
 from ray.util import inspect_serializability
 
-def process_wrapper(dl, idx):
-    dl.set_batch(idx)
-
 
 class DataGenerator(keras.utils.Sequence):
 
-    def __init__(self, file_handler_list, variables_dict, nbatches=1000, epochs=50, cuts=None, label="DataGenerator",
+    def __init__(self, file_handler_list, variables_dict, nbatches=1000, cuts=None, label="DataGenerator",
                  _benchmark=False):
         """
         Class constructor - loads batches of data in a way that can be fed one by one to Keras - avoids having to load
@@ -88,7 +85,7 @@ class DataGenerator(keras.utils.Sequence):
         # Work out how many batches to split the data into
         self._num_batches = min(num_batches_list)
 
-    def load_batch(self, idx=None):
+    def load_batch(self):
         """
         Loads a batch of data from each data type and concatenates them into single arrays for training
         :param idx: The index of the batch of data to retrieve
@@ -98,7 +95,7 @@ class DataGenerator(keras.utils.Sequence):
         batch_load_time = time.time()
 
         # Concatenate the results from each file stream together
-        batch = ray.get([dl.set_batch.remote(idx) for dl in self.data_loaders])
+        batch = ray.get([dl.set_batch.remote() for dl in self.data_loaders])
         track_array = np.concatenate([result.tracks for result in batch])
         neutral_pfo_array = np.concatenate([result.neutral_PFOs for result in batch])
         shot_pfo_array = np.concatenate([result.shot_PFOs for result in batch])
@@ -116,8 +113,8 @@ class DataGenerator(keras.utils.Sequence):
                     self._current_index, len(label_array), load_time
 
         try:
-            #return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
-            return (jet_array), label_array, weight_array
+            return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
+            #return (jet_array), label_array, weight_array
         finally:
             del batch
             del track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array, label_array, weight_array
@@ -134,40 +131,36 @@ class DataGenerator(keras.utils.Sequence):
     def __getitem__(self, idx):
         """
         Overloads [] operator - allows generator to be indexable. This must be provided so that Keras can use generator
-        :param idx: An index
-        :return: A full batch of data
+        Kinda hacky - ideally since this is generator we would be using the __next__ function - but Keras wants
+        indexable data - so __getitem__ it is.
+        :param idx: An index - doesn't actually get used for anything - you can
+        :return: The next batch of data
         """
-        logger.log(f"{self.label} __getitem__ called with index = {idx}", 'DEBUG')
         self._current_index += 1
         try:
-            return self.load_batch(idx=self._current_index)
+            return self.load_batch()
         finally:
-            # Clear Memory of last batch before the end of the epoch -
+            # If we reach the end of the generator we reset so we can loop again
             if self._current_index == len(self):
                 self.reset_generator()
 
     def __next__(self):
         """
-        Overloads next() operator - allows generator to be iterable - This is what will be called when
-        tf.data.Dataset.from_generator() is used
-        :return:
+        Overloads next() operator - allows generator to be iterable
+        - This must be defined for DataGenerator to be converted to a TensorFlow dataset (if that is something you want
+        to do)
+        :return: The next batch of data
         """
 
-        if self._current_index < self._num_batches:
+        if self._current_index < self.__len__():
             self._current_index += 1
             return self.load_batch()
-
-        self._epochs += 1
-        if self._epochs < self._num_batches * self.__len__():
-            self._current_index = -1
-            return self.__next__()
         raise StopIteration
 
     def __iter__(self):
         return self
 
     def __call__(self):
-        self.on_epoch_end()
         return self
 
     def reset_generator(self):

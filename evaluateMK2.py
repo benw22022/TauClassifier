@@ -17,6 +17,8 @@ from models import ModelDSNN
 from config import config_dict, cuts
 import os
 ray.init()
+from tensorflow.keras.layers.experimental import preprocessing
+
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disables GPU
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Sets Tensorflow Logging Level
@@ -31,40 +33,63 @@ def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas="ROC.svg"):
 	# Get AUC
 	auc_keras = auc(fpr_keras, tpr_keras)
 	print(f"AUC = {auc_keras}")
+
+	nonzero = fpr_keras != 0  # Copies fpr array but removes all entries that are 0
+	eff, rej = tpr_keras[nonzero], 1.0 / fpr_keras[nonzero]
+
 	plt.figure(1)
 	plt.plot([0, 1], [0, 1], 'k--')
-	plt.plot(fpr_keras, tpr_keras, label='Keras (area = {:.3f})'.format(auc_keras))
-	plt.xlabel('False positive rate')
-	plt.ylabel('True positive rate')
+	#plt.plot(fpr_keras, tpr_keras, label='Keras (AUC = {:.3f})'.format(auc_keras))
+	plt.plot(eff, rej)#, label='AUC (area = {:.3f})'.format(auc_keras))
+	# plt.xlabel('False positive rate')
+	# plt.ylabel('True positive rate')
+	plt.xlabel('Signal Efficiency')
+	plt.ylabel('Background Rejection')
 	plt.title(title)
+	plt.ylim(1e0, 1e4)
 	plt.legend(loc='best')
+	plt.yscale("log")
 	plt.savefig(saveas)
 	plt.show()
 
 
 if __name__ == "__main__":
 
-	read = True
+	read = False
 	plot = True
 	jet_tau_comp = True
 	dm_analy = True
-	model_weights = "data\\weights-05.h5"
-	model_config = config_dict
-	max_items = 20
-	model_config["shapes"]["TauTracks"] = (len(variables_dictionary["TauTracks"]),) + (max_items,)
-	model_config["shapes"]["ConvTrack"] = (len(variables_dictionary["ConvTrack"]),) + (max_items,)
-	model_config["shapes"]["NeutralPFO"] = (len(variables_dictionary["NeutralPFO"]),) + (max_items,)
-	model_config["shapes"]["ShotPFO"] = (len(variables_dictionary["ShotPFO"]),) + (max_items,)
-	model_config["shapes"]["TauJets"] = (len(variables_dictionary["TauJets"]),)
-	model = ModelDSNN(model_config)
-	load_status = model.load_weights(model_weights)
+	model_weights = "data\\weights-08.h5"
 
 	y_pred = []
 	y_true = []
+	y_tauid = []
 	weights = []
+	testing_batch_generator = DataGenerator(testing_files, variables_dictionary, nbatches=50, cuts=cuts)
 
 	if read:
-		testing_batch_generator = DataGenerator(testing_files, variables_dictionary, nbatches=50, cuts=cuts)
+		model_config = config_dict
+		model_config["shapes"]["TauTracks"] = (len(variables_dictionary["TauTracks"]),) + (8,)
+		model_config["shapes"]["ConvTrack"] = (len(variables_dictionary["ConvTrack"]),) + (4,)
+		model_config["shapes"]["NeutralPFO"] = (len(variables_dictionary["NeutralPFO"]),) + (3,)
+		model_config["shapes"]["ShotPFO"] = (len(variables_dictionary["ShotPFO"]),) + (8,)
+		model_config["shapes"]["TauJets"] = (len(variables_dictionary["TauJets"]),)
+		model = ModelDSNN(model_config)
+
+		normalizers = {"TauTrack": preprocessing.Normalization(),
+					   "NeutralPFO": preprocessing.Normalization(),
+					   "ShotPFO": preprocessing.Normalization(),
+					   "ConvTrack": preprocessing.Normalization(),
+					   "TauJets": preprocessing.Normalization()}
+		for batch in testing_batch_generator:
+			normalizers["TauTrack"].adapt(batch[0][0])
+			normalizers["NeutralPFO"].adapt(batch[0][1])
+			normalizers["ShotPFO"].adapt(batch[0][2])
+			normalizers["ConvTrack"].adapt(batch[0][3])
+			normalizers["TauJets"].adapt(batch[0][4])
+		testing_batch_generator.reset_generator()
+		model = ModelDSNN(model_config, normalizers=normalizers)
+		load_status = model.load_weights(model_weights, )
 		for i in range(0, len(testing_batch_generator)):
 			batch_tmp, y_true_tmp, weights_tmp = testing_batch_generator[i]
 			y_pred_tmp = model.predict(batch_tmp)
@@ -87,6 +112,41 @@ if __name__ == "__main__":
 	y_pred = np.concatenate([arr for arr in y_pred])
 	weights = np.concatenate([arr for arr in weights])
 
+	if dm_analy:
+		@nb.njit()
+		def make_confusion_matrix(prediction, truth):
+			"""
+						 0      1      2	  3
+			P   jets | .... | .... | .... | .... | 0
+			R	1p0n | .... | .... | .... | .... | 1
+			E	1p1n | .... | .... | .... | .... | 2
+			D	1pxn | .... | .... | .... | .... | 3
+				 	 | jets | 1p0n | 1p1n | 1pxn
+						 T      R      U      E
+			"""
+			cm = np.zeros((4, 4), dtype="float32")
+			for pred, true in zip(prediction, truth):
+				pred_max_idx = np.argmax(pred)
+				truth_max_idx = np.argmax(true)
+				cm[pred_max_idx][truth_max_idx] += 1.0
+			return cm
+		conf_matrix = make_confusion_matrix(y_pred, y_true)
+		conf_matrix[:, 0] = conf_matrix[:, 0] / 1617841.0 #np.sum(y_pred[:, 0])
+		conf_matrix[:, 1] = conf_matrix[:, 1] / 305937.0  #np.sum(y_pred[:, 1])
+		conf_matrix[:, 2] = conf_matrix[:, 2] / 719594.0  #np.sum(y_pred[:, 2])
+		conf_matrix[:, 3] = conf_matrix[:, 3] / 311480.0  #np.sum(y_pred[:, 3])
+		print(conf_matrix)
+
+		fig = plt.figure()
+		xticklabels = ["jets", "1p0n", "1p1n", "1pxn"]
+		yticklabels = ["jets", "1p0n", "1p1n", "1pxn"]
+		ax = sns.heatmap(conf_matrix, annot=True, cmap="Oranges", xticklabels=xticklabels, yticklabels=yticklabels, fmt=".2")
+		plt.xlabel("Truth")
+		plt.ylabel("Prediction")
+		plt.savefig("plots\\cm.png")
+		plt.show()
+		plt.close(fig)
+
 	#true_jets = true_taus = y_true
 	true_jets = y_true[:, 0]
 	true_1p0n = y_true[:, 1]
@@ -98,6 +158,7 @@ if __name__ == "__main__":
 	true_n_1p0n = np.sum(true_1p0n)
 	true_n_1p1n = np.sum(true_1p1n)
 	true_n_1pxn = np.sum(true_1pxn)
+
 	true_n_taus = np.sum(true_taus)
 
 	print(f"Number of true jets = {true_n_jets}")
@@ -111,6 +172,9 @@ if __name__ == "__main__":
 	pred_1p0n = y_pred[:, 1]
 	pred_1p1n = y_pred[:, 2]
 	pred_1pxn = y_pred[:, 3]
+	print("!!!")
+	print(np.amax(pred_1pxn))
+	print("!!!")
 	pred_taus = np.add(pred_1p0n, pred_1p1n, pred_1pxn)
 
 	print(pred_taus)
@@ -125,7 +189,7 @@ if __name__ == "__main__":
 				true_pred_taus.append(pred)
 
 	if plot:
-		plot_ROC(true_jets, pred_jets, title="ROC Curve: Jets", saveas="plots\\ROC_jets.png")
+		plot_ROC(true_taus, pred_taus, title="ROC Curve: Tau-Jets", saveas="plots\\ROC_jets.png")
 		plot_ROC(true_1p0n, pred_1p0n, title="ROC Curve: 1p0n", saveas="plots\\ROC_1p0n.png")
 		plot_ROC(true_1p1n, pred_1p1n, title="ROC Curve: 1p1n", saveas="plots\\ROC_1p1n.png")
 		plot_ROC(true_1pxn, pred_1pxn, title="ROC Curve: 1pxn", saveas="plots\\ROC_1pxn.png")
@@ -156,8 +220,8 @@ if __name__ == "__main__":
 		# plt.show()
 
 	if jet_tau_comp:
-		true_positive = 0        # Is a jet
-		true_negative = 0        # Is a tau
+		true_positive = 0       # Is a tau
+		true_negative = 0        # Is a jet
 		false_positive = 0
 		false_negative = 0
 
@@ -167,21 +231,21 @@ if __name__ == "__main__":
 		for jet_prediction, is_jet, is_tau in zip(pred_jets, true_jets, true_taus):
 			if jet_prediction > 0.5: #tau_prediction:
 				if is_jet == 1 and is_tau == 0:
-					true_positive += 1
+					true_negative += 1
 					jet_score.append(jet_prediction)
 				elif is_jet == 0 and is_tau == 1:
 					tau_score.append(jet_prediction)
-					false_positive += 1
+					false_negative += 1
 				elif is_jet == 1 and is_tau == 1:
 					print(f"is_jet == {is_jet}  is_tau = {is_tau}")
 				elif is_jet == 0 and is_tau == 0:
 					print(f"is_jet == {is_jet}  is_tau = {is_tau}")
 			if jet_prediction < 0.5:
 				if is_jet == 0 and is_tau == 1:
-					true_negative += 1
+					true_positive += 1
 					tau_score.append(jet_prediction)
 				elif is_jet == 1 and is_tau == 0:
-					false_negative += 1
+					false_positive += 1
 					jet_score.append(jet_prediction)
 				elif is_jet == 1 and is_tau == 1:
 					print(f"is_jet == {is_jet}  is_tau = {is_tau}")
@@ -195,11 +259,11 @@ if __name__ == "__main__":
 
 		print(f"Events tagged as jets = {true_positive + false_positive}")
 		print(
-			f"True number of jets = {true_n_jets} --- Correctly tagged jets = {true_positive} ({true_positive / true_n_jets * 100} %)"
+			f"True number of jets = {true_n_jets} --- Correctly tagged jets = {true_negative} ({true_negative / true_n_jets * 100} %)"
 			f" --- Incorrectly tagged jets = {false_negative} ({false_negative / true_n_jets * 100} %)")
 		print(f"Events tagged as taus = {false_negative + true_negative}")
 		print(
-			f"True number of taus = {true_n_taus} --- Correctly tagged taus = {true_negative} ({true_negative / true_n_taus * 100} %) "
+			f"True number of taus = {true_n_taus} --- Correctly tagged taus = {true_positive} ({true_positive / true_n_taus * 100} %) "
 			f"--- Incorrectly tagged taus = {false_positive} ({false_positive / true_n_taus * 100} %)")
 		print(f"Precision = {tau_jet_precision} --- Recall = {tau_jet_recall} --- F1 Score = {tau_jet_f1_score}")
 
@@ -208,55 +272,13 @@ if __name__ == "__main__":
 		ax.hist(tau_score, range=(0, 1), histtype='step', label="taus", color="orange")
 		# ax.hist(true_jets, range=(0, 1), histtype='step', label="jets true", color="blue", linestyle=('dashed'))
 		# ax.hist(true_taus, range=(0, 1), histtype='step', label="1-prong true", color="orange", linestyle=('dashed'))
+		ax.set_xlabel("NN Response")
+		ax.set_ylabel("Number of tau candidates")
+		plt.yscale("log")
 		plt.legend()
 		plt.savefig("plots\\jet_tau_response.png")
 		plt.show()
 
-	if dm_analy:
-		cm = np.zeros((3, 3), dtype="float32")
-		"""
-					 0      1      2
-		P	1p0n | .... | .... | .... 0
-		R	1p1n | .... | .... | .... 1
-		E	1pxn | .... | .... | .... 2
-		D	 	 | 1p0n | 1p1n | 1pxn
-					  T  R  U  E 				          
-		"""
 
-		for is_tau, is_1p0n, is_1p1n, is_1pxn, p_1p0n, p_1p1n, p_1pxn in zip(true_taus, true_1p0n, true_1p1n, true_1pxn,
-																			 pred_1p0n, pred_1p1n, pred_1pxn):
-			if is_tau == 1:
-				if is_1p0n == 1:
-					#print(f"TRUE 1p0n: pred_1p0n = {p_1p0n} --- pred_1p1n = {p_1p1n} --- pred_1pxn = {p_1pxn} ")
-					if p_1p0n == max([p_1p0n, p_1p1n, p_1pxn]):
-						cm[0][0] += 1
-						print(cm)
-					if p_1p1n == max([p_1p0n, p_1p1n, p_1pxn]):
-						cm[0][1] += 1
-					if p_1pxn == max([p_1p0n, p_1p1n, p_1pxn]):
-						cm[0][2] += 1
 
-				if is_1p1n == 1:
-					#print(f"TRUE 1p1n: pred_1p0n = {p_1p0n} --- pred_1p1n = {p_1p1n} --- pred_1pxn = {p_1pxn} ")
-					if p_1p0n == max([p_1p0n, p_1p1n, p_1pxn]):
-						cm[1][0] += 1
-					if p_1p1n == max([p_1p0n, p_1p1n, p_1pxn]):
-						cm[1][1] += 1
-					if p_1pxn == max([p_1p0n, p_1p1n, p_1pxn]):
-						cm[1][2] += 1
-
-				if is_1pxn == 1:
-					#print(f"TRUE 1pxn: pred_1p0n = {p_1p0n} --- pred_1p1n = {p_1p1n} --- pred_1pxn = {p_1pxn} ")
-					if p_1p0n == max([p_1p0n, p_1p1n, p_1pxn]):
-						cm[2][0] += 1
-					if p_1p1n == max([p_1p0n, p_1p1n, p_1pxn]):
-						cm[2][1] += 1
-					if p_1pxn == max([p_1p0n, p_1p1n, p_1pxn]):
-						cm[2][2] += 1
-
-		# Rescale for the actual numbers of 1p0n, 1p1n, 1pxn
-		# cm[0, :] = cm[0, :] / true_n_1p0n
-		# cm[1, :] = cm[1, :] / true_n_1p1n
-		# cm[2, :] = cm[2, :] / true_n_1pxn
-
-		print(cm)
+	ray.shutdown()

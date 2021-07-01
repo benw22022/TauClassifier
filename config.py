@@ -9,10 +9,10 @@ import tensorflow as tf
 
 # Bowen's DSNN config dictionary
 config_dict = {"shapes":
-				   {"TauTrack": (10, 20),
-					"NeutralPFO": (22, 20),
-					"ShotPFO": (6, 20),
-					"ConvTrack": (10, 20),
+				   {"TauTrack": (10, 8),
+					"NeutralPFO": (22, 4),
+					"ShotPFO": (6, 8),
+					"ConvTrack": (10, 3),
 					"TauJets": (9),
 					},
 			   "n_tdd":
@@ -51,7 +51,7 @@ config_dict = {"shapes":
 
 # Cuts to apply to data
 
-common_cuts = "(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0)"
+common_cuts = "(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0) & (TauJets.ptRatioEflowApprox < 5) & (TauJets.etOverPtLeadTrk < 30)"
 
 cuts = {"Gammatautau": "(TauJets.truthProng == 1) & " + common_cuts,
 		"JZ1": common_cuts,
