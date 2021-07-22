@@ -45,10 +45,10 @@ def main():
 
     # Configure model
     model_config = config_dict
-    model_config["shapes"]["TauTracks"] = (len(variables_dictionary["TauTracks"]),) + (8,)
-    model_config["shapes"]["ConvTrack"] = (len(variables_dictionary["ConvTrack"]),) + (4,)
-    model_config["shapes"]["NeutralPFO"] = (len(variables_dictionary["NeutralPFO"]),) + (3,)
-    model_config["shapes"]["ShotPFO"] = (len(variables_dictionary["ShotPFO"]),) + (8,)
+    model_config["shapes"]["TauTracks"] = (len(variables_dictionary["TauTracks"]),) + (10,)
+    model_config["shapes"]["ConvTrack"] = (len(variables_dictionary["ConvTrack"]),) + (10,)
+    model_config["shapes"]["NeutralPFO"] = (len(variables_dictionary["NeutralPFO"]),) + (10,)
+    model_config["shapes"]["ShotPFO"] = (len(variables_dictionary["ShotPFO"]),) + (10,)
     model_config["shapes"]["TauJets"] = (len(variables_dictionary["TauJets"]),)
 
     normalizers = {"TauTrack": preprocessing.Normalization(),
@@ -78,7 +78,7 @@ def main():
 
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.4, patience=3, min_lr=4e-6)
 
-    callbacks = [early_stopping, model_checkpoint]#, reduce_lr]
+    callbacks = [early_stopping, model_checkpoint, reduce_lr]
 
     # Compile and summarise model
     model.summary()
@@ -108,8 +108,8 @@ def main():
                     2: weight_for_1p1n,
                     3: weight_for_1pxn}
 
-
-    model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()])
+    opt = tf.keras.optimizers.Adam(learning_rate=0.001)
+    model.compile(optimizer=opt, loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()])
     #tf.keras.utils.plot_model(model, show_shapes=True, rankdir="LR")
     #model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
 
@@ -123,7 +123,7 @@ def main():
     Make Plots 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     plt.plot(history.history['loss'], label='train')
-    plt.plot(history.history['val_accuracy'], label='val')
+    plt.plot(history.history['val_loss'], label='val')
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     plt.legend()
@@ -131,7 +131,7 @@ def main():
     plt.show()
 
     plt.plot(history.history['categorical_accuracy'], label='train')
-    plt.plot(history.history['val_loss'], label='val')
+    plt.plot(history.history['val_categorical_accuracy'], label='val')
     plt.xlabel('Epochs')
     plt.ylabel('Categorical Accuracy')
     plt.legend()

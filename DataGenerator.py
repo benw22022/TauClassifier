@@ -21,7 +21,7 @@ from ray.util import inspect_serializability
 class DataGenerator(keras.utils.Sequence):
 
     def __init__(self, file_handler_list, variables_dict, nbatches=1000, cuts=None, label="DataGenerator",
-                 _benchmark=False):
+                 _benchmark=False, extra_return_var=None):
         """
         Class constructor - loads batches of data in a way that can be fed one by one to Keras - avoids having to load
         entire dataset into memory prior to training
@@ -34,6 +34,7 @@ class DataGenerator(keras.utils.Sequence):
         :param cuts: A dictionary of cuts with keys the same as file_dict. The values should be a string which can be
         parsed by uproot's cut option e.g. "(pt1 > 50) & ((E1>100) | (E1<90))"
         :param label: A string to label the generator with - useful when debugging multiple generators
+        :param extra_return_var: An additional array to return when making a batch - use for producing
         """
         logger.log(f"Initializing DataGenerator: {label}", 'INFO')
         self._file_handlers = file_handler_list
@@ -43,6 +44,9 @@ class DataGenerator(keras.utils.Sequence):
         self._current_index = 0
         self._epochs = 0
         self.__benchmark = _benchmark
+        self.extra_return_var = extra_return_var
+
+        logger.log(f"self.extra_return_var = {self.extra_return_var}")
 
         # Organise a list of all variables
         self._variables_dict = variables_dict
@@ -60,8 +64,8 @@ class DataGenerator(keras.utils.Sequence):
 
                 # Check that dataloader is serializable - needs to be for ray to work
                 inspect_serializability(DataLoader, name="test")
-                dl = DataLoader.options(name=dl_label).remote(file_handler.label, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[file_handler.label],
-                                                    label=label)
+                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[file_handler.label],
+                                                    label=label, extra_return_var=extra_return_var)
                 self.data_loaders.append(dl)
 
             else:
@@ -69,8 +73,7 @@ class DataGenerator(keras.utils.Sequence):
                 file_list = file_handler.file_list
                 class_label = file_handler.class_label
                 logger.log(inspect_serializability(DataLoader, name="test"))
-                dl = DataLoader.options(name=dl_label).remote(file_handler.label, file_list, class_label, nbatches, variables_dict,
-                                                    label=dl_label)
+                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variables_dict, label=dl_label, extra_return_var=extra_return_var)
                 self.data_loaders.append(dl)
 
 
@@ -93,9 +96,22 @@ class DataGenerator(keras.utils.Sequence):
         """
 
         batch_load_time = time.time()
+        extra_arr = []
 
         # Concatenate the results from each file stream together
-        batch = ray.get([dl.set_batch.remote() for dl in self.data_loaders])
+        if self.extra_return_var is not None:
+            res = ray.get([dl.set_batch.remote() for dl in self.data_loaders])
+            logger.log(f"res = {res} - len = {len(res)}")
+            batch = res[0][0]
+            extra_arr = res[0][1]
+            try:
+                extra_arr = np.concatenate([arr for arr in extra_arr])
+            except ValueError:
+                pass
+
+        else:
+            batch = ray.get([dl.set_batch.remote() for dl in self.data_loaders])
+
         track_array = np.concatenate([result.tracks for result in batch])
         neutral_pfo_array = np.concatenate([result.neutral_PFOs for result in batch])
         shot_pfo_array = np.concatenate([result.shot_PFOs for result in batch])
@@ -112,13 +128,32 @@ class DataGenerator(keras.utils.Sequence):
             return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array),\
                     self._current_index, len(label_array), load_time
 
+
         try:
+            if self.extra_return_var is not None:
+                return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array,
+                        jet_array), label_array, weight_array, extra_arr
             return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
-            #return (jet_array), label_array, weight_array
         finally:
             del batch
             del track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array, label_array, weight_array
             gc.collect()
+
+    def predict(self, model):
+        y_pred = []
+        y_true = []
+        weights = []
+        for i in range(0, len(self)):
+            batch_tmp, y_true_tmp, weights_tmp = self[i]
+            y_pred_tmp = model.predict(batch_tmp)
+            y_pred.append(y_pred_tmp)
+            y_true.append(y_true_tmp)
+            weights.append(weights_tmp)
+        self.reset_generator()
+        y_true = np.concatenate([arr for arr in y_true])
+        y_pred = np.concatenate([arr for arr in y_pred])
+        weights = np.concatenate([arr for arr in weights])
+        return y_pred, y_true, weights
 
     def __len__(self):
         """

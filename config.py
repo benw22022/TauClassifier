@@ -9,10 +9,10 @@ import tensorflow as tf
 
 # Bowen's DSNN config dictionary
 config_dict = {"shapes":
-				   {"TauTrack": (10, 8),
-					"NeutralPFO": (22, 4),
-					"ShotPFO": (6, 8),
-					"ConvTrack": (10, 3),
+				   {"TauTrack": (10, 10),
+					"NeutralPFO": (22, 10),
+					"ShotPFO": (6, 10),
+					"ConvTrack": (10, 10),
 					"TauJets": (9),
 					},
 			   "n_tdd":
