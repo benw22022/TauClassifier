@@ -11,7 +11,10 @@ from keras.layers import Layer, Activation, BatchNormalization
 from keras.models import Model
 from tensorflow.keras import layers as tfk_layers
 from tensorflow.keras.layers.experimental import preprocessing
+import tensorflow_probability as tfp
 import tensorflow as tf
+tfd = tfp.distributions
+
 
 # =============
 # Custom Layers
@@ -48,11 +51,16 @@ class Sum(Layer):
         return None
 
 
+
+
+
+
+
 # =================
 # Functional models
 # =================
 
-def ModelDSNN(para, mask_value=-4.0, normalizers=None, bn=True):
+def ModelDSNN(para, mask_value=-4.0, normalizers=None, bn=True, num_samples=10000):
 
     # Branch 1
     x_1 = Input(shape=para["shapes"]["TauTrack"], ragged=True)
@@ -132,6 +140,22 @@ def ModelDSNN(para, mask_value=-4.0, normalizers=None, bn=True):
     merged = Concatenate()([b_1, b_2, b_3, b_4, b_5])
    # merged = b_5
     #merged = Dropout(para["dropout"])(merged)
+    # kl_divergence_function = (lambda q, p, _: tfd.kl_divergence(q, p) /  # pylint: disable=g-long-lambda
+    #                                           tf.cast(num_samples, dtype=tf.float32))
+    # merged = tfp.layers.DenseFlipout(
+    #     units=100,
+    #     activation='relu',
+    #     kernel_posterior_fn=tfp.layers.default_mean_field_normal_fn(),
+    #     bias_posterior_fn=tfp.layers.default_mean_field_normal_fn(),
+    #     kernel_divergence_fn=kl_divergence_function)(merged)
+    #
+    # merged = tfp.layers.DenseFlipout(
+    #     units=100,
+    #     activation='relu',
+    #     kernel_posterior_fn=tfp.layers.default_mean_field_normal_fn(),
+    #     bias_posterior_fn=tfp.layers.default_mean_field_normal_fn(),
+    #     kernel_divergence_fn=kl_divergence_function)(merged)
+
     merged = Dense(para["n_fc1"], kernel_initializer=initializer)(merged)
     merged = Activation(activation_func)(merged)
     #merged = Dropout(para["dropout"])(merged)

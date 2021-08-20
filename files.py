@@ -22,6 +22,7 @@ jz5_files = FileHandler("JZ5", str(Path(f"{ntuple_dir}/*JZ5*/*.root")), class_la
 jz6_files = FileHandler("JZ6", str(Path(f"{ntuple_dir}/*JZ6*/*.root")), class_label=0)
 jz7_files = FileHandler("JZ7", str(Path(f"{ntuple_dir}/*JZ7*/*.root")), class_label=0)
 jz8_files = FileHandler("JZ8", str(Path(f"{ntuple_dir}/*JZ8*/*.root")), class_label=0)
+jz_files = FileHandler("JZ", str(Path(f"{ntuple_dir}/*JZ*/*.root")), class_label=0)
 
 #gammatautau_files = FileHandler("Gammatautau", "/mnt/e/NTuples/TauClassifier/*Gammatautau*/*.root", class_label=1)
 #jz1_files = FileHandler("JZ1",  "/mnt/e/NTuples/TauClassifier/*JZ1*/*.root", class_label=0)
@@ -40,6 +41,8 @@ testing_files = [gammatautau_files[-1:], jz1_files[-1:], jz2_files[-1:], jz3_fil
                  jz6_files[-1:], jz7_files[-1:], jz8_files[-1:]]
 #testing_files = [gammatautau_files[-1:], jz1_files[-1:]]
 
+
+# Sanity checks to make sure we don't mix up datasets
 for training_fh in training_files:
 
     for validation_fh in validation_files:

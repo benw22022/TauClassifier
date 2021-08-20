@@ -7,12 +7,10 @@ import os
 # os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'    # Accelerated Linear Algebra (XLA) actually seems slower
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"                     # Disables GPU
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'                        # Sets Tensorflow Logging Level
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'                # Allow tensorflow to use more GPU VRAM
 
 import ray
 import json
-ray.init(_system_config={
-        "object_spilling_config": json.dumps({"type": "filesystem", "params": {"directory_path": "/tmp/spill"}})})
 from variables import variables_dictionary
 from models import ModelDSNN
 from DataGenerator import DataGenerator
@@ -25,10 +23,14 @@ import matplotlib.pyplot as plt
 from config import config_dict, cuts
 import numpy as np
 from tensorflow.keras.layers.experimental import preprocessing
-
+import pickle
+import sys
 logger.set_log_level('INFO')
 
 def main():
+
+    ray.init(_system_config={
+        "object_spilling_config": json.dumps({"type": "filesystem", "params": {"directory_path": "/tmp/spill"}})})
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Generators
@@ -51,20 +53,29 @@ def main():
     model_config["shapes"]["ShotPFO"] = (len(variables_dictionary["ShotPFO"]),) + (10,)
     model_config["shapes"]["TauJets"] = (len(variables_dictionary["TauJets"]),)
 
-    normalizers = {"TauTrack": preprocessing.Normalization(),
-                   "NeutralPFO": preprocessing.Normalization(),
-                   "ShotPFO": preprocessing.Normalization(),
-                   "ConvTrack": preprocessing.Normalization(),
-                   "TauJets": preprocessing.Normalization()}
-    for batch in validation_batch_generator:
-        normalizers["TauTrack"].adapt(batch[0][0])
-        normalizers["NeutralPFO"].adapt(batch[0][1])
-        normalizers["ShotPFO"].adapt(batch[0][2])
-        normalizers["ConvTrack"].adapt(batch[0][3])
-        normalizers["TauJets"].adapt(batch[0][4])
-    training_batch_generator.reset_generator()
+    # normalizers = {"TauTrack": preprocessing.Normalization(),
+    #                "NeutralPFO": preprocessing.Normalization(),
+    #                "ShotPFO": preprocessing.Normalization(),
+    #                "ConvTrack": preprocessing.Normalization(),
+    #                "TauJets": preprocessing.Normalization()}
+    # for batch in validation_batch_generator:
+    #     normalizers["TauTrack"].adapt(batch[0][0])
+    #     normalizers["NeutralPFO"].adapt(batch[0][1])
+    #     normalizers["ShotPFO"].adapt(batch[0][2])
+    #     normalizers["ConvTrack"].adapt(batch[0][3])
+    #     normalizers["TauJets"].adapt(batch[0][4])
+    # training_batch_generator.reset_generator()
 
-    model = ModelDSNN(model_config, normalizers=normalizers)
+    # with open('normalizers.pkl', 'wb') as file:
+    #     pickle.dump(normalizers, file)
+
+    njets = 1672754.0
+    n1p0n = 310223.0
+    n1p1n = 729350.0
+    n1pxn = 317042.0
+    total = njets + n1p0n + n1p1n + n1pxn
+
+    model = ModelDSNN(model_config, num_samples=total)
 
     # Configure callbacks
     early_stopping = EarlyStopping(
@@ -82,12 +93,6 @@ def main():
 
     # Compile and summarise model
     model.summary()
-    njets = 1672754.0
-    n1p0n = 310223.0
-    n1p1n = 729350.0
-    n1pxn = 317042.0
-    total = njets + n1p0n + n1p1n + n1pxn
-
     model.layers[-1].bias.assign([np.log(njets/(total)),
                                   np.log(n1p0n/(total)),
                                   np.log(n1p1n/(total)),

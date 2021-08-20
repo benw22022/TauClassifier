@@ -110,15 +110,15 @@ class DataGenerator(keras.utils.Sequence):
                 pass
 
         else:
-            batch = ray.get([dl.set_batch.remote() for dl in self.data_loaders])
+            batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
 
-        track_array = np.concatenate([result.tracks for result in batch])
-        neutral_pfo_array = np.concatenate([result.neutral_PFOs for result in batch])
-        shot_pfo_array = np.concatenate([result.shot_PFOs for result in batch])
-        conv_track_array = np.concatenate([result.conv_tracks for result in batch])
-        jet_array = np.concatenate([result.jets for result in batch])
-        label_array = np.concatenate([result.labels for result in batch])
-        weight_array = np.concatenate([result.weights for result in batch])
+        track_array = np.concatenate([result[0][0] for result in batch])
+        neutral_pfo_array = np.concatenate([result[0][1] for result in batch])
+        shot_pfo_array = np.concatenate([result[0][2] for result in batch])
+        conv_track_array = np.concatenate([result[0][3] for result in batch])
+        jet_array = np.concatenate([result[0][4] for result in batch])
+        label_array = np.concatenate([result[1] for result in batch])
+        weight_array = np.concatenate([result[2] for result in batch])
 
         load_time = str(datetime.timedelta(seconds=time.time()-batch_load_time))
         logger.log(f"{self.label}: Processed batch {self._current_index}/{self.__len__()} - {len(label_array)} events"
@@ -168,7 +168,7 @@ class DataGenerator(keras.utils.Sequence):
         Overloads [] operator - allows generator to be indexable. This must be provided so that Keras can use generator
         Kinda hacky - ideally since this is generator we would be using the __next__ function - but Keras wants
         indexable data - so __getitem__ it is.
-        :param idx: An index - doesn't actually get used for anything - you can
+        :param idx: An index - doesn't actually get used for anything - you can ignore it
         :return: The next batch of data
         """
         self._current_index += 1
@@ -207,7 +207,6 @@ class DataGenerator(keras.utils.Sequence):
         self._current_index = 0
         for data_loader in self.data_loaders:
             data_loader.reset_dataloader.remote()
-        gc.collect()
 
     def on_epoch_end(self):
         """

@@ -17,6 +17,7 @@ data/*
 plots/*
 *training
 *tmp
+network_outputs
 
 
 # Ignore logs

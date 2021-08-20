@@ -11,6 +11,8 @@ import numba as nb
 import ray
 #ray.init()
 import matplotlib.pyplot as plt
+from tensorflow.keras.layers.experimental import preprocessing
+
 
 class Reweighter:
     """
@@ -102,6 +104,37 @@ class PreProcTransform:
             array = np.where(array > 0, np.log10(array), dummy_val)
         array *= self.scale
         return array
+
+
+def create_normalizers(data_generator=None, load=False):
+
+        normalizers = {"TauTrack": preprocessing.Normalization(),
+                       "NeutralPFO": preprocessing.Normalization(),
+                       "ShotPFO": preprocessing.Normalization(),
+                       "ConvTrack": preprocessing.Normalization(),
+                       "TauJets": preprocessing.Normalization()}
+
+        if not load:
+            assert data_generator is not None
+            for batch in data_generator:
+                normalizers["TauTrack"].update_state(batch[0][0])
+                normalizers["NeutralPFO"].update_state(batch[0][1])
+                normalizers["ShotPFO"].update_state(batch[0][2])
+                normalizers["ConvTrack"].update_state(batch[0][3])
+                normalizers["TauJets"].update_state(batch[0][4])
+            for key in normalizers:
+                normalizers[key].save_weights(f"data\\{key}_normalizer.h5")
+            return normalizers
+
+        normalizers["TauTrack"] = normalizers["TauTrack"]
+        normalizers["NeutralPFO"] = normalizers["NeutralPFO"]
+        normalizers["ShotPFO"] = normalizers["ShotPFO"]
+        normalizers["ConvTrack"] = normalizers["ConvTrack"]
+        normalizers["TauJets"] = normalizers["TauJets"]
+
+
+        return normalizers
+
 
 
 limits_dict = {"TauTracks.dEta": PreProcTransform("TauTracks.dEta"),

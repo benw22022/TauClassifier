@@ -107,17 +107,19 @@ if __name__ == "__main__":
 	cuts_1pxn = "(TauJets.truthProng == 1) & (TauJets.truthDecayMode > 1) & (TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0)"
 	jet_cuts = "(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0)"
 
-	ray.get([plot_dm_hist.remote(var) for var in limits_dict])
+	# futures = ([plot_dm_hist.remote(var) for var in limits_dict])
+	# results = ray.wait(futures, num_returns=5)
 
 	for var in limits_dict:
 		start_time = time.time()
-		#jet_hist = histogram.remote(jet_files,  var, limits_dict[var], label="Jets", reweight=True, cuts=jet_cuts, colour="blue")
-		# tau_hist = histogram.remote(tau_files, "TauTracks.pt", [15000.0, 750000.0], label="Taus", cuts=tau_cuts, colour="orange")
+		# jet_hist = histogram.remote(jet_files,  var, limits_dict[var], label="Jets", reweight=True, cuts=jet_cuts, colour="blue")
+		# tau_hist = histogram.remote(tau_files,  var, limits_dict[var], label="Taus", cuts=tau_cuts, colour="orange")
 		hist_1p0n = histogram.remote(tau_files, var, limits_dict[var], label="1p0n", cuts=cuts_1p0n, colour="orange")
 		hist_1p1n = histogram.remote(tau_files, var, limits_dict[var], label="1p1n", cuts=cuts_1p1n, colour="red")
 		hist_1pxn = histogram.remote(tau_files, var, limits_dict[var], label="1pxn", cuts=cuts_1pxn, colour="green")
-		#hists = [jet_hist, hist_1p0n, hist_1p1n, hist_1pxn]
+		# hists = [jet_hist, hist_1p0n, hist_1p1n, hist_1pxn]
 		hists = [hist_1p0n, hist_1p1n, hist_1pxn]
+		# hists = [jet_hist, tau_hist]
 		plot_hists(ray.get([hist.make_hist.remote() for hist in hists]))
 		[ray.kill(hist) for hist in hists]
 		del hists

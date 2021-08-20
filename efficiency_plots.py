@@ -2,79 +2,140 @@
 Efficiency vs variables
 """
 import matplotlib.pyplot as plt
-from DataGenerator import DataGenerator
-from keras.models import load_model
-from sklearn.metrics import auc, roc_auc_score
-from sklearn import metrics
-import pandas as pd
 import numpy as np
-import seaborn as sns
-import numba as nb
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-from pathlib import Path
-import ray
-import json
-from files import testing_files
-from variables import variables_dictionary
-from models import ModelDSNN
-from config import config_dict, cuts
-import os
-from tensorflow.keras.layers.experimental import preprocessing
-from evaluateMK2 import get_efficiency_and_rejection
+from matplotlib.font_manager import FontProperties
+import glob
+import uproot
+from config import cuts
+from files import gammatautau_files, jz_files
+
+
+
+def compute_efficiency_cut_values(y_pred, wp_efficiency):
+	cut_val = np.percentile(y_pred, 100 - wp_efficiency)
+	return cut_val
+
+
+class EfficiencyRejectionPlot:
+
+	def __init__(self, pred_files, root_files, variable, working_points, cut_values=None, n_test_points=10, cuts=None, log=False, rejection=False):
+
+		self._variable = variable
+		self._log = log
+		self._working_points = working_points
+		self._rejection = rejection
+
+		# Load and concatenate predictions
+		self.y_pred = []
+		for file in pred_files:
+			data = np.load(file)
+			self.y_pred.append(data['arr_0'])
+		self.y_pred = np.concatenate([arr for arr in self.y_pred])
+		self.y_pred = 1 - self.y_pred[:, 0]  # Switch to probability event was a Tau
+
+		# NN cut values
+		if cut_values is not None:
+			self._cut_values = cut_values
+
+		else:
+			# Compute NN output cut values based on efficiency working points
+			self._cut_values = []
+			assert working_points is not None
+			for wp in working_points:
+				cut_val = compute_efficiency_cut_values(self.y_pred, wp)
+				self._cut_values.append(cut_val)
+
+		# Load variable data
+		arr = uproot.concatenate(root_files, filter_name=self._variable, library='np', cut=cuts)
+		arr = arr[self._variable]
+
+		# Make sure that arrays are the same lengths
+		assert len(arr) == len(self.y_pred)
+
+		# Compute the efficiency
+		self.effs = []
+		for cv in self._cut_values:
+			arr_cut = arr[np.argwhere(self.y_pred > cv)]                       # Apply cut on NN output
+			binning = np.linspace(np.amin(arr), np.amax(arr), n_test_points)   # Histogram binning
+			self._test_points = binning
+			if log:
+				binning = np.logspace(np.log10(np.amin(arr)), np.log10(np.amax(arr)), num=n_test_points, base=10)
+
+			# Efficiency is the ratio of the histograms
+			arr_hist, _ = np.histogram(arr, binning)
+			arr_cut_hist, _ = np.histogram(arr_cut, binning)
+
+			self.effs.append(arr_cut_hist / arr_hist)
+
+		self.effs = np.array(self.effs)
+
+		# If we want to make a rejection plot then the rejection power if the inverse of efficiency
+		if rejection:
+			self.effs = 1 / (self.effs + 1e-12)
+
+		print(self._cut_values)
+
+	def plot(self, ncol=1, saveas=None, save=True):
+
+		# Plots the efficiencies
+		fig, ax = plt.subplots()
+		for i in range(0, len(self._cut_values)):
+			label = "{:.1f}% -- cut value = {:.6f}".format(self._working_points[i], self._cut_values[i])
+			ax.scatter(self._test_points[1:], self.effs[i], label=label)
+
+		fontP = FontProperties()
+		fontP.set_size('medium')
+		ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', prop=fontP, title="wp", ncol=ncol)
+		plt.rcParams.update({'font.size': 14})
+		ax.set_xlabel(self._variable)
+		if self._rejection:
+			ax.set_ylabel("rejection")
+		else:
+			ax.set_ylabel("efficiency")
+		if self._log:
+			ax.set_xscale('log')
+		if self._rejection:
+			ax.set_yscale('log')
+		if save:
+			if self._rejection:
+				plt.savefig(f"plots\\{self._variable}_rejection.png", bbox_inches='tight')
+			else:
+				plt.savefig(f"plots\\{self._variable}_efficiency.png", bbox_inches='tight')
+		elif saveas is not None:
+			plt.savefig(saveas, bbox_inches='tight')
+		plt.show()
+		plt.close(fig)
+
+	def __add__(self, plot):
+		self.effs = np.concatenate((self.effs, plot.effs))
 
 
 if __name__ == "__main__":
-	ray.init()
-	read = True
-	plot = True
-	jet_tau_comp = True
-	dm_analy = True
-	model_weights = "data\\weights-08.h5"
 
-	y_pred = []
-	y_true = []
-	var_arr = []
-	y_tauid = []
-	weights = []
-
-	testing_batch_generator = DataGenerator(testing_files, variables_dictionary, nbatches=50, cuts=cuts)
-	model_config = config_dict
-	model_config["shapes"]["TauTracks"] = (len(variables_dictionary["TauTracks"]),) + (10,)
-	model_config["shapes"]["ConvTrack"] = (len(variables_dictionary["ConvTrack"]),) + (10,)
-	model_config["shapes"]["NeutralPFO"] = (len(variables_dictionary["NeutralPFO"]),) + (10,)
-	model_config["shapes"]["ShotPFO"] = (len(variables_dictionary["ShotPFO"]),) + (10,)
-	model_config["shapes"]["TauJets"] = (len(variables_dictionary["TauJets"]),)
-	#model = ModelDSNN(model_config)
-
-	normalizers = {"TauTrack": preprocessing.Normalization(),
-				   "NeutralPFO": preprocessing.Normalization(),
-				   "ShotPFO": preprocessing.Normalization(),
-				   "ConvTrack": preprocessing.Normalization(),
-				   "TauJets": preprocessing.Normalization()}
-	for batch in testing_batch_generator:
-		normalizers["TauTrack"].adapt(batch[0][0])
-		normalizers["NeutralPFO"].adapt(batch[0][1])
-		normalizers["ShotPFO"].adapt(batch[0][2])
-		normalizers["ConvTrack"].adapt(batch[0][3])
-		normalizers["TauJets"].adapt(batch[0][4])
-	testing_batch_generator.reset_generator()
-	model = ModelDSNN(model_config, normalizers=normalizers)
-	load_status = model.load_weights(model_weights, )
-
-
+	gammatautau_pred_files = glob.glob("network_outputs//*24794883*")
+	gammatautau_root_files = gammatautau_files.file_list
 	variable = "TauJets.ptJetSeed"
-	gamma_tautau_batch_generator = DataGenerator([testing_files[0]], variables_dictionary, nbatches=50, cuts=cuts, extra_return_var=variable)
+	working_points = [95, 85, 75, 60, 45]
 
-	for i in range(0, len(gamma_tautau_batch_generator)):
-			batch_tmp, y_true_tmp, weights_tmp, var_arr_tmp = gamma_tautau_batch_generator[i]
-			y_pred_tmp = model.predict(batch_tmp)
-			y_pred.append(y_pred_tmp)
-			y_true.append(y_true_tmp)
-			weights.append(weights_tmp)
-			var_arr.append(var_arr_tmp)
 
-	eff, rej = get_efficiency_and_rejection(y_true, y_pred)
+	jz_pred_files = glob.glob("network_outputs//*248*")
+	jz_pred_files.extend(glob.glob("network_outputs//*247949*"))
+	jz_root_files = jz_files.file_list
 
-	plt.plot(eff, var_arr)
-	plt.show()
+	EfficiencyRejectionPlot(gammatautau_pred_files, gammatautau_root_files, "TauJets.ptJetSeed", working_points, cuts=cuts['Gammatautau'], log=True, n_test_points=20).plot()
+	EfficiencyRejectionPlot(gammatautau_pred_files, gammatautau_root_files, "TauJets.mu", working_points, cuts=cuts['Gammatautau'], n_test_points=20).plot()
+	EfficiencyRejectionPlot(gammatautau_pred_files, gammatautau_root_files, "TauJets.etaJetSeed", working_points,
+							cuts=cuts['Gammatautau'], n_test_points=20).plot()
+	EfficiencyRejectionPlot(gammatautau_pred_files, gammatautau_root_files, "TauJets.phiJetSeed", working_points,
+							cuts=cuts['Gammatautau'], n_test_points=20).plot()
 
+	cut_values = [0.017611205577850342, 0.12696415185928345, 0.35216039419174194, 0.7186274230480195, 0.9145175814628601]
+
+	EfficiencyRejectionPlot(jz_pred_files, jz_root_files, "TauJets.ptJetSeed", working_points, cut_values=cut_values,
+							cuts=cuts['JZ1'], log=True, n_test_points=20,rejection=True).plot()
+	EfficiencyRejectionPlot(jz_pred_files, jz_root_files, "TauJets.mu", working_points, cut_values=cut_values,
+							cuts=cuts['JZ1'], n_test_points=20, rejection=True).plot()
+	EfficiencyRejectionPlot(jz_pred_files, jz_root_files, "TauJets.etaJetSeed", working_points, cut_values=cut_values,
+							cuts=cuts['JZ1'], n_test_points=20, rejection=True).plot()
+	EfficiencyRejectionPlot(jz_pred_files, jz_root_files, "TauJets.phiJetSeed", working_points, cut_values=cut_values,
+							cuts=cuts['JZ1'], n_test_points=20, rejection=True).plot()

@@ -6,16 +6,17 @@ transformations to the data and computes the class labels.
 """
 
 import math
+import os.path
 import awkward as ak
 import numpy as np
 import uproot
-from preprocessing import reweighter, limits_dict
+from preprocessing import reweighter
 from utils import logger
 import ray
 import gc
 import numba as nb
-from utils import Result
-from sklearn.preprocessing import StandardScaler
+from models import ModelDSNN
+
 
 
 @nb.njit()
@@ -113,7 +114,7 @@ def apply_scaling(np_arrays, dummy_val=0, thresh=45, flag=False):
 class DataLoader:
 
     def __init__(self, data_type, files, class_label, nbatches, variables_dict, dummy_var="truthProng", cuts=None,
-                 batch_size=None, label="Dataloader", extra_return_var=None):
+                 batch_size=None, label="Dataloader", extra_return_var=None, no_gpu=False):
         """
         Class constructor - fills in meta-data for the data type
         :param data_type: The type of data file being loaded e.g. Gammatautau, JZ1, ect...
@@ -127,6 +128,11 @@ class DataLoader:
         :param batch_size: Allows you to manually set the batch size for the data. This will override the automatically
         calculated batch size inferred from nbatches
         """
+
+        # Disables GPU - useful if you want to instantiate multiple tensorflow model instances
+        if no_gpu:
+            os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
         self._data_type = data_type
         self.label = label
         self.files = files
@@ -238,7 +244,7 @@ class DataLoader:
         return np_arrays
 
 
-    def set_batch(self):
+    def get_batch(self):
         """
         Loads a batch of data of a specific data type and then stores it for later retrieval.
         Pads ragged track and PFO arrays to make them rectilinear
@@ -273,8 +279,11 @@ class DataLoader:
             weight_np_array = reweighter.reweight(ak.to_numpy(batch[self._variables_dict["Weight"]]).astype("float32"))
 
 
-        result = Result(track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays,
-                        jet_np_arrays, labels_np_array, weight_np_array)
+        result = ((track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays)
+                , labels_np_array, weight_np_array)
+
+        # result = Result(track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays,
+        #                 jet_np_arrays, labels_np_array, weight_np_array)
 
         if self.extra_return_var is not None:
             logger.log(f"var = {self.extra_return_var}")
@@ -297,3 +306,55 @@ class DataLoader:
 
     def number_of_batches(self):
         return self._num_real_batches
+
+    def predict(self, model_config, model_weights, normalizers=None, save_predictions=False, saveas=None):
+
+        # normalizers = {"TauTrack": preprocessing.Normalization(),
+        #                "NeutralPFO": preprocessing.Normalization(),
+        #                "ShotPFO": preprocessing.Normalization(),
+        #                "ConvTrack": preprocessing.Normalization(),
+        #                "TauJets": preprocessing.Normalization()}
+        #
+        # for i in range(0, 1):
+        #     batch, _, _ = self.get_batch()
+        #     normalizers["TauTrack"].adapt(batch[0][0])
+        #     normalizers["NeutralPFO"].adapt(batch[0][1])
+        #     normalizers["ShotPFO"].adapt(batch[0][2])
+        #     normalizers["ConvTrack"].adapt(batch[0][3])
+        #     normalizers["TauJets"].adapt(batch[0][4])
+        #     break
+        # self.reset_dataloader()
+
+        # Model needs to be initialized on each actor separately - cannot share model between multiple processes
+        model_weights = "data\\weights-05.h5"
+        model = ModelDSNN(model_config, normalizers=None)
+        model.load_weights(model_weights)
+
+        y_pred = np.ones((self.num_events(), 4)) * -999  # multiply by -999 so mistakes are obvious
+        position = 0
+        for i in range(0, self._num_real_batches):
+            batch, _, _ = self.get_batch()
+            try:
+                y_pred[position: position + len(batch[1])] = model.predict(batch)
+            except ValueError:
+
+                print(y_pred[position: ])
+                print(model.predict(batch).shape)
+
+                y_pred[position: ] = model.predict(batch)
+            position += len(batch[1])
+            logger.log(f"{self._data_type} -- predicted batch {i}/{self._num_real_batches}")
+        # y_pred = np.concatenate([arr for arr in y_pred])
+
+        if save_predictions:
+            if saveas is None:
+                save_file = os.path.basename(self.files[0])
+                np.savez(f"network_outputs\\{save_file}.npz", y_pred)
+                logger.log(f"Saved network predictions for {self._data_type} to network_outputs\\{save_file}.npz")
+            else:
+                np.savez(saveas, y_pred)
+                logger.log(f"Saved network predictions for {self._data_type} to {saveas}")
+
+        self.reset_dataloader()
+        return y_pred
+

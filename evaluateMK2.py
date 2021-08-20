@@ -25,7 +25,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disables GPU
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Sets Tensorflow Logging Level
 
 
-def get_efficiency_and_rejection(y_true, y_pred):
+def get_efficiency_and_rejection(y_true, y_pred, weights):
 	fpr_keras, tpr_keras, thresholds_keras = metrics.roc_curve(y_true, y_pred, sample_weight=weights)
 
 	fpr_keras.sort()
@@ -42,7 +42,7 @@ def get_efficiency_and_rejection(y_true, y_pred):
 
 def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas="ROC.svg"):
 
-	eff, rej = get_efficiency_and_rejection(y_true, y_pred)
+	eff, rej = get_efficiency_and_rejection(y_true, y_pred, weights)
 
 	plt.figure(1)
 	plt.plot([0, 1], [0, 1], 'k--')
@@ -109,10 +109,13 @@ if __name__ == "__main__":
 	plot = True
 	jet_tau_comp = True
 	dm_analy = True
-	model_weights = "data\\weights-05.h5"
-
+	model_weights = "data\\weights-09.h5"
 
 	testing_batch_generator = DataGenerator(testing_files, variables_dictionary, nbatches=50, cuts=cuts)
+
+	y_pred = []
+	y_true = []
+	weights = []
 
 	if read:
 		model_config = config_dict
@@ -128,17 +131,25 @@ if __name__ == "__main__":
 					   "ShotPFO": preprocessing.Normalization(),
 					   "ConvTrack": preprocessing.Normalization(),
 					   "TauJets": preprocessing.Normalization()}
-		for batch in testing_batch_generator:
-			normalizers["TauTrack"].adapt(batch[0][0])
-			normalizers["NeutralPFO"].adapt(batch[0][1])
-			normalizers["ShotPFO"].adapt(batch[0][2])
-			normalizers["ConvTrack"].adapt(batch[0][3])
-			normalizers["TauJets"].adapt(batch[0][4])
+		# for batch in testing_batch_generator:
+		# 	normalizers["TauTrack"].adapt(batch[0][0])
+		# 	normalizers["NeutralPFO"].adapt(batch[0][1])
+		# 	normalizers["ShotPFO"].adapt(batch[0][2])
+		# 	normalizers["ConvTrack"].adapt(batch[0][3])
+		# 	normalizers["TauJets"].adapt(batch[0][4])
 		testing_batch_generator.reset_generator()
-		model = ModelDSNN(model_config, normalizers=normalizers)
+		model = ModelDSNN(model_config, normalizers=None)
 		load_status = model.load_weights(model_weights, )
-		y_pred, y_true, weights = testing_batch_generator.predict(model)
 
+		for i in range(0, len(testing_batch_generator)):
+			batch_tmp, y_true_tmp, weights_tmp = testing_batch_generator[i]
+			y_pred_tmp = model.predict(batch_tmp)
+			y_pred.append(y_pred_tmp)
+			y_true.append(y_true_tmp)
+			weights.append(weights_tmp)
+		y_true = np.concatenate([arr for arr in y_true])
+		y_pred = np.concatenate([arr for arr in y_pred])
+		weights = np.concatenate([arr for arr in weights])
 		np.savez("data\\y_pred.npz", np.array(y_pred, dtype='object'))
 		np.savez("data\\y_true.npz", np.array(y_true, dtype='object'))
 		np.savez("data\\weights.npz", np.array(weights, dtype='object'))
@@ -215,7 +226,7 @@ if __name__ == "__main__":
 				true_pred_taus.append(pred)
 
 	if plot:
-		plot_ROC(true_taus, pred_taus, title="ROC Curve: Tau-Jets", saveas="plots\\ROC_jets.png")
+		plot_ROC(true_taus, pred_taus, weights=weights, title="ROC Curve: Tau-Jets", saveas="plots\\ROC_jets.png")
 		plot_ROC(true_1p0n, pred_1p0n, title="ROC Curve: 1p0n", saveas="plots\\ROC_1p0n.png")
 		plot_ROC(true_1p1n, pred_1p1n, title="ROC Curve: 1p1n", saveas="plots\\ROC_1p1n.png")
 		plot_ROC(true_1pxn, pred_1pxn, title="ROC Curve: 1pxn", saveas="plots\\ROC_1pxn.png")
