@@ -12,7 +12,7 @@ os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'                # Allow tensorfl
 import ray
 import json
 from variables import variables_dictionary
-from models import ModelDSNN
+from models import ModelDSNN, SetTransformer
 from DataGenerator import DataGenerator
 from files import training_files, validation_files
 from callbacks import ParallelModelCheckpoint
@@ -47,11 +47,16 @@ def main():
 
     # Configure model
     model_config = config_dict
-    model_config["shapes"]["TauTracks"] = (len(variables_dictionary["TauTracks"]),) + (10,)
+    model_config["shapes"]["TauTrack"] = (len(variables_dictionary["TauTracks"]),) + (10,)
     model_config["shapes"]["ConvTrack"] = (len(variables_dictionary["ConvTrack"]),) + (10,)
     model_config["shapes"]["NeutralPFO"] = (len(variables_dictionary["NeutralPFO"]),) + (10,)
     model_config["shapes"]["ShotPFO"] = (len(variables_dictionary["ShotPFO"]),) + (10,)
     model_config["shapes"]["TauJets"] = (len(variables_dictionary["TauJets"]),)
+
+    print("\n\n\n*****************************")
+    print(model_config['shapes'])
+    print("*****************************\n\n\n")
+
 
     # normalizers = {"TauTrack": preprocessing.Normalization(),
     #                "NeutralPFO": preprocessing.Normalization(),
@@ -69,13 +74,8 @@ def main():
     # with open('normalizers.pkl', 'wb') as file:
     #     pickle.dump(normalizers, file)
 
-    njets = 1672754.0
-    n1p0n = 310223.0
-    n1p1n = 729350.0
-    n1pxn = 317042.0
-    total = njets + n1p0n + n1p1n + n1pxn
-
-    model = ModelDSNN(model_config, num_samples=total)
+    # model = ModelDSNN(model_config)
+    model = SetTransformer(model_config)
 
     # Configure callbacks
     early_stopping = EarlyStopping(
@@ -93,25 +93,43 @@ def main():
 
     # Compile and summarise model
     model.summary()
-    model.layers[-1].bias.assign([np.log(njets/(total)),
-                                  np.log(n1p0n/(total)),
-                                  np.log(n1p1n/(total)),
-                                  np.log(n1pxn/(total)),])
+
 
     # n1p0n + n1p1n + n1pxn
     # njets + n1p1n + n1pxn
     # njets + n1p0n + n1pxn
     # njets + n1p0n + n1p1n
 
+    njets = 1750674
+    n1p0n = 299238
+    n1p1n = 727483
+    n1pxn = 319774
+    n3p0n = 290613
+    n3pxn = 161202
+    total = njets + n1p0n + n1p1n + n1pxn + n3p0n + n3pxn
+
     weight_for_jets = (1 / njets) * (total / 2.0)
     weight_for_1p0n = (1 / n1p0n) * (total / 2.0)
     weight_for_1p1n = (1 / n1p1n) * (total / 2.0)
     weight_for_1pxn = (1 / n1pxn) * (total / 2.0)
+    weight_for_3p0n = (1 / n3p0n) * (total / 2.0)
+    weight_for_3p1n = (1 / n3pxn) * (total / 2.0)
 
     class_weight = {0: weight_for_jets,
                     1: weight_for_1p0n,
                     2: weight_for_1p1n,
-                    3: weight_for_1pxn}
+                    3: weight_for_1pxn,
+                    4: weight_for_3p0n,
+                    5: weight_for_3p1n,
+                    }
+    model.layers[-1].bias.assign([np.log(njets/(total)),
+                                  np.log(n1p0n/(total)),
+                                  np.log(n1p1n/(total)),
+                                  np.log(n1pxn/(total)),
+                                  np.log(n3p0n / (total)),
+                                  np.log(n3pxn / (total)),
+                                  ])
+
 
     opt = tf.keras.optimizers.Adam(learning_rate=0.001)
     model.compile(optimizer=opt, loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()])

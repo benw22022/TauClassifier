@@ -14,7 +14,7 @@ from tensorflow.keras.layers.experimental import preprocessing
 import tensorflow_probability as tfp
 import tensorflow as tf
 tfd = tfp.distributions
-
+from set_transformer.model import BasicSetTransformer
 
 # =============
 # Custom Layers
@@ -51,23 +51,18 @@ class Sum(Layer):
         return None
 
 
-
-
-
-
-
 # =================
 # Functional models
 # =================
 
-def ModelDSNN(para, mask_value=-4.0, normalizers=None, bn=True, num_samples=10000):
+def ModelDSNN(para, mask_value=-4.0, normalizers=None, bn=True):
+
+    initializer = tf.keras.initializers.HeNormal()
+    activation_func = 'elu'
 
     # Branch 1
     x_1 = Input(shape=para["shapes"]["TauTrack"], ragged=True)
     b_1 = Masking(mask_value=mask_value)(x_1)
-    initializer = tf.keras.initializers.HeNormal()
-    activation_func = 'elu'
-
     if normalizers is not None:
         b_1 = normalizers["TauTrack"](b_1)
     for x in range(para["n_tdd"]["TauTrack"]):
@@ -138,24 +133,6 @@ def ModelDSNN(para, mask_value=-4.0, normalizers=None, bn=True, num_samples=1000
 
     # Merge
     merged = Concatenate()([b_1, b_2, b_3, b_4, b_5])
-   # merged = b_5
-    #merged = Dropout(para["dropout"])(merged)
-    # kl_divergence_function = (lambda q, p, _: tfd.kl_divergence(q, p) /  # pylint: disable=g-long-lambda
-    #                                           tf.cast(num_samples, dtype=tf.float32))
-    # merged = tfp.layers.DenseFlipout(
-    #     units=100,
-    #     activation='relu',
-    #     kernel_posterior_fn=tfp.layers.default_mean_field_normal_fn(),
-    #     bias_posterior_fn=tfp.layers.default_mean_field_normal_fn(),
-    #     kernel_divergence_fn=kl_divergence_function)(merged)
-    #
-    # merged = tfp.layers.DenseFlipout(
-    #     units=100,
-    #     activation='relu',
-    #     kernel_posterior_fn=tfp.layers.default_mean_field_normal_fn(),
-    #     bias_posterior_fn=tfp.layers.default_mean_field_normal_fn(),
-    #     kernel_divergence_fn=kl_divergence_function)(merged)
-
     merged = Dense(para["n_fc1"], kernel_initializer=initializer)(merged)
     merged = Activation(activation_func)(merged)
     #merged = Dropout(para["dropout"])(merged)
@@ -163,8 +140,85 @@ def ModelDSNN(para, mask_value=-4.0, normalizers=None, bn=True, num_samples=1000
     merged = Activation(activation_func)(merged)
 
     #y = Dense(para["n_classes"], activation="softmax")(merged)
-    y = Dense(4, activation="softmax")(merged)
+    y = Dense(6, activation="softmax")(merged)
 
     return Model(inputs=[x_1, x_2, x_3, x_4, x_5], outputs=y)
     #return Model(inputs=[x_5], outputs=y)
 
+def SetTransformer(para, mask_value=-4.0,):
+
+    initializer = tf.keras.initializers.HeNormal()
+    activation_func = 'elu'
+    out_dim = 25
+
+    # Branch 1
+    x_1 = Input(shape=para["shapes"]["TauTrack"], ragged=True)
+    b_1 = Masking(mask_value=mask_value)(x_1)
+    b_1 = BasicSetTransformer(out_dim=out_dim)(b_1)
+    # b_1 = BatchNormalization()(b_1)
+
+    # Branch 2
+    x_2 = Input(shape=para["shapes"]["NeutralPFO"], ragged=True)
+    b_2 = Masking(mask_value=mask_value)(x_2)
+    b_2 = BasicSetTransformer(out_dim=out_dim)(b_2)
+    # b_2 = BatchNormalization()(b_2)
+
+    # Branch 3
+    x_3 = Input(shape=para["shapes"]["ShotPFO"], ragged=True)
+    b_3 = Masking(mask_value=mask_value)(x_3)
+    b_3 = BasicSetTransformer(out_dim=out_dim)(b_3)
+    # b_3 = BatchNormalization()(b_3)
+
+    # Branch 4
+    x_4 = Input(shape=para["shapes"]["ConvTrack"], ragged=True)
+    b_4 = Masking(mask_value=mask_value)(x_4)
+    b_4 = BasicSetTransformer(out_dim=out_dim)(b_4)
+    # b_4 = BatchNormalization()(b_4)
+
+    # Branch 5
+    x_5 = Input(shape=para["shapes"]["TauJets"])
+    b_5 = x_5
+    b_5 = Dense(30, activation=activation_func, kernel_initializer=initializer)(b_5)
+    b_5 = Dense(15, activation=activation_func, kernel_initializer=initializer)(b_5)
+    b_5 = Dense(10, activation=activation_func, kernel_initializer=initializer)(b_5)
+    b_5 = BatchNormalization()(b_5)
+
+    # Merge
+    merged = Concatenate()([b_1, b_2, b_3, b_4, b_5])
+    merged = Dense(para["n_fc1"], kernel_initializer=initializer)(merged)
+    merged = Activation(activation_func)(merged)
+    #merged = Dropout(para["dropout"])(merged)
+    merged = Dense(para["n_fc2"], kernel_initializer=initializer)(merged)
+    merged = Activation(activation_func)(merged)
+
+    #y = Dense(para["n_classes"], activation="softmax")(merged)
+    y = Dense(6, activation="softmax")(merged)
+
+    return Model(inputs=[x_1, x_2, x_3, x_4, x_5], outputs=y)
+    #return Model(inputs=[x_5], outputs=y)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# class ModelBuilder:
+#
+#     def __init__(self, model_func, *args, **kwargs):
+#         self._args = args
+#         self._kwargs = kwargs
+#         self._model_func = model_func
+#         self.model = None
+#
+#     def build(self):
+#         self.model = self._model_func(*self._args, **self._kwargs)
+#         return self.model

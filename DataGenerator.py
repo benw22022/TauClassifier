@@ -21,21 +21,28 @@ from ray.util import inspect_serializability
 class DataGenerator(keras.utils.Sequence):
 
     def __init__(self, file_handler_list, variables_dict, nbatches=1000, cuts=None, label="DataGenerator",
-                 _benchmark=False, extra_return_var=None):
+                 _benchmark=False):
         """
-        Class constructor - loads batches of data in a way that can be fed one by one to Keras - avoids having to load
-        entire dataset into memory prior to training
-        :param file_dict: A dictionary with keys labeling the data type (e.g. Gammatautau, JZ1, etc...) and values being
-        a list of files corresponding to that data type
-        :param variables_dict: A dictionary of input variables with keys labeling the variable type (Tracks, Clusters, etc...)
-        and values being a list of branch names of the variables associated with that type
-        :param nbatches: Number of batches to *roughly* split the dataset into (not exact due to uproot inconstantly
-        changing batch size when moving from one file to another)
-        :param cuts: A dictionary of cuts with keys the same as file_dict. The values should be a string which can be
-        parsed by uproot's cut option e.g. "(pt1 > 50) & ((E1>100) | (E1<90))"
-        :param label: A string to label the generator with - useful when debugging multiple generators
-        :param extra_return_var: An additional array to return when making a batch - use for producing
+        Class constructor for DataGenerator. Inherits from keras.utils.Sequence. When passed to model.fit(...) loads a
+        batch of data from file for the network to train on. This avoids having to load large amounts of data into
+        memory. To speed up I/O data can be read using multiple threads - this is achieved using the ray library (see:
+        https://docs.ray.io/en/master/index.html). Each file stream is read in parallel by a DataLoader object which is
+        instantiated on a new thread as a ray actor. The batches loaded by the DataLoaders are then gathered and
+        merged together by this class.
+
+        :param file_handler_list: A list of FileHandler Objects (a utility class defined in utils.py), each FileHandler
+        in the list will create a new ray actor to handle their files
+        :param variables_dict: A dictionary whose keys correspond to variable types e.g. TauTracks, NeutralPFO etc...
+        and whose values are a list of branches belonging to that key type
+        :param nbatches: Number of batches to roughly split the data into - true number of batches will vary due to the
+        way that uproot works - it cannot make batches split across two files
+        :param cuts: A dictionary whose keys match the FileHandler labels and whose values are strings that can be
+        interpreted by uproot as a cut e.g. "(pt1 > 50) & ((E1>100) | (E1<90))"
+        :param label: A label to give this object (helpful if you have multiple DataGenerators running at once)
+        :param _benchmark: If set to True will return additional information when load_batch() is called. This will
+        cause model.fit() to break and is only used for testing purposes
         """
+
         logger.log(f"Initializing DataGenerator: {label}", 'INFO')
         self._file_handlers = file_handler_list
         self.label = label
@@ -44,9 +51,6 @@ class DataGenerator(keras.utils.Sequence):
         self._current_index = 0
         self._epochs = 0
         self.__benchmark = _benchmark
-        self.extra_return_var = extra_return_var
-
-        logger.log(f"self.extra_return_var = {self.extra_return_var}")
 
         # Organise a list of all variables
         self._variables_dict = variables_dict
@@ -54,6 +58,7 @@ class DataGenerator(keras.utils.Sequence):
         for _, variable_list in variables_dict.items():
             self._variables_list += variable_list
 
+        # Initialize ray actors from FileHandlers, variables_dict and cuts
         for file_handler in self._file_handlers:
             if cuts is not None and file_handler.label in cuts:
                 logger.log(f"Cuts applied to {file_handler.label}: {self.cuts[file_handler.label]}")
@@ -65,7 +70,7 @@ class DataGenerator(keras.utils.Sequence):
                 # Check that dataloader is serializable - needs to be for ray to work
                 inspect_serializability(DataLoader, name="test")
                 dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[file_handler.label],
-                                                    label=label, extra_return_var=extra_return_var)
+                                                    label=label)
                 self.data_loaders.append(dl)
 
             else:
@@ -73,9 +78,8 @@ class DataGenerator(keras.utils.Sequence):
                 file_list = file_handler.file_list
                 class_label = file_handler.class_label
                 logger.log(inspect_serializability(DataLoader, name="test"))
-                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variables_dict, label=dl_label, extra_return_var=extra_return_var)
+                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variables_dict, label=dl_label)
                 self.data_loaders.append(dl)
-
 
         # Get number of events in each dataset
         self._total_num_events = []
@@ -90,27 +94,13 @@ class DataGenerator(keras.utils.Sequence):
 
     def load_batch(self):
         """
-        Loads a batch of data from each data type and concatenates them into single arrays for training
-        :param idx: The index of the batch of data to retrieve
+        Loads a batch of data from each DataLoader and concatenates them into single arrays for training
         :return: A list of arrays to be passed to model.fit()
         """
 
         batch_load_time = time.time()
-        extra_arr = []
 
-        # Concatenate the results from each file stream together
-        if self.extra_return_var is not None:
-            res = ray.get([dl.set_batch.remote() for dl in self.data_loaders])
-            logger.log(f"res = {res} - len = {len(res)}")
-            batch = res[0][0]
-            extra_arr = res[0][1]
-            try:
-                extra_arr = np.concatenate([arr for arr in extra_arr])
-            except ValueError:
-                pass
-
-        else:
-            batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
+        batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
 
         track_array = np.concatenate([result[0][0] for result in batch])
         neutral_pfo_array = np.concatenate([result[0][1] for result in batch])
@@ -126,23 +116,21 @@ class DataGenerator(keras.utils.Sequence):
 
         if self.__benchmark:
             return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array),\
-                    self._current_index, len(label_array), load_time
-
+                    label_array, self._current_index, load_time
 
         try:
-            if self.extra_return_var is not None:
-                return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array,
-                        jet_array), label_array, weight_array, extra_arr
             return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
         finally:
             del batch
             del track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array, label_array, weight_array
             gc.collect()
 
-    def predict(self, model):
+    def predict(self, model_func, *args, **kwargs):
+        # TODO: WORK IN PROGRESS
         y_pred = []
         y_true = []
         weights = []
+        model = model_func(*args, **kwargs)
         for i in range(0, len(self)):
             batch_tmp, y_true_tmp, weights_tmp = self[i]
             y_pred_tmp = model.predict(batch_tmp)

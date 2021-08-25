@@ -18,35 +18,17 @@ import numba as nb
 from models import ModelDSNN
 
 
-
 @nb.njit()
-def labeler_1prong(truth_decay_mode_np_array, labels_np_array):
+def labeler(truth_decay_mode_np_array, labels_np_array):
     """
     Function to compute decay mode labels for Gammatautau. Due to large for loop, the function is jitted for speed
-    :param truth_decay_mode_np_array: The Truth Decay Mode - number of neutral hadrons in decay
-    :param labels_np_array: The array of labels - already initialized ready to be modified
-    Convention:
-    [1, 0, 0, 0] == Background Jets
-    [0, 1, 0, 0] == 1p0n
-    [0, 0, 1, 0] == 1p1n
-    [0, 0, 0, 1] == 1pXn
-    :return: The correctly labelled array
-    """
-    for i in range(0, len(truth_decay_mode_np_array, )):
-        elem = truth_decay_mode_np_array[i]
-        if elem == 0:
-            labels_np_array[i][1] = 1
-        elif elem == 1:
-            labels_np_array[i][2] = 1
-        else:
-            labels_np_array[i][3] = 1
-    return labels_np_array
-
-@nb.njit()
-def labeler(truth_decay_mode_np_array, labels_np_array, truth_prong):
-    """
-    Function to compute decay mode labels for Gammatautau. Due to large for loop, the function is jitted for speed
-    :param truth_decay_mode_np_array: The Truth Decay Mode - number of neutral hadrons in decay
+    :param truth_decay_mode_np_array: The Truth Decay Mode - an enum corresponding to the decay mode
+        - 1p0n == 0
+        - 1p1n == 1
+        - 1p2n == 2
+        - 1pXn == 3
+        - 3p0n == 4
+        - 3p0n == 5
     :param labels_np_array: The array of labels - already initialized ready to be modified
     Convention:
     [1, 0, 0, 0, 0, 0] == Background Jets
@@ -55,24 +37,11 @@ def labeler(truth_decay_mode_np_array, labels_np_array, truth_prong):
     [0, 0, 0, 1, 0, 0] == 1pXn
     [0, 0, 0, 0, 1, 0] == 3p0n
     [0, 0, 0, 0, 0, 1] == 3pXn
-    :return: The correctly labelled array
+    :return: An array of labels
     """
     for i in range(0, len(truth_decay_mode_np_array, )):
         elem = truth_decay_mode_np_array[i]
-        prong = truth_prong[i]
-        if prong == 1:
-            if elem == 0:
-                labels_np_array[i][1] = 1
-            elif elem == 1:
-                labels_np_array[i][2] = 1
-            else:
-                labels_np_array[i][3] = 1
-        # if prong == 3:
-        #     if elem == 0:
-        #         print("found a 3p0n")
-        #         labels_np_array[i][4] = 1
-        #     else:
-        #         labels_np_array[i][5] = 1
+        labels_np_array[i][elem + 1] = 1
     return labels_np_array
 
 
@@ -87,14 +56,15 @@ def apply_scaling(np_arrays, dummy_val=0, thresh=45, flag=False):
     # if len(np_arrays.shape) == 3:
     for i in nb.prange(0, np_arrays.shape[1]):
         arr = np.ravel(np_arrays[:, i])
-        #arr = arr[arr != dummy_val]
+        # arr = arr[arr != dummy_val]
         arr = np.ma.masked_equal(arr, dummy_val)
         arr_median = np.median(arr)
         q75, q25 = np.percentile(arr, [75, 25])
         arr_iqr = q75 - q25
 
         if arr_iqr != 0:
-            np_arrays[:, i] = (np_arrays[:, i] - arr_median) / arr_iqr #np.where(np_arrays[:, i] != dummy_val, (np_arrays[:, i] - arr_median) / arr_iqr, dummy_val)
+            np_arrays[:, i] = (np_arrays[:,
+                               i] - arr_median) / arr_iqr  # np.where(np_arrays[:, i] != dummy_val, (np_arrays[:, i] - arr_median) / arr_iqr, dummy_val)
             np_arrays[:, i] = np.where(np_arrays[:, i] < thresh, np_arrays[:, i], thresh)
             np_arrays[:, i] = np.where(np_arrays[:, i] > -thresh, np_arrays[:, i], -thresh)
 
@@ -102,33 +72,35 @@ def apply_scaling(np_arrays, dummy_val=0, thresh=45, flag=False):
             print(arr_median)
             print(arr_iqr)
 
-
     return np_arrays
-    # else:
-    #     scaler = StandardScaler()
-    #     np_arrays = scaler.fit_transform(np_arrays)
-    #     return np_arrays
 
 
 @ray.remote
 class DataLoader:
 
     def __init__(self, data_type, files, class_label, nbatches, variables_dict, dummy_var="truthProng", cuts=None,
-                 batch_size=None, label="Dataloader", extra_return_var=None, no_gpu=False):
+                 batch_size=None, num_classes=6, label="Dataloader", no_gpu=False):
         """
-        Class constructor - fills in meta-data for the data type
-        :param data_type: The type of data file being loaded e.g. Gammatautau, JZ1, ect...
-        :param files: A list of files of the same data type to be loaded
-        :param class_label: 1 for signal, 0 for background
-        :param variables_dict: dictionary of variables to load
-        :param nbatches: number of batches to *roughly* split the data into
-        :param dummy_var: A variable to be loaded from the file to be loaded and iterated through to work out the number
-        of events in the data files.
-        :param cuts: A string which can be parsed by uproot's cut option e.g. "(pt1 > 50) & ((E1>100) | (E1<90))"
-        :param batch_size: Allows you to manually set the batch size for the data. This will override the automatically
-        calculated batch size inferred from nbatches
+        Class constructor for the DataLoader object. Object is decorated with @ray.remote for easy multiprocessing
+        To initialize the class (which is a ray actor) do: dl = Dataloader.remote(*args, **kwargs)
+        To call a class method do: dl.<method>.remote(*args, **kwargs) - this returns a ray futures object
+        To gather results of a class method do: ray.get(dl.<method>.remote(*args, **kwargs))
+        :param data_type: A string labelling the data type e.g. Gammatautau, JZ1 etc..
+        :param files: A list of file paths to NTuples to read from
+        :param class_label: Either 0 for jets or 1 for taus
+        :param nbatches: Number of batches to roughly split the data into - true number of batches will vary due to the
+        way that uproot works - it cannot make batches split across two files
+        :param variables_dict: A dictionary whose keys correspond to variable types e.g. TauTracks, NeutralPFO etc...
+        and whose values are a list of branches belonging to that key type
+        :param dummy_var: A branch that can be easily loaded for computing the number of events in a sample - don't use
+        a nested variable (e.g. TauTracks.pt) as this will be slow and may cause an OOM error
+        :param cuts: A string detailing the cuts to be applied to the data, passable by uproot
+        e.g.(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0)
+        :param batch_size: The number of events to load per batch (overrides nbatches opt.)
+        :param num_classes: Number of classes (e.g. jets, 1p0n, 1p1n etc...). Default is 6
+        :param label:
+        :param no_gpu:
         """
-
         # Disables GPU - useful if you want to instantiate multiple tensorflow model instances
         if no_gpu:
             os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -141,8 +113,8 @@ class DataLoader:
         self._nbatches = nbatches
         self.class_label = class_label
         self._variables_dict = variables_dict
+        self._num_classes = num_classes
         self._current_index = 0
-        self.extra_return_var = extra_return_var
 
         # Parse variables
         self._variables_list = []
@@ -177,6 +149,11 @@ class DataLoader:
         logger.log(f"DataLoader for {data_type} initialized", "INFO")
 
     def next_batch(self):
+        """
+        Gets the next batch of data from iterator. If end of the iterator is reached
+        then restart it
+        :return: batch - a dict of arrays yielded by uproot.iterate()
+        """
         try:
             batch = next(self._batches_generator)
         except StopIteration:
@@ -184,7 +161,7 @@ class DataLoader:
                                                      step_size=self.specific_batch_size)
             return self.next_batch()
         self._current_index += 1
-        return batch, np.ones(len(batch)) * self.class_label
+        return batch
 
     def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=10):
         """
@@ -211,8 +188,9 @@ class DataLoader:
                 arr = np.where(arr > 0, np.log10(arr), dummy_val)
                 arr = np.where(arr < 100, arr, dummy_val)
             np_arrays[:, i] = arr
-        #np_arrays = apply_scaling(np_arrays, thresh=thresh, dummy_val=dummy_val)
+        # np_arrays = apply_scaling(np_arrays, thresh=thresh, dummy_val=dummy_val)
         np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float64")
+        # np_arrays = np_arrays.reshape((len(np_arrays), max_items, len(variables)))
         return np_arrays
 
     def reshape_arrays(self, batch, variable_type):
@@ -232,17 +210,16 @@ class DataLoader:
             ak_arr = batch[var]
             arr = ak.to_numpy(abs(ak_arr))
             dummy_val = 0
-           # arr = limits_dict[var].transform(arr, dummy_val=dummy_val)
+            # arr = limits_dict[var].transform(arr, dummy_val=dummy_val)
             if np.max(arr) > 50:
                 arr = np.where(arr < 1e7, arr, -4)
                 arr = np.where(arr > -1000, arr, -4)
                 arr = np.where(arr > 0, np.log10(arr), dummy_val)
                 arr = np.where(arr < 100, arr, dummy_val)
             np_arrays[:, i] = arr
-        #np_arrays = apply_scaling(np_arrays)
+        # np_arrays = apply_scaling(np_arrays)
         np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float64")
         return np_arrays
-
 
     def get_batch(self):
         """
@@ -250,9 +227,8 @@ class DataLoader:
         Pads ragged track and PFO arrays to make them rectilinear
         and reshapes arrays into correct shape for training. The clip option in ak.pad_none will truncate/extend each
         array so that they are all of a specific length- here we limit nested arrays to 20 items
-        :param idx: The index of the batch to be processed
         """
-        batch, sig_bkg_labels_np_array = self.next_batch()
+        batch = self.next_batch()
 
         track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=10)
         conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=10)
@@ -261,38 +237,28 @@ class DataLoader:
         jet_np_arrays = self.reshape_arrays(batch, "TauJets")
 
         # Compute labels
-        p1class = 4
-        all_class = 6
-
-        labels_np_array = np.zeros((len(sig_bkg_labels_np_array), 4))
-        if sig_bkg_labels_np_array[0] == 0:
+        labels_np_array = np.zeros((len(batch), self._num_classes))
+        if self.class_label == 0:
             labels_np_array[:, 0] = 1
         else:
             truth_decay_mode_np_array = ak.to_numpy(batch[self._variables_dict["DecayMode"]]).astype(np.int64)
-            truth_prong = ak.to_numpy(batch[self._variables_dict["Prong"]]).astype(np.int64)
-
-            labels_np_array = labeler(truth_decay_mode_np_array, labels_np_array, truth_prong)
+            labels_np_array = labeler(truth_decay_mode_np_array, labels_np_array)
 
         # Apply pT re-weighting
         weight_np_array = np.ones(len(labels_np_array))
         if self.class_label == 0:
             weight_np_array = reweighter.reweight(ak.to_numpy(batch[self._variables_dict["Weight"]]).astype("float32"))
 
-
-        result = ((track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays)
-                , labels_np_array, weight_np_array)
-
-        # result = Result(track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays,
-        #                 jet_np_arrays, labels_np_array, weight_np_array)
-
-        if self.extra_return_var is not None:
-            logger.log(f"var = {self.extra_return_var}")
-            print(ak.to_numpy(batch[self.extra_return_var]))
-            return result, ak.to_numpy(batch[self.extra_return_var])
+        result = ((track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays),
+                  labels_np_array, weight_np_array)
 
         return result
 
     def reset_dataloader(self):
+        """
+        Resets the DataLoader by restarting its index and iterator
+        :return:
+        """
         self._current_index = 0
         self._batches_generator = uproot.iterate(self.files, filter_name=self._variables_list, cut=self.cut,
                                                  library='ak', step_size=self.specific_batch_size)
@@ -308,7 +274,6 @@ class DataLoader:
         return self._num_real_batches
 
     def predict(self, model_config, model_weights, normalizers=None, save_predictions=False, saveas=None):
-
         # normalizers = {"TauTrack": preprocessing.Normalization(),
         #                "NeutralPFO": preprocessing.Normalization(),
         #                "ShotPFO": preprocessing.Normalization(),
@@ -330,7 +295,7 @@ class DataLoader:
         model = ModelDSNN(model_config, normalizers=None)
         model.load_weights(model_weights)
 
-        y_pred = np.ones((self.num_events(), 4)) * -999  # multiply by -999 so mistakes are obvious
+        y_pred = np.ones((self.num_events(), self._num_classes)) * -999  # multiply by -999 so mistakes are obvious
         position = 0
         for i in range(0, self._num_real_batches):
             batch, _, _ = self.get_batch()
@@ -338,10 +303,10 @@ class DataLoader:
                 y_pred[position: position + len(batch[1])] = model.predict(batch)
             except ValueError:
 
-                print(y_pred[position: ])
+                print(y_pred[position:])
                 print(model.predict(batch).shape)
 
-                y_pred[position: ] = model.predict(batch)
+                y_pred[position:] = model.predict(batch)
             position += len(batch[1])
             logger.log(f"{self._data_type} -- predicted batch {i}/{self._num_real_batches}")
         # y_pred = np.concatenate([arr for arr in y_pred])
@@ -357,4 +322,3 @@ class DataLoader:
 
         self.reset_dataloader()
         return y_pred
-

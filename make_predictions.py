@@ -24,19 +24,19 @@ if __name__ == "__main__":
 
 	# Load model
 	model_config = config_dict
-	model_config["shapes"]["TauTracks"] = (len(variables_dictionary["TauTracks"]),) + (10,)
+	model_config["shapes"]["TauTrack"] = (len(variables_dictionary["TauTracks"]),) + (10,)
 	model_config["shapes"]["ConvTrack"] = (len(variables_dictionary["ConvTrack"]),) + (10,)
 	model_config["shapes"]["NeutralPFO"] = (len(variables_dictionary["NeutralPFO"]),) + (10,)
 	model_config["shapes"]["ShotPFO"] = (len(variables_dictionary["ShotPFO"]),) + (10,)
 	model_config["shapes"]["TauJets"] = (len(variables_dictionary["TauJets"]),)
 
-	model_weights = "data\\weights-05.h5"
+	model_weights = "data\\weights-06.h5"
 
 	# Get GammaTauTau files
 	files = glob.glob("E:\\NTuples\\TauClassifier\\*Gammatautau*\\*.root")
 
 	# Make DataLoaders
-	files = split_list(files, len(files)//5)
+	files = split_list(files, len(files)//5)   # split into groups of 5 to speed things up
 	nbatches = 500
 
 	for file_chunk in files:

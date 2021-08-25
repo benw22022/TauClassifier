@@ -53,7 +53,7 @@ config_dict = {"shapes":
 
 common_cuts = "(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0) & (TauJets.ptRatioEflowApprox < 5) & (TauJets.etOverPtLeadTrk < 30)"
 
-cuts = {"Gammatautau": "(TauJets.truthProng == 1) & " + common_cuts,
+cuts = {"Gammatautau": common_cuts, # "(TauJets.truthProng == 1) & " + common_cuts,
 		"JZ1": common_cuts,
 		"JZ2": common_cuts,
 		"JZ3": common_cuts,

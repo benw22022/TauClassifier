@@ -4,8 +4,8 @@ TODO: Make this a yaml config file (Bad practice to use a .py file for configs)
 """
 variables_dictionary = {"TauTracks": [
 
-                                      "TauTracks.dEta",
-                                      "TauTracks.dPhi",
+                                      # "TauTracks.dEta",
+                                      # "TauTracks.dPhi",
                                       "TauTracks.nInnermostPixelHits",
                                       "TauTracks.nPixelHits",
                                       "TauTracks.nSCTHits",
@@ -15,9 +15,9 @@ variables_dictionary = {"TauTracks": [
                                       # "TauTracks.fakeScoreRNN",
 
                                       "TauTracks.pt",
-                                      #"TauTracks.dphiECal",
-                                      #"TauTracks.detaECal",
-                                      #"TauTracks.jetpt",
+                                      "TauTracks.dphiECal",
+                                      "TauTracks.detaECal",
+                                      "TauTracks.jetpt",
                                       "TauTracks.d0TJVA",
                                       "TauTracks.d0SigTJVA",
                                       "TauTracks.z0sinthetaTJVA",
