@@ -185,11 +185,12 @@ variables_dictionary = {"TauTracks": [
                                     "TauJets.ptIntermediateAxis",
                                     "TauJets.ptJetSeed",
                                     "TauJets.etaJetSeed",
-                                    "TauJets.phiJetSeed"],
+                                    "TauJets.phiJetSeed",
+                                    ],
 
                         "DecayMode": ["TauJets.truthDecayMode"],
                         "Prong": ["TauJets.truthProng"],
-                        "Weight": ["TauJets.mcEventWeight"]}
+                        "Weight": ["TauJets.jet_pt"]}#"TauJets.mcEventWeight"
 
 
 

@@ -13,12 +13,19 @@
 # Ignore directories
 venv*
 *.idea
-data
-plots
+data/*
+plots/*
+*training
+batch/*training_*/8
 
 # Ignore logs
 *.log
 *.txt
+*.error
+*.out
+*_stdout*
+*_stderr*
+
 
 # Other 
 __pycache__
