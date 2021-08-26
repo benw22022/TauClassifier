@@ -8,39 +8,49 @@ TODO: Make this generalisable to different problems
 
 import numpy as np
 import keras
-from DataLoader import DataLoader
-from utils import logger
+from DataLoader import DataLoader, apply_scaling
+from utils import logger, find_anomalous_entries
 import tensorflow as tf
 import datetime
 import time
-from utils import find_anomalous_entries
+import gc
+import ray
+from ray.util import inspect_serializability
 
 
 class DataGenerator(keras.utils.Sequence):
 
-    def __init__(self, file_handler_list, variables_dict, nbatches=1000, epochs=50, cuts=None, label="DataGenerator"):
+    def __init__(self, file_handler_list, variables_dict, nbatches=1000, cuts=None, label="DataGenerator",
+                 _benchmark=False):
         """
-        Class constructor - loads batches of data in a way that can be fed one by one to Keras - avoids having to load
-        entire dataset into memory prior to training
-        :param file_dict: A dictionary with keys labeling the data type (e.g. Gammatautau, JZ1, etc...) and values being
-        a list of files corresponding to that data type
-        :param variables_dict: A dictionary of input variables with keys labeling the variable type (Tracks, Clusters, etc...)
-        and values being a list of branch names of the variables associated with that type
-        :param nbatches: Number of batches to *roughly* split the dataset into (not exact due to uproot inconstantly
-        changing batch size when moving from one file to another)
-        :param cuts: A dictionary of cuts with keys the same as file_dict. The values should be a string which can be
-        parsed by uproot's cut option e.g. "(pt1 > 50) & ((E1>100) | (E1<90))"
-        :param label: A string to label the generator with - useful when debugging multiple generators
+        Class constructor for DataGenerator. Inherits from keras.utils.Sequence. When passed to model.fit(...) loads a
+        batch of data from file for the network to train on. This avoids having to load large amounts of data into
+        memory. To speed up I/O data can be read using multiple threads - this is achieved using the ray library (see:
+        https://docs.ray.io/en/master/index.html). Each file stream is read in parallel by a DataLoader object which is
+        instantiated on a new thread as a ray actor. The batches loaded by the DataLoaders are then gathered and
+        merged together by this class.
+
+        :param file_handler_list: A list of FileHandler Objects (a utility class defined in utils.py), each FileHandler
+        in the list will create a new ray actor to handle their files
+        :param variables_dict: A dictionary whose keys correspond to variable types e.g. TauTracks, NeutralPFO etc...
+        and whose values are a list of branches belonging to that key type
+        :param nbatches: Number of batches to roughly split the data into - true number of batches will vary due to the
+        way that uproot works - it cannot make batches split across two files
+        :param cuts: A dictionary whose keys match the FileHandler labels and whose values are strings that can be
+        interpreted by uproot as a cut e.g. "(pt1 > 50) & ((E1>100) | (E1<90))"
+        :param label: A label to give this object (helpful if you have multiple DataGenerators running at once)
+        :param _benchmark: If set to True will return additional information when load_batch() is called. This will
+        cause model.fit() to break and is only used for testing purposes
         """
-        logger.log("Initializing DataGenerator", 'INFO')
-        self._file_handlers =  file_handler_list
+
+        logger.log(f"Initializing DataGenerator: {label}", 'INFO')
+        self._file_handlers = file_handler_list
         self.label = label
         self.data_loaders = []
         self.cuts = cuts
         self._current_index = 0
-        self._epochs = epochs
-        self._epoch_index = 0
-
+        self._epochs = 0
+        self.__benchmark = _benchmark
 
         # Organise a list of all variables
         self._variables_dict = variables_dict
@@ -48,105 +58,90 @@ class DataGenerator(keras.utils.Sequence):
         for _, variable_list in variables_dict.items():
             self._variables_list += variable_list
 
+        # Initialize ray actors from FileHandlers, variables_dict and cuts
         for file_handler in self._file_handlers:
             if cuts is not None and file_handler.label in cuts:
                 logger.log(f"Cuts applied to {file_handler.label}: {self.cuts[file_handler.label]}")
-                self.data_loaders.append(DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
-                                                    nbatches, variables_dict, cuts=self.cuts[file_handler.label],
-                                                    label=label))
-            else:
-                self.data_loaders.append(
-                    DataLoader(file_handler.label, file_handler.file_list, file_handler.class_label,
-                               nbatches, variables_dict, label=label))
 
+                dl_label = file_handler.label + "_" + self.label
+                file_list = file_handler.file_list
+                class_label = file_handler.class_label
+
+                # Check that dataloader is serializable - needs to be for ray to work
+                inspect_serializability(DataLoader, name="test")
+                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[file_handler.label],
+                                                    label=label)
+                self.data_loaders.append(dl)
+
+            else:
+                dl_label = file_handler.label + "_" + self.label
+                file_list = file_handler.file_list
+                class_label = file_handler.class_label
+                logger.log(inspect_serializability(DataLoader, name="test"))
+                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variables_dict, label=dl_label)
+                self.data_loaders.append(dl)
 
         # Get number of events in each dataset
         self._total_num_events = []
-        self._num_batches_list = []
+        num_batches_list = []
         for data_loader in self.data_loaders:
-            self._total_num_events.append(data_loader.num_events())
-            self._num_batches_list.append(data_loader.number_of_batches())
-        logger.log(f"Found {sum(self._total_num_events)} events total", "INFO")
+            self._total_num_events.append(ray.get(data_loader.num_events.remote()))
+            num_batches_list.append(ray.get(data_loader.number_of_batches.remote()))
+        logger.log(f"{self.label} - Found {sum(self._total_num_events)} events total", "INFO")
 
         # Work out how many batches to split the data into
-        self._num_batches = min(self._num_batches_list)
+        self._num_batches = min(num_batches_list)
 
-        # Lazily load batches of data for each dataset
-        for data_loader in self.data_loaders:
-            logger.log(f"Number of batches in {data_loader.data_type()} = {data_loader.number_of_batches()}")
-
-        # Work out the number of batches for training epoch (important)
-        logger.log(f"Number of batches per epoch: {self._num_batches}", 'DEBUG')
-        logger.log("DataGenerator initialized", 'INFO')
-
-
-    def load_batch(self, idx=None):
+    def load_batch(self):
         """
-        Loads a batch of data from each data type and concatenates them into single arrays for training
-        :param idx: The index of the batch of data to retrieve
+        Loads a batch of data from each DataLoader and concatenates them into single arrays for training
         :return: A list of arrays to be passed to model.fit()
         """
 
         batch_load_time = time.time()
 
-        index = idx
-        if idx is None:
-            index = self._current_index
+        batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
 
-        batch = [dl.load_batch_from_data(idx=index) for dl in self.data_loaders]
-        track_array = np.concatenate([sub_batch[0][0] for sub_batch in batch])
-        neutral_pfo_array = np.concatenate([sub_batch[0][1] for sub_batch in batch])
-        shot_pfo_array = np.concatenate([sub_batch[0][2] for sub_batch in batch])
-        conv_track_array = np.concatenate([sub_batch[0][3] for sub_batch in batch])
-        jet_array = np.concatenate([sub_batch[0][4] for sub_batch in batch])
-        label_array = np.concatenate([sub_batch[1] for sub_batch in batch])
-        weight_array = np.concatenate([sub_batch[2] for sub_batch in batch])
+        track_array = np.concatenate([result[0][0] for result in batch])
+        neutral_pfo_array = np.concatenate([result[0][1] for result in batch])
+        shot_pfo_array = np.concatenate([result[0][2] for result in batch])
+        conv_track_array = np.concatenate([result[0][3] for result in batch])
+        jet_array = np.concatenate([result[0][4] for result in batch])
+        label_array = np.concatenate([result[1] for result in batch])
+        weight_array = np.concatenate([result[2] for result in batch])
 
-        #find_anomalous_entries(track_array, 20, logger, arr_name="tracks")
-        #find_anomalous_entries(neutral_pfo_array, 20, logger, arr_name="neutral PFO")
-        #find_anomalous_entries(shot_pfo_array, 20, logger, arr_name="shot PFO")
-        #find_anomalous_entries(conv_track_array, 20, logger, arr_name="conv track")
-        #find_anomalous_entries(jet_array, 20, logger, arr_name="jets")
-        #find_anomalous_entries(weight_array, 5, logger, arr_name="weights")
+        load_time = str(datetime.timedelta(seconds=time.time()-batch_load_time))
+        logger.log(f"{self.label}: Processed batch {self._current_index}/{self.__len__()} - {len(label_array)} events"
+                   f" in {load_time}", "INFO")
 
-        logger.log(f"Loaded batch {self.label} {self._current_index}/{self.__len__()} in {str(datetime.timedelta(seconds=time.time()-batch_load_time))}", "INFO")
-        logger.log(f"Batch: {self._current_index}/{self.__len__()} - shapes:", 'DEBUG')
-        logger.log(f"TauTracks Shape = {track_array.shape}", 'DEBUG')
-        logger.log(f"ConvTracks Shape = {conv_track_array.shape}", 'DEBUG')
-        logger.log(f"ShotPFO Shape = {shot_pfo_array.shape}", 'DEBUG')
-        logger.log(f"NeutralPFO Shape = {neutral_pfo_array.shape}", 'DEBUG')
-        logger.log(f"TauJets Shape = {jet_array.shape}", 'DEBUG')
-        logger.log(f"Labels Shape = {label_array.shape}", 'DEBUG')
-        logger.log(f"Weight Shape = {weight_array.shape}", 'DEBUG')
+        if self.__benchmark:
+            return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array),\
+                    label_array, self._current_index, load_time
 
-        track_array = tf.convert_to_tensor(track_array.astype("float32"))
-        conv_track_array = tf.convert_to_tensor(conv_track_array.astype("float32"))
-        shot_pfo_array = tf.convert_to_tensor(shot_pfo_array.astype("float32"))
-        neutral_pfo_array = tf.convert_to_tensor(neutral_pfo_array.astype("float32"))
-        jet_array = tf.convert_to_tensor(jet_array.astype("float32"))
-        label_array = tf.convert_to_tensor(label_array.astype("float32"))
-        weight_array = tf.convert_to_tensor(weight_array.astype("float32"))
+        try:
+            return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
+        finally:
+            del batch
+            del track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array, label_array, weight_array
+            gc.collect()
 
-        return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array)
-
-
-    def get_batch_shapes(self):
-        """
-        Loads a batch at a specific index and returns the shapes of the returned arrays
-        Used for debugging and initializing network input layers
-        :return: A list of all the array shapes.
-        """
-
-        batch = self.load_batch(0)
-        shapes = []
-
-        for item in batch[0]:
-            shapes.append(item.shape)
-        shapes.append(batch[1].shape)
-        shapes.append(batch[2].shape)
-
-        return shapes
-
+    def predict(self, model_func, *args, **kwargs):
+        # TODO: WORK IN PROGRESS
+        y_pred = []
+        y_true = []
+        weights = []
+        model = model_func(*args, **kwargs)
+        for i in range(0, len(self)):
+            batch_tmp, y_true_tmp, weights_tmp = self[i]
+            y_pred_tmp = model.predict(batch_tmp)
+            y_pred.append(y_pred_tmp)
+            y_true.append(y_true_tmp)
+            weights.append(weights_tmp)
+        self.reset_generator()
+        y_true = np.concatenate([arr for arr in y_true])
+        y_pred = np.concatenate([arr for arr in y_pred])
+        weights = np.concatenate([arr for arr in weights])
+        return y_pred, y_true, weights
 
     def __len__(self):
         """
@@ -159,44 +154,36 @@ class DataGenerator(keras.utils.Sequence):
     def __getitem__(self, idx):
         """
         Overloads [] operator - allows generator to be indexable. This must be provided so that Keras can use generator
-        :param idx: An index
-        :return: A full batch of data
+        Kinda hacky - ideally since this is generator we would be using the __next__ function - but Keras wants
+        indexable data - so __getitem__ it is.
+        :param idx: An index - doesn't actually get used for anything - you can ignore it
+        :return: The next batch of data
         """
-        #logger.log(f"loaded batch {idx}/{self.__len__()}", 'DEBUG')
-        logger.log(f"{self.label} __getitem__ called")
         self._current_index += 1
-        return self.load_batch(idx)
-
+        try:
+            return self.load_batch()
+        finally:
+            # If we reach the end of the generator we reset so we can loop again
+            if self._current_index == len(self):
+                self.reset_generator()
 
     def __next__(self):
         """
-        Overloads next() operator - allows generator to be iterable - This is what will be called when
-        tf.data.Dataset.from_generator() is used
-        :return:
+        Overloads next() operator - allows generator to be iterable
+        - This must be defined for DataGenerator to be converted to a TensorFlow dataset (if that is something you want
+        to do)
+        :return: The next batch of data
         """
 
-        if self._current_index < self._num_batches:
+        if self._current_index < self.__len__():
             self._current_index += 1
             return self.load_batch()
-        #logger.log(f"{self.label} __next__ called")
-        #if self._epoch_index < self._epochs:
-        #    if self._current_index < self._num_batches:
-        #        self._current_index += 1
-        #        return self.load_batch()
-        #    self.on_epoch_end()
-        #    self._epoch_index += 1
-        #    if self.label == "Validation Generator":
-        #        logger.log(f"StopIteration raised by __next__ in {self.label}")
-        #        raise StopIteration
-        #    logger.log(f"Completed {self._epoch_index} epochs")
-        #    return self.load_batch()
         raise StopIteration
 
     def __iter__(self):
         return self
 
     def __call__(self):
-        self.on_epoch_end()
         return self
 
     def reset_generator(self):
@@ -207,17 +194,14 @@ class DataGenerator(keras.utils.Sequence):
         """
         self._current_index = 0
         for data_loader in self.data_loaders:
-            data_loader.reset_index()
-        logger.log(f"reset_generator called on {self.label}")
+            data_loader.reset_dataloader.remote()
 
     def on_epoch_end(self):
         """
         This function is called by Keras at the end of every epoch. Here it is used to reset the iterators to the start
         :return:
         """
-        logger.log_memory_usage(level='DEBUG')
         self.reset_generator()
 
     def number_events(self):
         return self._total_num_events
-

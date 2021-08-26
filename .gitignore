@@ -16,7 +16,9 @@ venv*
 data/*
 plots/*
 *training
-batch/*training_*/8
+batch/*training_*/*
+*tmp
+network_outputs
 
 # Ignore logs
 *.log

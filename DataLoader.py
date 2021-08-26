@@ -1,37 +1,110 @@
 """
 DataLoader Class definition
 ________________________________________________________________________________________________________________________
-A helper class to lazily load batches of training data for each type of data
+A helper class and ray actor to generate batches of data from a set of root files. This object applies all the required
+transformations to the data and computes the class labels.
 """
 
 import math
-
+import os.path
 import awkward as ak
 import numpy as np
 import uproot
-from preprocessing import finite_log, pt_reweight
+from preprocessing import reweighter
 from utils import logger
+import ray
+import gc
+import numba as nb
+from models import ModelDSNN
 
 
+@nb.njit()
+def labeler(truth_decay_mode_np_array, labels_np_array):
+    """
+    Function to compute decay mode labels for Gammatautau. Due to large for loop, the function is jitted for speed
+    :param truth_decay_mode_np_array: The Truth Decay Mode - an enum corresponding to the decay mode
+        - 1p0n == 0
+        - 1p1n == 1
+        - 1p2n == 2
+        - 1pXn == 3
+        - 3p0n == 4
+        - 3p0n == 5
+    :param labels_np_array: The array of labels - already initialized ready to be modified
+    Convention:
+    [1, 0, 0, 0, 0, 0] == Background Jets
+    [0, 1, 0, 0, 0, 0] == 1p0n
+    [0, 0, 1, 0, 0, 0] == 1p1n
+    [0, 0, 0, 1, 0, 0] == 1pXn
+    [0, 0, 0, 0, 1, 0] == 3p0n
+    [0, 0, 0, 0, 0, 1] == 3pXn
+    :return: An array of labels
+    """
+    for i in range(0, len(truth_decay_mode_np_array, )):
+        elem = truth_decay_mode_np_array[i]
+        labels_np_array[i][elem + 1] = 1
+    return labels_np_array
 
 
+@nb.njit()
+def apply_scaling(np_arrays, dummy_val=0, thresh=45, flag=False):
+    """
+    Rescales each varaible to be between zero and one. Function is jitted for speed
+    :param np_arrays: The numpy arrays containing a set of input variables
+    :return: A new array containing the rescaled data
+    """
+
+    # if len(np_arrays.shape) == 3:
+    for i in nb.prange(0, np_arrays.shape[1]):
+        arr = np.ravel(np_arrays[:, i])
+        # arr = arr[arr != dummy_val]
+        arr = np.ma.masked_equal(arr, dummy_val)
+        arr_median = np.median(arr)
+        q75, q25 = np.percentile(arr, [75, 25])
+        arr_iqr = q75 - q25
+
+        if arr_iqr != 0:
+            np_arrays[:, i] = (np_arrays[:,
+                               i] - arr_median) / arr_iqr  # np.where(np_arrays[:, i] != dummy_val, (np_arrays[:, i] - arr_median) / arr_iqr, dummy_val)
+            np_arrays[:, i] = np.where(np_arrays[:, i] < thresh, np_arrays[:, i], thresh)
+            np_arrays[:, i] = np.where(np_arrays[:, i] > -thresh, np_arrays[:, i], -thresh)
+
+        if flag == True:
+            print(arr_median)
+            print(arr_iqr)
+
+    return np_arrays
+
+
+@ray.remote
 class DataLoader:
 
-    def __init__(self, data_type, files, class_label, nbatches, variables_dict, dummy_var="truthProng", cuts=None, batch_size=None,
-                 label="Dataloader"):
+    def __init__(self, data_type, files, class_label, nbatches, variables_dict, dummy_var="truthProng", cuts=None,
+                 batch_size=None, num_classes=6, label="Dataloader", no_gpu=False):
         """
-        Class constructor - fills in meta-data for the data type
-        :param data_type: The type of data file being loaded e.g. Gammatautau, JZ1, ect...
-        :param files: A list of files of the same data type to be loaded
-        :param class_label: 1 for signal, 0 for background
-        :param variables_dict: dictionary of variables to load
-        :param nbatches: number of batches to *roughly* split the data into
-        :param dummy_var: A variable to be loaded from the file to be loaded and iterated through to work out the number
-        of events in the data files.
-        :param cuts: A string which can be parsed by uproot's cut option e.g. "(pt1 > 50) & ((E1>100) | (E1<90))"
-        :param batch_size: Allows you to manually set the batch size for the data. This will override the automatically
-        calculated batch size inferred from nbatches
+        Class constructor for the DataLoader object. Object is decorated with @ray.remote for easy multiprocessing
+        To initialize the class (which is a ray actor) do: dl = Dataloader.remote(*args, **kwargs)
+        To call a class method do: dl.<method>.remote(*args, **kwargs) - this returns a ray futures object
+        To gather results of a class method do: ray.get(dl.<method>.remote(*args, **kwargs))
+        :param data_type: A string labelling the data type e.g. Gammatautau, JZ1 etc..
+        :param files: A list of file paths to NTuples to read from
+        :param class_label: Either 0 for jets or 1 for taus
+        :param nbatches: Number of batches to roughly split the data into - true number of batches will vary due to the
+        way that uproot works - it cannot make batches split across two files
+        :param variables_dict: A dictionary whose keys correspond to variable types e.g. TauTracks, NeutralPFO etc...
+        and whose values are a list of branches belonging to that key type
+        :param dummy_var: A branch that can be easily loaded for computing the number of events in a sample - don't use
+        a nested variable (e.g. TauTracks.pt) as this will be slow and may cause an OOM error
+        :param cuts: A string detailing the cuts to be applied to the data, passable by uproot
+        e.g.(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0)
+        :param batch_size: The number of events to load per batch (overrides nbatches opt.)
+        :param num_classes: Number of classes (e.g. jets, 1p0n, 1p1n etc...). Default is 6
+        :param label:
+        :param no_gpu:
         """
+        # Disables GPU - useful if you want to instantiate multiple tensorflow model instances
+        if no_gpu:
+            os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
         self._data_type = data_type
         self.label = label
         self.files = files
@@ -40,14 +113,18 @@ class DataLoader:
         self._nbatches = nbatches
         self.class_label = class_label
         self._variables_dict = variables_dict
+        self._num_classes = num_classes
         self._current_index = 0
 
-        # If we run out of data in this data loader
-        self._disable_indexing = False
+        # Parse variables
+        self._variables_list = []
+        for _, variable_list in variables_dict.items():
+            self._variables_list += variable_list
 
-        # Calculate the number of events in sample- Should all fit into memory so can use uproot.concatenate for speed
-        dummy_array = uproot.concatenate(files, filter_name="TauJets."+dummy_var, cut=cuts)
-        self._num_events = len(dummy_array["TauJets."+dummy_var])
+        # Work out how many events there in the sample
+        test_arr = uproot.concatenate(self.files, filter_name="TauJets." + self.dummy_var, step_size=10000,
+                                      cut=self.cut, library='np')
+        self._num_events = len(test_arr["TauJets." + self.dummy_var])
 
         # Set the DataLoader's batch size
         if batch_size is None:
@@ -55,75 +132,38 @@ class DataLoader:
         else:
             self.specific_batch_size = batch_size
 
-        # Parse variables
-        self._variables_list = []
-        for _, variable_list in variables_dict.items():
-            self._variables_list += variable_list
+        # Setup the iterator
+        self._batches_generator = uproot.iterate(self.files, filter_name=self._variables_list, cut=self.cut,
+                                                 step_size=self.specific_batch_size)
 
-        # Setup the lazy array
-        self._batches_generator = uproot.lazy(self.files, filter_name=self._variables_list,  cut=self.cut,
-                                              step_size=int(self.specific_batch_size*1.5))
-
-        # Work out how many batches there will actually generator. Make sure we don't miss too many events
-        self._num_real_batches = nbatches
-        test_arr = uproot.lazy(self.files, filter_name="TauJets." + self.dummy_var, step_size=10000,
-                                       library="ak", cut=self.cut)
+        # Work out the number of batches there are in the generator
         self._num_real_batches = 0
-        index = 0
-        while True:
-            end_point = index * self.specific_batch_size + self.specific_batch_size
-            batch = test_arr[index * self.specific_batch_size: end_point]
-            if len(batch) == 0:
-                break
-            index += 1
+        for _ in uproot.iterate(self.files, filter_name=self._variables_list[0], cut=self.cut,
+                                step_size=self.specific_batch_size):
             self._num_real_batches += 1
-        logger.log(f"Number of batches in {self.label} {self.data_type()} = {self._num_real_batches}", 'DEBUG')
-
-        # Work out mean and std of data for rescaling calculations
-        # self._mean_dict = variables_dict
-        # self._std_dict = variables_dict
-        #
-        # for key, item in variables_dict.items():
-        #     self._mean_dict[key] = []
-        #     self._std_dict[key] = []
-        #     for variable in item:
-        #         tmp_arr = uproot.concatenate(files, filter_name=item, cut=cuts, library='np')[variable]
-        #         self._mean_dict[key].append(np.mean(tmp_arr))
-        #         self._std_dict[key].append(np.std(tmp_arr))
-        #
-        # logger.log(f"DataLoader {self._data_type} - data means: {self._mean_dict}")
-        # logger.log(f"DataLoader {self._data_type} - data std: {self._std_dict}")
 
         logger.log(f"Found {len(files)} files for {data_type}", 'INFO')
         logger.log(f"Found these files: {files}", 'INFO')
         logger.log(f"Found {self._num_events} events for {data_type}", 'INFO')
+        logger.log(f"Number of batches in {self.label} {self.data_type()} = {self._num_real_batches}", 'DEBUG')
         logger.log(f"DataLoader for {data_type} initialized", "INFO")
 
-    def get_next_batch(self, idx=None):
-        index = idx
-        if idx is None or self._disable_indexing is True:
-            index = self._current_index
-        end_point = index*self.specific_batch_size + self.specific_batch_size
-        batch = self._batches_generator[index*self.specific_batch_size: end_point]
+    def next_batch(self):
+        """
+        Gets the next batch of data from iterator. If end of the iterator is reached
+        then restart it
+        :return: batch - a dict of arrays yielded by uproot.iterate()
+        """
+        try:
+            batch = next(self._batches_generator)
+        except StopIteration:
+            self._batches_generator = uproot.iterate(self.files, filter_name=self._variables_list, cut=self.cut,
+                                                     step_size=self.specific_batch_size)
+            return self.next_batch()
         self._current_index += 1
+        return batch
 
-        # If we run out of data reset the generator
-        if len(batch) == 0:
-            self._current_index = 0
-            self._disable_indexing = True
-            logger.log(f"{self.label} - {self._data_type} ran out of data - repeating data", 'DEBUG')
-            return self.get_next_batch()
-
-        return batch, np.ones(len(batch)) * self.class_label
-
-    def get_batch_from_index(self, idx):
-        end_point = idx*self.specific_batch_size + self.specific_batch_size
-        if idx*self.specific_batch_size + self.specific_batch_size >= self.num_events():
-            end_point = self.num_events() - 1
-        batch = self._batches_generator[idx*self.specific_batch_size: end_point]
-        return batch, np.ones(len(batch)) * self.class_label
-
-    def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=20):
+    def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=10):
         """
         Function that acts on nested data to read relevant variables, pad, reshape and convert data from uproot into
         rectilinear numpy arrays
@@ -131,14 +171,26 @@ class DataLoader:
         :param variable_type: Variable type to be selected e.g. Tracks, Neutral PFO, Jets etc...
         :param max_items: Maximum number of tracks/PFOs etc... to be associated to event
         :return: a rectilinear numpy array of shape:
-                 (num events in batch, number of variables belonging to variable type, max_items)
+                (num events in batch, number of variables belonging to variable type, max_items)
         """
         variables = self._variables_dict[variable_type]
-        ak_arrays = ak.concatenate([batch[var][:, :, None] for var in variables], axis=0)
-        ak_arrays = ak.pad_none(ak_arrays, max_items, clip=True)
-        np_arrays = ak.to_numpy(abs(ak_arrays))
-        np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables), np_arrays.shape[1])
-        np_arrays = self.apply_scaling(np_arrays)
+        np_arrays = np.zeros((ak.num(batch[variables[0]], axis=0), len(variables), max_items))
+        dummy_val = -4.0
+        for i in range(0, len(variables)):
+            var = variables[i]
+            ak_arr = batch[var]
+            ak_arr = ak.pad_none(ak_arr, max_items, clip=True, axis=1)
+            arr = ak.to_numpy(abs(ak_arr)).filled(dummy_val)
+            # arr = limits_dict[var].transform(arr)
+            if np.amax(np.abs(arr)) > 50:
+                arr = np.where(arr < 1e7, arr, -4)
+                arr = np.where(arr > -1000, arr, -4)
+                arr = np.where(arr > 0, np.log10(arr), dummy_val)
+                arr = np.where(arr < 100, arr, dummy_val)
+            np_arrays[:, i] = arr
+        # np_arrays = apply_scaling(np_arrays, thresh=thresh, dummy_val=dummy_val)
+        np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float64")
+        # np_arrays = np_arrays.reshape((len(np_arrays), max_items, len(variables)))
         return np_arrays
 
     def reshape_arrays(self, batch, variable_type):
@@ -148,120 +200,69 @@ class DataLoader:
         :param batch: A dict of awkward arrays from uproot
         :param variable_type: Variable type to be selected e.g. Tracks, Neutral PFO, Jets etc...
         :return: a rectilinear numpy array of shape:
-                 (num events in batch, number of variables belonging to variable type)
+                (num events in batch, number of variables belonging to variable type)
         """
         variables = self._variables_dict[variable_type]
-        ak_arrays = ak.concatenate([batch[var][:] for var in variables], axis=0)
-        np_arrays = ak.to_numpy(abs(ak_arrays))
-        np_arrays = np_arrays.reshape(int(np_arrays.shape[0] / len(variables)), len(variables))
-        np_arrays = self.apply_scaling(np_arrays)
+        np_arrays = np.zeros((ak.num(batch[variables[0]], axis=0), len(variables)))
+
+        for i in range(0, len(variables)):
+            var = variables[i]
+            ak_arr = batch[var]
+            arr = ak.to_numpy(abs(ak_arr))
+            dummy_val = 0
+            # arr = limits_dict[var].transform(arr, dummy_val=dummy_val)
+            if np.max(arr) > 50:
+                arr = np.where(arr < 1e7, arr, -4)
+                arr = np.where(arr > -1000, arr, -4)
+                arr = np.where(arr > 0, np.log10(arr), dummy_val)
+                arr = np.where(arr < 100, arr, dummy_val)
+            np_arrays[:, i] = arr
+        # np_arrays = apply_scaling(np_arrays)
+        np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float64")
         return np_arrays
 
-    def load_batch_from_data(self, idx=None):
+    def get_batch(self):
         """
-        Loads a batch of data of a specific data type. Pads ragged track and PFO arrays to make them rectilinear
+        Loads a batch of data of a specific data type and then stores it for later retrieval.
+        Pads ragged track and PFO arrays to make them rectilinear
         and reshapes arrays into correct shape for training. The clip option in ak.pad_none will truncate/extend each
         array so that they are all of a specific length- here we limit nested arrays to 20 items
-        :param idx: The index of the batch to be processed
-        :return: A list of arrays - [x1, x2, ... xn], labels, weight
         """
+        batch = self.next_batch()
 
-        batch, sig_bkg_labels_np_array = self.get_next_batch(idx)
-
-        if batch is None or len(batch) == 0:
-            logger.log(f"{self.label} - {self._data_type} ran out of data - repeating data", 'DEBUG')
-            self._current_index = 0
-            batch, sig_bkg_labels_np_array = self.get_next_batch()
-
-        track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=20)
-        conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=20)
-        shot_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ShotPFO", max_items=20)
-        neutral_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "NeutralPFO", max_items=20)
+        track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=10)
+        conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=10)
+        shot_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ShotPFO", max_items=10)
+        neutral_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "NeutralPFO", max_items=10)
         jet_np_arrays = self.reshape_arrays(batch, "TauJets")
 
-        # Just do the 1-prong case for now
-        labels_np_array = np.zeros((len(sig_bkg_labels_np_array), 4))
-        if sig_bkg_labels_np_array[0] == 0:
+        # Compute labels
+        labels_np_array = np.zeros((len(batch), self._num_classes))
+        if self.class_label == 0:
             labels_np_array[:, 0] = 1
         else:
-            truth_decay_mode_np_array = ak.to_numpy(batch[self._variables_dict["DecayMode"]])
-            for i in range(0, len(truth_decay_mode_np_array, )):
-                if truth_decay_mode_np_array[i][0] == 0:
-                    labels_np_array[i][1] = 1
-                elif truth_decay_mode_np_array[i][0] == 1:
-                    labels_np_array[i][2] = 1
-                else:
-                    labels_np_array[i][3] = 1
+            truth_decay_mode_np_array = ak.to_numpy(batch[self._variables_dict["DecayMode"]]).astype(np.int64)
+            labels_np_array = labeler(truth_decay_mode_np_array, labels_np_array)
 
         # Apply pT re-weighting
         weight_np_array = np.ones(len(labels_np_array))
         if self.class_label == 0:
-            weight_np_array = pt_reweight(ak.to_numpy(batch[self._variables_dict["Weight"]]).astype("float32"))
+            weight_np_array = reweighter.reweight(ak.to_numpy(batch[self._variables_dict["Weight"]]).astype("float32"))
 
-        logger.log(f"Loaded batch {self._current_index} from {self._data_type}: {self.label}", "DEBUG")
+        result = ((track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays),
+                  labels_np_array, weight_np_array)
 
-        return (track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays), \
-                labels_np_array, weight_np_array
+        return result
 
-    def apply_scaling(self, np_arrays):
+    def reset_dataloader(self):
         """
-        Applies scaling to data to bring values into sensible ranges
-        Checks:
-            1. If the mean of the data is < 1 -> do nothing data is already fine
-            2. Check if data is within 3 std of mean -> if not clip to mean + 3 std
-            3. Divide data by mean value
-            4. Take robust log of data -> if entry is < 1 do not take log but return 0 instead
-        :param np_arrays:
+        Resets the DataLoader by restarting its index and iterator
         :return:
         """
-        np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False)
-        for i in range(0, np_arrays.shape[1]):
-            mean = np.mean(abs(np_arrays[:, i]))
-            std_dev = np.std(abs(np_arrays[:, i]))
-            if mean > 1:
-                np_arrays[:, i][abs(np_arrays[:, i]) > mean + 3 * std_dev] = mean + 5 * std_dev
-                min_val = 0 #np.amin(np_arrays[:, i].flatten())
-                max_val = mean + 5 * std_dev  #np.amax(np_arrays[:, i].flatten())
-                np_arrays[:, i] = (np_arrays[:, i] - min_val) / (max_val - min_val)
-                np_arrays[:, i] = np.log10(np_arrays[:, i], out=np.zeros_like(np_arrays[:, i]), where=(np_arrays[:, i] > 1))
-        return np_arrays
-
-    def __next__(self):
-        if self._current_index < self._num_real_batches:
-            return self.load_batch_from_data()
-        raise StopIteration
-
-    def __len__(self):
-        return self._num_real_batches
-
-    def __iter__(self):
-        return self
-
-    def __call__(self):
         self._current_index = 0
-        return self
-
-    def __getitem__(self, idx):
-
-        if idx < self._num_real_batches:
-            return self.load_batch_from_data(idx=idx)
-
-        elif self._current_index < self._num_real_batches:
-            logger.log(f"Index out of bounds in __getitem__ - index {idx} is out of bounds for DataLoader of size "
-                       f"{self._num_real_batches} - falling back to internal current_index = {self._current_index}",
-                       'WARNING')
-            return self.load_batch_from_data(idx=self._current_index)
-
-        logger.log(f"Index out of bounds in __getitem__ - index {idx} is out of bounds for DataLoader of size "
-                   f"{self._num_real_batches}", 'ERROR')
-        raise IndexError
-
-    def reset_index(self):
-        self._current_index = 0
-        self._disable_indexing = False
-        self._batches_generator = None
-        self._batches_generator = uproot.lazy(self.files, filter_name=self._variables_list, cut=self.cut,
-                                              step_size=int(self.specific_batch_size * 1.5))
+        self._batches_generator = uproot.iterate(self.files, filter_name=self._variables_list, cut=self.cut,
+                                                 library='ak', step_size=self.specific_batch_size)
+        gc.collect()
 
     def num_events(self):
         return self._num_events
@@ -272,9 +273,52 @@ class DataLoader:
     def number_of_batches(self):
         return self._num_real_batches
 
-    def get_batch_generator(self):
-        return self._batches_generator
+    def predict(self, model_config, model_weights, normalizers=None, save_predictions=False, saveas=None):
+        # normalizers = {"TauTrack": preprocessing.Normalization(),
+        #                "NeutralPFO": preprocessing.Normalization(),
+        #                "ShotPFO": preprocessing.Normalization(),
+        #                "ConvTrack": preprocessing.Normalization(),
+        #                "TauJets": preprocessing.Normalization()}
+        #
+        # for i in range(0, 1):
+        #     batch, _, _ = self.get_batch()
+        #     normalizers["TauTrack"].adapt(batch[0][0])
+        #     normalizers["NeutralPFO"].adapt(batch[0][1])
+        #     normalizers["ShotPFO"].adapt(batch[0][2])
+        #     normalizers["ConvTrack"].adapt(batch[0][3])
+        #     normalizers["TauJets"].adapt(batch[0][4])
+        #     break
+        # self.reset_dataloader()
 
+        # Model needs to be initialized on each actor separately - cannot share model between multiple processes
+        model_weights = "data\\weights-05.h5"
+        model = ModelDSNN(model_config, normalizers=None)
+        model.load_weights(model_weights)
 
-if __name__ == "__main__":
-    pass
+        y_pred = np.ones((self.num_events(), self._num_classes)) * -999  # multiply by -999 so mistakes are obvious
+        position = 0
+        for i in range(0, self._num_real_batches):
+            batch, _, _ = self.get_batch()
+            try:
+                y_pred[position: position + len(batch[1])] = model.predict(batch)
+            except ValueError:
+
+                print(y_pred[position:])
+                print(model.predict(batch).shape)
+
+                y_pred[position:] = model.predict(batch)
+            position += len(batch[1])
+            logger.log(f"{self._data_type} -- predicted batch {i}/{self._num_real_batches}")
+        # y_pred = np.concatenate([arr for arr in y_pred])
+
+        if save_predictions:
+            if saveas is None:
+                save_file = os.path.basename(self.files[0])
+                np.savez(f"network_outputs\\{save_file}.npz", y_pred)
+                logger.log(f"Saved network predictions for {self._data_type} to network_outputs\\{save_file}.npz")
+            else:
+                np.savez(saveas, y_pred)
+                logger.log(f"Saved network predictions for {self._data_type} to {saveas}")
+
+        self.reset_dataloader()
+        return y_pred

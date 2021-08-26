@@ -9,10 +9,10 @@ import tensorflow as tf
 
 # Bowen's DSNN config dictionary
 config_dict = {"shapes":
-				   {"TauTrack": (14, 20),
-					"NeutralPFO": (22, 20),
-					"ShotPFO": (6, 20),
-					"ConvTrack": (10, 20),
+				   {"TauTrack": (10, 10),
+					"NeutralPFO": (22, 10),
+					"ShotPFO": (6, 10),
+					"ConvTrack": (10, 10),
 					"TauJets": (9),
 					},
 			   "n_tdd":
@@ -50,15 +50,18 @@ config_dict = {"shapes":
 			   }
 
 # Cuts to apply to data
-cuts = {"Gammatautau": "(TauJets.truthProng == 1) & (TauJets.ptJetSeed > 15000.0)",
-		"JZ1": "TauJets.ptJetSeed > 15000.0",
-		"JZ2": "TauJets.ptJetSeed > 15000.0",
-		"JZ3": "TauJets.ptJetSeed > 15000.0",
-		"JZ4": "TauJets.ptJetSeed > 15000.0",
-		"JZ5": "TauJets.ptJetSeed > 15000.0",
-		"JZ6": "TauJets.ptJetSeed > 15000.0",
-		"JZ7": "TauJets.ptJetSeed > 15000.0",
-		"JZ8": "TauJets.ptJetSeed > 15000.0",
+
+common_cuts = "(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0) & (TauJets.ptRatioEflowApprox < 5) & (TauJets.etOverPtLeadTrk < 30)"
+
+cuts = {"Gammatautau": common_cuts, # "(TauJets.truthProng == 1) & " + common_cuts,
+		"JZ1": common_cuts,
+		"JZ2": common_cuts,
+		"JZ3": common_cuts,
+		"JZ4": common_cuts,
+		"JZ5": common_cuts,
+		"JZ6": common_cuts,
+		"JZ7": common_cuts,
+		"JZ8": common_cuts,
 		}
 
 # Tensorflow output types
@@ -73,7 +76,7 @@ types = (
 
 # Tensorflow output shapes
 shapes = (
-	(tf.TensorShape([None, 14, 20]),
+	(tf.TensorShape([None, 10, 20]),
 	 tf.TensorShape([None, 22, 20]),
 	 tf.TensorShape([None, 6, 20]),
 	 tf.TensorShape([None, 10, 20]),
@@ -81,3 +84,4 @@ shapes = (
 	tf.TensorShape([None, 4]),
 	tf.TensorShape([None])
 )
+
