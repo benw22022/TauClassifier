@@ -1,0 +1,15 @@
+universe   = vanilla
+executable =  train_on_batch.sh
+log    = training_$(ClusterID).log
+output = training_$(ClusterID)_$(ProcId).out
+error  = training_$(ClusterID)_$(ProcId).error
+
+Requirements  = (OpSysAndVer == "CentOS7")
++MyProject    = "af-atlas"
++JobFlavour   = "nextweek"
+RequestCpus   = 12
+request_gpus  = 1
+notify_user   = benjamin.james.wilson@cern.ch
+notification  = Error
+
+queue
