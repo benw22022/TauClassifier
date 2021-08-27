@@ -19,10 +19,9 @@ def run_training_on_batch_system(prong=None, log_level=None):
     
     #  Check that user has changed the submit file to their email if they plan on using the batch system
     if getpass.getuser() != "bewilson":
-        with open("CommonFiles/htc_generation.submit", "r") as submit_file:
+        with open("batch/htc_training.submit", "r") as submit_file:
             for line in submit_file:
-                assert "notify_user" not in line and "benjamin.james.wilson@cern.ch" not in line,\
-                    "In batch/htc_generation.submit please change the notify_user field to your email!"
+                assert "benjamin.james.wilson@cern.ch" not in line, "In batch/htc_generation.submit please change the notify_user field to your email!"
 
     # Make a new directory to run in
     current_dir = os.getcwd()
@@ -53,9 +52,7 @@ python3 tauclassifier.py train -prong={prong} -log_level={log_level} | tee train
 
     # Move to new directory and run 
     os.chdir(new_dir)
-    # os.system("condor_submit batch/htc_training.submit -batch-name TauClassifierTraining")
-    os.system("chmod +x train_on_batch.sh")
-    os.system("./train_on_batch.sh")
+    os.system("condor_submit htc_training.submit -batch-name TauClassifierTraining")
 
 
 def none_or_int(value):
@@ -67,13 +64,13 @@ def none_or_int(value):
 def main():
 
     # Available options
-    mode_list = ["train", "test"]
-    prong_list = [1, 3, None]
+    mode_list = ["train", "evaluate", "plot"]  # 'train' - train model | 'evaluate' =  make npz files of predictions for test data | 'plot' - make performance plots
+    prong_list = [1, 3, None]  # 1 - (p10n, 1p1n, 1pxn, jets) | 3 - (3p0n, 3pxn, jets) | None - (p10n, 1p1n, 1pxn, 3p0n, 3pxn, jets)
     loglevels = ['ERROR', 'WARNING', 'INFO', 'DEBUG', 'HELPME ']
 
     # Get user arguements
     parser = argparse.ArgumentParser()
-    parser.add_argument("run_mode", help="Either 'train' or 'test'", type=str, choices=mode_list) 
+    parser.add_argument("run_mode", help="Either 'train' or 'evaluate' or 'plot'", type=str, choices=mode_list) 
     parser.add_argument("-prong", help="Number of prongs - if 'None' will use 1+3prongs", type=none_or_int, choices=prong_list, default=None)
     parser.add_argument("-weights", help="File path to network weights to test", type=str, default='')
     parser.add_argument("-log_level", help="Sets log level", 
@@ -93,7 +90,10 @@ def main():
         train(prong=args.prong, log_level=args.log_level)
 
     # If testing
-    if args.run_mode == 'test':
+    if args.run_mode == 'evaluate':
+        test()
+
+    if args.run_mode == 'plot':
         test()
 
 

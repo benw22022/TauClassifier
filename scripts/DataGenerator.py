@@ -71,7 +71,7 @@ class DataGenerator(keras.utils.Sequence):
                 # Check that dataloader is serializable - needs to be for ray to work
                 inspect_serializability(DataLoader, name="test")
                 dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[file_handler.label],
-                                                    label=label, prong=prong)
+                                                    label=label, prong=prong, reweighter=reweighter)
                 self.data_loaders.append(dl)
 
             else:
@@ -79,7 +79,7 @@ class DataGenerator(keras.utils.Sequence):
                 file_list = file_handler.file_list
                 class_label = file_handler.class_label
                 logger.log(inspect_serializability(DataLoader, name="test"))
-                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variables_dict, prong=prong, label=dl_label)
+                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variables_dict, prong=prong, label=dl_label, reweighter=reweighter)
                 self.data_loaders.append(dl)
 
         # Get number of events in each dataset

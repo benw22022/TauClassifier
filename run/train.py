@@ -32,8 +32,7 @@ from scripts.preprocessing import Reweighter
 def train(prong=None, log_level='INFO'):
 
     logger.set_log_level(log_level)
-    ray.init(_system_config={
-        "object_spilling_config": json.dumps({"type": "filesystem", "params": {"directory_path": "/tmp/spill"}})})
+    ray.init(include_dashboard=True)
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Generators
@@ -89,7 +88,7 @@ def train(prong=None, log_level='INFO'):
         patience=10, verbose=0, restore_best_weights=True)
 
     model_checkpoint = ParallelModelCheckpoint(model,
-                                               path=os.path.join("data", 'weights-{epoch:02d}.h5'),
+                                               path=os.path.join("network_weights", 'weights-{epoch:02d}.h5'),
                                                monitor="val_loss", save_best_only=False, save_weights_only=True,
                                                verbose=0)
 
