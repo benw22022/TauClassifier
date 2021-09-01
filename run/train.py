@@ -6,7 +6,6 @@ import os
 # Do these things first before importing
 # os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'    # Accelerated Linear Algebra (XLA) actually seems slower
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"                     # Disables GPU
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'                        # Sets Tensorflow Logging Level
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'                # Allow tensorflow to use more GPU VRAM
 
 import ray
@@ -25,14 +24,19 @@ from scripts.DataGenerator import DataGenerator
 from config.files import training_files, validation_files, ntuple_dir
 from model.callbacks import ParallelModelCheckpoint
 from scripts.utils import logger
-from config.config import config_dict, cuts
+from config.config import config_dict, cuts, models
 from scripts.preprocessing import Reweighter
 
 
-def train(prong=None, log_level='INFO'):
+def train(prong=None, log_level='INFO', model="DSNN", tf_log_level='2'):
 
+    # Set log levels
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = tf_log_level # Sets Tensorflow Logging Level
     logger.set_log_level(log_level)
+
+    # Initialize ray
     ray.init(include_dashboard=True)
+    
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Generators
@@ -58,11 +62,6 @@ def train(prong=None, log_level='INFO'):
     model_config["shapes"]["ShotPFO"] = (len(variables_dictionary["ShotPFO"]),) + (10,)
     model_config["shapes"]["TauJets"] = (len(variables_dictionary["TauJets"]),)
 
-    print("\n\n\n*****************************")
-    print(model_config['shapes'])
-    print("*****************************\n\n\n")
-
-
     # normalizers = {"TauTrack": preprocessing.Normalization(),
     #                "NeutralPFO": preprocessing.Normalization(),
     #                "ShotPFO": preprocessing.Normalization(),
@@ -80,17 +79,15 @@ def train(prong=None, log_level='INFO'):
     #     pickle.dump(normalizers, file)
 
     # model = ModelDSNN(model_config)
-    model = SetTransformer(model_config)
+    model = models[model](model_config)
 
     # Configure callbacks
     early_stopping = EarlyStopping(
         monitor="val_loss", min_delta=0.0001,
         patience=10, verbose=0, restore_best_weights=True)
 
-    model_checkpoint = ParallelModelCheckpoint(model,
-                                               path=os.path.join("network_weights", 'weights-{epoch:02d}.h5'),
-                                               monitor="val_loss", save_best_only=False, save_weights_only=True,
-                                               verbose=0)
+    model_checkpoint = ParallelModelCheckpoint(model, path=os.path.join("network_weights", 'weights-{epoch:02d}.h5'),
+                                               monitor="val_loss", save_best_only=False, save_weights_only=True)
 
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.4, patience=3, min_lr=4e-6)
 
@@ -147,6 +144,7 @@ def train(prong=None, log_level='INFO'):
     history = model.fit(training_batch_generator, epochs=100, callbacks=callbacks, class_weight=class_weight,
                         validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
                         steps_per_epoch=len(training_batch_generator))
+
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Make Plots 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -155,7 +153,7 @@ def train(prong=None, log_level='INFO'):
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     plt.legend()
-    plt.savefig("plots\\loss_history.svg")
+    plt.savefig(os.path.join("plots", "loss_history.svg"))
     plt.show()
 
     plt.plot(history.history['categorical_accuracy'], label='train')
@@ -163,8 +161,10 @@ def train(prong=None, log_level='INFO'):
     plt.xlabel('Epochs')
     plt.ylabel('Categorical Accuracy')
     plt.legend()
-    plt.savefig("plots\\accuracy_history.svg")
+    plt.savefig(os.path.join("plots", "accuracy_history.svg"))
     plt.show()
+
+    return 0
 
 
 if __name__ == "__main__":

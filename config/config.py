@@ -6,14 +6,19 @@ TODO: This should really be done using YAML - user shouldn't need to edit .py fi
 """
 
 import tensorflow as tf
+from config.variables import variables_dictionary
+from model.models import ModelDSNN, SetTransformer
+
+# Directory pointing to the NTuples to train/test on
+ntuple_dir = "/eos/user/b/bewilson/TauClassifier/new_NTuples"
 
 # Bowen's DSNN config dictionary
 config_dict = {"shapes":
-				   {"TauTrack": (10, 10),
-					"NeutralPFO": (22, 10),
-					"ShotPFO": (6, 10),
-					"ConvTrack": (10, 10),
-					"TauJets": (9),
+				   {"TauTrack": (len(variables_dictionary["TauTracks"]),) + (10,),
+					"NeutralPFO": (len(variables_dictionary["NeutralPFO"]),) + (10,),
+					"ShotPFO": (len(variables_dictionary["ShotPFO"]),) + (10,),
+					"ConvTrack": (len(variables_dictionary["ConvTrack"]),) + (10,),
+					"TauJets": (len(variables_dictionary["TauJets"]),),
 					},
 			   "n_tdd":
 				   {"TauTrack": 3,
@@ -49,8 +54,10 @@ config_dict = {"shapes":
 			   "dropout": 0.025
 			   }
 
-# Cuts to apply to data
 
+"""""""""""""""""""""""""""""""""""""""
+Cuts to apply to data
+"""""""""""""""""""""""""""""""""""""""
 common_cuts = "(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0) & (TauJets.ptRatioEflowApprox < 5) & (TauJets.etOverPtLeadTrk < 30)"
 
 cuts = {"Gammatautau": common_cuts, # "(TauJets.truthProng == 1) & " + common_cuts,
@@ -64,24 +71,6 @@ cuts = {"Gammatautau": common_cuts, # "(TauJets.truthProng == 1) & " + common_cu
 		"JZ8": common_cuts,
 		}
 
-# Tensorflow output types
-types = (
-	(tf.float32,
-	 tf.float32,
-	 tf.float32,
-	 tf.float32,
-	 tf.float32),
-	tf.float32,
-	tf.float32)
 
-# Tensorflow output shapes
-shapes = (
-	(tf.TensorShape([None, 10, 20]),
-	 tf.TensorShape([None, 22, 20]),
-	 tf.TensorShape([None, 6, 20]),
-	 tf.TensorShape([None, 10, 20]),
-	 tf.TensorShape([None, 9])),
-	tf.TensorShape([None, 4]),
-	tf.TensorShape([None])
-)
-
+models = {"DSNN": ModelDSNN,
+		  "SetTransformer": SetTransformer}

@@ -18,7 +18,6 @@ plots/*
 *training
 batch/*training_*/*
 *tmp
-network_outputs
 
 # Ignore logs
 *.log
