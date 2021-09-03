@@ -58,19 +58,26 @@ config_dict = {"shapes":
 """""""""""""""""""""""""""""""""""""""
 Cuts to apply to data
 """""""""""""""""""""""""""""""""""""""
-common_cuts = "(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0) & (TauJets.ptRatioEflowApprox < 5) & (TauJets.etOverPtLeadTrk < 30)"
 
-cuts = {"Gammatautau": common_cuts, # "(TauJets.truthProng == 1) & " + common_cuts,
-		"JZ1": common_cuts,
-		"JZ2": common_cuts,
-		"JZ3": common_cuts,
-		"JZ4": common_cuts,
-		"JZ5": common_cuts,
-		"JZ6": common_cuts,
-		"JZ7": common_cuts,
-		"JZ8": common_cuts,
-		}
+def get_cuts(prong=None):
+	common_cuts = "(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0) & (TauJets.ptRatioEflowApprox < 5) & (TauJets.etOverPtLeadTrk < 30)"
+	prong_cut = ""
+	if prong == 1:
+		prong_cut = " & (TauJets.truthProng == 1)"
+	if prong == 3:
+		prong_cut = "& (TauJets.truthProng == 3)"
 
+	cuts_dict = {"Gammatautau": common_cuts + prong_cut,
+				"JZ1": common_cuts,
+				"JZ2": common_cuts,
+				"JZ3": common_cuts,
+				"JZ4": common_cuts,
+				"JZ5": common_cuts,
+				"JZ6": common_cuts,
+				"JZ7": common_cuts,
+				"JZ8": common_cuts,
+				}
+	return cuts_dict
 
 models = {"DSNN": ModelDSNN,
 		  "SetTransformer": SetTransformer}

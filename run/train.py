@@ -24,7 +24,7 @@ from scripts.DataGenerator import DataGenerator
 from config.files import training_files, validation_files, ntuple_dir
 from model.callbacks import ParallelModelCheckpoint
 from scripts.utils import logger
-from config.config import config_dict, cuts, models
+from config.config import config_dict, get_cuts, models
 from scripts.preprocessing import Reweighter
 
 
@@ -44,6 +44,8 @@ def train(prong=None, log_level='INFO', model="DSNN", tf_log_level='2'):
 
     reweighter = Reweighter(ntuple_dir, prong=prong)
 
+    cuts = get_cuts(prong)
+
     training_batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=250, cuts=cuts,
                                              reweighter=reweighter, prong=prong, label="Training Generator")
 
@@ -62,23 +64,6 @@ def train(prong=None, log_level='INFO', model="DSNN", tf_log_level='2'):
     model_config["shapes"]["ShotPFO"] = (len(variables_dictionary["ShotPFO"]),) + (10,)
     model_config["shapes"]["TauJets"] = (len(variables_dictionary["TauJets"]),)
 
-    # normalizers = {"TauTrack": preprocessing.Normalization(),
-    #                "NeutralPFO": preprocessing.Normalization(),
-    #                "ShotPFO": preprocessing.Normalization(),
-    #                "ConvTrack": preprocessing.Normalization(),
-    #                "TauJets": preprocessing.Normalization()}
-    # for batch in validation_batch_generator:
-    #     normalizers["TauTrack"].adapt(batch[0][0])
-    #     normalizers["NeutralPFO"].adapt(batch[0][1])
-    #     normalizers["ShotPFO"].adapt(batch[0][2])
-    #     normalizers["ConvTrack"].adapt(batch[0][3])
-    #     normalizers["TauJets"].adapt(batch[0][4])
-    # training_batch_generator.reset_generator()
-
-    # with open('normalizers.pkl', 'wb') as file:
-    #     pickle.dump(normalizers, file)
-
-    # model = ModelDSNN(model_config)
     model = models[model](model_config)
 
     # Configure callbacks
@@ -96,18 +81,12 @@ def train(prong=None, log_level='INFO', model="DSNN", tf_log_level='2'):
     # Compile and summarise model
     model.summary()
 
-
-    # n1p0n + n1p1n + n1pxn
-    # njets + n1p1n + n1pxn
-    # njets + n1p0n + n1pxn
-    # njets + n1p0n + n1p1n
-
-    njets = 1750674
-    n1p0n = 299238
-    n1p1n = 727483
-    n1pxn = 319774
-    n3p0n = 290613
-    n3pxn = 161202
+    njets = 9647968
+    n1p0n = 1962842
+    n1p1n = 4773455
+    n1pxn = 2092967
+    n3p0n = 1913289
+    n3pxn = 1055423
     total = njets + n1p0n + n1p1n + n1pxn + n3p0n + n3pxn
 
     weight_for_jets = (1 / njets) * (total / 2.0)
@@ -135,12 +114,10 @@ def train(prong=None, log_level='INFO', model="DSNN", tf_log_level='2'):
 
     opt = tf.keras.optimizers.Adam(learning_rate=0.001)
     model.compile(optimizer=opt, loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()])
-    #tf.keras.utils.plot_model(model, show_shapes=True, rankdir="LR")
-    #model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
      Train Model
-     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     history = model.fit(training_batch_generator, epochs=100, callbacks=callbacks, class_weight=class_weight,
                         validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
                         steps_per_epoch=len(training_batch_generator))
@@ -148,6 +125,8 @@ def train(prong=None, log_level='INFO', model="DSNN", tf_log_level='2'):
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Make Plots 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+    # Loss History
     plt.plot(history.history['loss'], label='train')
     plt.plot(history.history['val_loss'], label='val')
     plt.xlabel('Epochs')
@@ -156,6 +135,7 @@ def train(prong=None, log_level='INFO', model="DSNN", tf_log_level='2'):
     plt.savefig(os.path.join("plots", "loss_history.svg"))
     plt.show()
 
+    # Accuracy history
     plt.plot(history.history['categorical_accuracy'], label='train')
     plt.plot(history.history['val_categorical_accuracy'], label='val')
     plt.xlabel('Epochs')

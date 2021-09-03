@@ -17,6 +17,7 @@ from run.train import train
 from run.test import test
 from scripts.utils import logger
 from config.config import models
+import scratch
 
 
 def run_training_on_batch_system(prong=None, log_level=None, model='DSNN', tf_log_level='2'):
@@ -56,7 +57,7 @@ python3 tauclassifier.py train -prong={prong} -log_level={log_level} -model={mod
 
     # Move to new directory and run 
     os.chdir(new_dir)
-    os.system("condor_submit htc_training.submit -batch-name TauClassifierTraining")
+    os.system("condor_submit -batch-name TauClassifierTraining htc_training.submit ")
     return 0
 
 def none_or_int(value):
@@ -68,8 +69,14 @@ def none_or_int(value):
 def main():
 
     # Available options
-    mode_list = ["train", "evaluate", "plot"]  # 'train' - train model | 'evaluate' =  make npz files of predictions for test data | 'plot' - make performance plots
-    prong_list = [1, 3, None]                  # Sets mode: 1 - (p10n, 1p1n, 1pxn, jets) | 3 - (3p0n, 3pxn, jets) | None - (p10n, 1p1n, 1pxn, 3p0n, 3pxn, jets)
+
+    # 'train' - train model | 'evaluate' =  make npz files of predictions for test data | 'plot' - make performance plots
+    # 'scratch' - run a standalone testing script. We want to be able to run it from here so imports work properly
+    mode_list = ["train", "evaluate", "plot", "scratch"]  
+
+    # Sets mode: 1 - (p10n, 1p1n, 1pxn, jets) | 3 - (3p0n, 3pxn, jets) | None - (p10n, 1p1n, 1pxn, 3p0n, 3pxn, jets)
+    prong_list = [1, 3, None]                                           
+
     model_list = list(models.keys())                                   # List of available models
     log_levels = ['ERROR', 'WARNING', 'INFO', 'DEBUG', 'HELPME ']      # Custom logging levels for program
     tf_log_levels = ['0', '1', '2', '3']                               # TF logging levels 
@@ -83,6 +90,7 @@ def main():
     type=str, default="DSNN")
     parser.add_argument("-log_level", help="Sets log level", type=str, default='INFO', choices=log_levels)
     parser.add_argument("-tf_log_level", help="Set Tensorflow logging level", type=str, default='2')
+    parser.add_argument("-function", help="Scratch function to run")
     parser.add_argument("-condor", help='Run on ht condor batch system', type=bool, default=False)
     args = parser.parse_args()
 
@@ -94,15 +102,22 @@ def main():
             return run_training_on_batch_system(prong=args.prong, model=args.model, log_level=args.log_level, tf_log_level=args.tf_log_level)
 
         # If training on local machine
-        return train(prong=args.prong, model=models[args.model], log_level=args.log_level, tf_log_level=args.tf_log_level)
+        return train(prong=args.prong, model=args.model, log_level=args.log_level, tf_log_level=args.tf_log_level)
          
 
     # If testing
     if args.run_mode == 'evaluate':
         return evaluate()
 
+    # Make performance plots
     if args.run_mode == 'plot':
         return test()
+
+    # *Super* hacky way of running little standalone testing scripts 
+    if args.run_mode == 'scratch':
+        return getattr(globals()[scratch], args.function)()   
+
+        
 
 
 if __name__ == "__main__":

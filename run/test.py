@@ -16,7 +16,7 @@ from tensorflow.keras.layers.experimental import preprocessing
 from config.files import testing_files
 from config.variables import variables_dictionary
 from model.models import ModelDSNN, SetTransformer
-from config.config import config_dict, cuts
+from config.config import config_dict, get_cuts
 from scripts.DataGenerator import DataGenerator
 
 
@@ -110,7 +110,7 @@ def test():
 	dm_analy = True
 	model_weights = "data\\weights-05.h5"
 
-	testing_batch_generator = DataGenerator(testing_files, variables_dictionary, nbatches=50, cuts=cuts)
+	testing_batch_generator = DataGenerator(testing_files, variables_dictionary, nbatches=50, cuts=get_cuts())
 
 	y_pred = []
 	y_true = []
