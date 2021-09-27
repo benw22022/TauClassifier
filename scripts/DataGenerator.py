@@ -17,7 +17,7 @@ from ray.util import inspect_serializability
 from scripts.DataLoader import DataLoader, apply_scaling
 from scripts.utils import logger, find_anomalous_entries
 
-class DataGenerator(keras.utils.Sequence):
+class DataGenerator(tf.keras.utils.Sequence):
 
     def __init__(self, file_handler_list, variables_dict, nbatches=1000, cuts=None, label="DataGenerator", reweighter=None,
                 prong=None, _benchmark=False):

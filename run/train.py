@@ -1,8 +1,11 @@
 """
-Main Code Body
+Training Script
+________________________________________________
+Script to run the neural network training
 """
-import os
 
+# Configure enviroment variables
+import os
 # Do these things first before importing
 # os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'    # Accelerated Linear Algebra (XLA) actually seems slower
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"                     # Disables GPU

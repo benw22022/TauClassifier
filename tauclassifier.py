@@ -1,4 +1,4 @@
-#!\bin\python3
+#!/bin/python3
 """
 TauClassifier
 _______________________________________________________________
@@ -14,6 +14,7 @@ from pathlib import Path
 from datetime import datetime
 from shutil import copyfile
 from run.train import train
+from run.evaluate import evaluate
 from run.test import test
 from scripts.utils import logger
 from config.config import models
@@ -88,6 +89,7 @@ def main():
     parser.add_argument("-weights", help="File path to network weights to test", type=str, default='')
     parser.add_argument("-model", help="Model to use: models are defined in model/models.py and registered in config/config.py in the models dictionary", choices=model_list, 
     type=str, default="DSNN")
+    parser.add_argument("-ncores", help="number of CPU cores to use when evaluating network predictions", type=int, default=8)
     parser.add_argument("-log_level", help="Sets log level", type=str, default='INFO', choices=log_levels)
     parser.add_argument("-tf_log_level", help="Set Tensorflow logging level", type=str, default='2')
     parser.add_argument("-function", help="Scratch function to run")
@@ -107,7 +109,7 @@ def main():
 
     # If testing
     if args.run_mode == 'evaluate':
-        return evaluate()
+        return evaluate(args.weights, ncores=args.ncores)
 
     # Make performance plots
     if args.run_mode == 'plot':

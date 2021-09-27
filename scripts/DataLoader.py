@@ -304,11 +304,10 @@ class DataLoader:
         # self.reset_dataloader()
 
         # Model needs to be initialized on each actor separately - cannot share model between multiple processes
-        model_weights = "data\\weights-05.h5"
         model = ModelDSNN(model_config, normalizers=None)
         model.load_weights(model_weights)
 
-        y_pred = np.ones((self.num_events(), self._num_classes)) * -999  # multiply by -999 so mistakes are obvious
+        y_pred = np.ones((self.num_events(), self._nclasses)) * -999  # multiply by -999 so mistakes are obvious
         position = 0
         for i in range(0, self._num_real_batches):
             batch, _, _ = self.get_batch()
@@ -327,8 +326,8 @@ class DataLoader:
         if save_predictions:
             if saveas is None:
                 save_file = os.path.basename(self.files[0])
-                np.savez(f"network_outputs\\{save_file}.npz", y_pred)
-                logger.log(f"Saved network predictions for {self._data_type} to network_outputs\\{save_file}.npz")
+                np.savez(f"network_predictions/{save_file}.npz", y_pred)
+                logger.log(f"Saved network predictions for {self._data_type} to network_predictions/{save_file}.npz")
             else:
                 np.savez(saveas, y_pred)
                 logger.log(f"Saved network predictions for {self._data_type} to {saveas}")

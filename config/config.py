@@ -10,7 +10,7 @@ from config.variables import variables_dictionary
 from model.models import ModelDSNN, SetTransformer
 
 # Directory pointing to the NTuples to train/test on
-ntuple_dir = "/eos/user/b/bewilson/TauClassifier/new_NTuples"
+ntuple_dir = "../NTuples"
 
 # Bowen's DSNN config dictionary
 config_dict = {"shapes":

@@ -13,11 +13,12 @@ import json
 import os
 from tensorflow.keras.layers.experimental import preprocessing
 
-from config.files import testing_files
+from config.files import testing_files, ntuple_dir
 from config.variables import variables_dictionary
 from model.models import ModelDSNN, SetTransformer
 from config.config import config_dict, get_cuts
 from scripts.DataGenerator import DataGenerator
+from scripts.preprocessing import Reweighter
 
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disables GPU
@@ -97,20 +98,20 @@ def plot_confusion_matrix(y_pred, y_true):
 					 fmt=".2")
 	plt.xlabel("Truth")
 	plt.ylabel("Prediction")
-	plt.savefig("plots\\cm.png")
+	plt.savefig("plots/cm.png")
 	plt.show()
 	plt.close(fig)
 
 def test():
 	
 	ray.init()
-	read = True
+	read = False
 	plot = True
 	jet_tau_comp = True
 	dm_analy = True
-	model_weights = "data\\weights-05.h5"
-
-	testing_batch_generator = DataGenerator(testing_files, variables_dictionary, nbatches=50, cuts=get_cuts())
+	model_weights = "network_weights/weights-12.h5"
+	reweighter = Reweighter(ntuple_dir)
+	testing_batch_generator = DataGenerator(testing_files, variables_dictionary, nbatches=50, cuts=get_cuts(), reweighter=reweighter)
 
 	y_pred = []
 	y_true = []
@@ -137,8 +138,8 @@ def test():
 		# 	normalizers["ConvTrack"].adapt(batch[0][3])
 		# 	normalizers["TauJets"].adapt(batch[0][4])
 		testing_batch_generator.reset_generator()
-		# model = ModelDSNN(model_config, normalizers=None)
-		model = SetTransformer(model_config)
+		model = ModelDSNN(model_config, normalizers=None)
+		# model = SetTransformer(model_config)
 
 		load_status = model.load_weights(model_weights, )
 
@@ -151,16 +152,16 @@ def test():
 		y_true = np.concatenate([arr for arr in y_true])
 		y_pred = np.concatenate([arr for arr in y_pred])
 		weights = np.concatenate([arr for arr in weights])
-		np.savez("data\\y_pred.npz", np.array(y_pred, dtype='object'))
-		np.savez("data\\y_true.npz", np.array(y_true, dtype='object'))
-		np.savez("data\\weights.npz", np.array(weights, dtype='object'))
+		np.savez("cache/y_pred.npz", np.array(y_pred, dtype='object'))
+		np.savez("cache/y_true.npz", np.array(y_true, dtype='object'))
+		np.savez("cache/weights.npz", np.array(weights, dtype='object'))
 
 	else:
-		with np.load("data\\y_pred.npz", allow_pickle=True) as file:
+		with np.load("cache/y_pred.npz", allow_pickle=True) as file:
 			y_pred = file["arr_0"].astype("float32")
-		with np.load("data\\y_true.npz", allow_pickle=True) as file:
+		with np.load("cache/y_true.npz", allow_pickle=True) as file:
 			y_true = file["arr_0"].astype("int")
-		with np.load("data\\weights.npz", allow_pickle=True) as file:
+		with np.load("cache/weights.npz", allow_pickle=True) as file:
 			weights = file["arr_0"]
 
 	print(y_pred)
@@ -213,7 +214,7 @@ def test():
 	# hv.extension('matplotlib')
 	# (hv.Scatter3D(hv.Points(true_1p0n_score)) * hv.Scatter3D(hv.Points(true_1p1n_score)) * hv.Scatter3D(hv.Points(true_1pxn_score)))
 
-	pred_taus = np.add([pred_1p0n, pred_1p1n, pred_1pxn, pred_3p0n, pred_3pxn])
+	pred_taus = pred_1p0n + pred_1p1n + pred_1pxn + pred_3p0n +  pred_3pxn
 
 	print(pred_taus)
 	print(true_taus)
@@ -227,10 +228,10 @@ def test():
 				true_pred_taus.append(pred)
 
 	if plot:
-		plot_ROC(true_taus, pred_taus, weights=weights, title="ROC Curve: Tau-Jets", saveas="plots\\ROC_jets.png")
-		plot_ROC(true_1p0n, pred_1p0n, title="ROC Curve: 1p0n", saveas="plots\\ROC_1p0n.png")
-		plot_ROC(true_1p1n, pred_1p1n, title="ROC Curve: 1p1n", saveas="plots\\ROC_1p1n.png")
-		plot_ROC(true_1pxn, pred_1pxn, title="ROC Curve: 1pxn", saveas="plots\\ROC_1pxn.png")
+		plot_ROC(true_taus, pred_taus, weights=weights, title="ROC Curve: Tau-Jets", saveas="plots/ROC_jets.png")
+		plot_ROC(true_1p0n, pred_1p0n, title="ROC Curve: 1p0n", saveas="plots/ROC_1p0n.png")
+		plot_ROC(true_1p1n, pred_1p1n, title="ROC Curve: 1p1n", saveas="plots/ROC_1p1n.png")
+		plot_ROC(true_1pxn, pred_1pxn, title="ROC Curve: 1pxn", saveas="plots/ROC_1pxn.png")
 
 		fig, ax = plt.subplots()
 		ax.hist(np.array(true_pred_jets), range=(0, 1), histtype='step', label="jets prediction", color="blue")
@@ -245,7 +246,7 @@ def test():
 		ax.hist(true_1pxn, range=(0, 1), histtype='step', label="1pxn true", color="green", linestyle=('dashed'))
 		plt.legend()
 		ax.set_xlabel("NN Output")
-		plt.savefig("plots\\response.png")
+		plt.savefig("plots/response.png")
 		plt.show()
 
 	if jet_tau_comp:
@@ -305,7 +306,7 @@ def test():
 		ax.set_ylabel("Number of tau candidates")
 		plt.yscale("log")
 		plt.legend()
-		plt.savefig("plots\\jet_tau_response.png")
+		plt.savefig("plots/jet_tau_response.png")
 		plt.show()
 
 
