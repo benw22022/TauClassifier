@@ -33,6 +33,10 @@ validation_files = [gammatautau_files[-2:-1], jz1_files[-2:-1], jz2_files[-2:-1]
 testing_files = [gammatautau_files[-1:], jz1_files[-1:], jz2_files[-1:], jz3_files[-1:], jz4_files[-1:], jz5_files[-1:],
                  jz6_files[-1:], jz7_files[-1:], jz8_files[-1:]]
 
+all_files = [gammatautau_files, jz1_files, jz2_files, jz3_files, jz4_files, jz5_files,
+                 jz6_files, jz7_files, jz8_files]
+
+
 # Sanity checks to make sure we don't mix up datasets
 for training_fh in training_files:
 

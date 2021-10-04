@@ -2,6 +2,7 @@
 Evaluate.py
 ___________________________________________________________________
 Compute predictions using a weights file
+Writes out y_pred array for each NTuple into a .npz
 """
 
 
@@ -9,9 +10,12 @@ import os
 import ray
 import glob
 from config.config import get_cuts, config_dict
+from config.utils import logger
 from config.variables import variables_dictionary
-from config.files import gammatautau_files, jz_files
+from config.files import gammatautau_files, jz_files, testing_files, ntuple_dir
 from scripts.DataLoader import DataLoader
+
+
 
 
 def split_list(alist, wanted_parts=1):
@@ -25,53 +29,40 @@ def split_list(alist, wanted_parts=1):
     return [alist[i * length // wanted_parts: (i + 1) * length // wanted_parts]
 			for i in range(wanted_parts)]
 
-def evaluate(weight_file, ncores=5):
-    
+def evaluate(args):
+    """
+    Evaluates the network output for each NTuple and writes them to an npz file
+    :param args: An argparse.Namespace object. Args that must be parsed:
+                 -weights: A path to the network weights to evaluate
+                 -ncores: Number of files to process in parallel
+    """
     # Initialize Ray
     ray.init()
 
     # Load model
     model_config = config_dict
-    model_config["shapes"]["TauTrack"] = (len(variables_dictionary["TauTracks"]),) + (10,) 
-    model_config["shapes"]["ConvTrack"] = (len(variables_dictionary["ConvTrack"]),) + (10,)
-    model_config["shapes"]["NeutralPFO"] = (len(variables_dictionary["NeutralPFO"]),) + (10,)
-    model_config["shapes"]["ShotPFO"] = (len(variables_dictionary["ShotPFO"]),) + (10,)
-    model_config["shapes"]["TauJets"] = (len(variables_dictionary["TauJets"]),)
+    model_weights = args.weights
+    reweighter = Reweighter(ntuple_dir, prong=args.prong)
+    assert model_weights != "", logger.log("\nYou must specify a path to the model weights", 'ERROR')
 
-    model_weights = weight_file
-
-    # Get GammaTauTau files
-    files = gammatautau_files.file_list
-    nbatches = 500
+    # Get files
+    files = all_files.file_list
+    nbatches = 250
+    
+    # Split files into groups to speed things up, will process args.ncores files in parallel
+    if args.ncores > len(files):
+        args.ncores = len(files)
+    if args.ncores < 0:
+        args.ncores = 1
+    files = split_list(files, len(files)//args.ncores)   
     
     # Make DataLoaders
-    assert ncores > 0, "Number of cores must be greater than zero"
-    if ncores > len(files):
-        ncores = len(files)
-
-        files = split_list(files, len(files)//ncores)   # split into groups of 5 to speed things up
-		
-        for file_chunk in files:
-                break
-                dataloaders = []
-                for file in file_chunk:
-                        dl = DataLoader.remote(file, [file], 1, nbatches, variables_dictionary, cuts=get_cuts()["Gammatautau"], no_gpu=True)
-                        dataloaders.append(dl)
-                ray.get([dl.predict.remote(model_config, model_weights, save_predictions=True) for dl in dataloaders])
-                for dl in dataloaders:
-                    ray.kill(dl)
-
-        files = jz_files.file_list
-        files = split_list(files, len(files)//ncores)
-
-        for file_chunk in files:
-                dataloaders = []
-                for file in file_chunk:
-                    dl = DataLoader.remote(file, [file], 1, nbatches, variables_dictionary, cuts=get_cuts()["JZ1"], no_gpu=True)
+    for file_chunk in files:
+            dataloaders = []
+            for file in file_chunk:
+                    dl = DataLoader.remote(file, [file], 1, nbatches, variables_dictionary, cuts=get_cuts(args.prong)[file.label], 
+                                           reweighter=reweighter, no_gpu=True)
                     dataloaders.append(dl)
-                ray.get([dl.predict.remote(model_config, model_weights, save_predictions=True) for dl in dataloaders])
-                for dl in dataloaders:
-                    ray.kill(dl)
-
-
-
+            ray.get([dl.predict.remote(args.model, model_config, model_weights, save_predictions=True) for dl in dataloaders])
+            for dl in dataloaders:
+                ray.kill(dl)

@@ -13,9 +13,9 @@ import uproot
 import ray
 import gc
 import numba as nb
-from model.models import ModelDSNN
 # from scripts.preprocessing import reweighter
 from scripts.utils import logger
+from config.config import models_dict
 
 
 @nb.njit()
@@ -286,51 +286,51 @@ class DataLoader:
     def number_of_batches(self):
         return self._num_real_batches
 
-    def predict(self, model_config, model_weights, normalizers=None, save_predictions=False, saveas=None):
-        # normalizers = {"TauTrack": preprocessing.Normalization(),
-        #                "NeutralPFO": preprocessing.Normalization(),
-        #                "ShotPFO": preprocessing.Normalization(),
-        #                "ConvTrack": preprocessing.Normalization(),
-        #                "TauJets": preprocessing.Normalization()}
-        #
-        # for i in range(0, 1):
-        #     batch, _, _ = self.get_batch()
-        #     normalizers["TauTrack"].adapt(batch[0][0])
-        #     normalizers["NeutralPFO"].adapt(batch[0][1])
-        #     normalizers["ShotPFO"].adapt(batch[0][2])
-        #     normalizers["ConvTrack"].adapt(batch[0][3])
-        #     normalizers["TauJets"].adapt(batch[0][4])
-        #     break
-        # self.reset_dataloader()
+    def predict(self, model, model_config, model_weights, save_predictions=False):
+        """
+        Function to generate arrays of y_pred, y_true and weights given a network weight file
+        :param model: A string of corresponding to a key in config.config.models_dict specifiying desired model
+        :param model_config: model config dictionary to use
+        :param model_weights: Path to model weights file to load
+        :param save_predictions (optional, default=False): write y_pred, y_true and weights to file
+        """
 
         # Model needs to be initialized on each actor separately - cannot share model between multiple processes
-        model = ModelDSNN(model_config, normalizers=None)
+        model = models_dict[model](model_config)
         model.load_weights(model_weights)
 
+        # Allocate arrays for y_pred, y_true and weights
         y_pred = np.ones((self.num_events(), self._nclasses)) * -999  # multiply by -999 so mistakes are obvious
+        y_true = np.ones((self.num_events(), self._nclasses)) * -999
+        weights = np.ones((self.num_events())) * -999
+
+        # Iterate through the DataLoader
         position = 0
         for i in range(0, self._num_real_batches):
-            batch, _, _ = self.get_batch()
+            batch, truth_labels, batch_weights = self.get_batch()
             try:
+                # Fill arrays
                 y_pred[position: position + len(batch[1])] = model.predict(batch)
+                y_pred[position: position + len(batch[1])] = truth_labels
+                weights[position: position + len(batch[1])] = batch_weights
             except ValueError:
-
-                print(y_pred[position:])
-                print(model.predict(batch).shape)
-
+                # If we overstep the end of the array - fill in the last few entries
                 y_pred[position:] = model.predict(batch)
+                y_pred[position:] = truth_labels
+                weights[position:] = batch_weights
+
+            # Move to the next position
             position += len(batch[1])
             logger.log(f"{self._data_type} -- predicted batch {i}/{self._num_real_batches}")
-        # y_pred = np.concatenate([arr for arr in y_pred])
 
+        # Save the predictions, truth and weight to file
         if save_predictions:
             if saveas is None:
                 save_file = os.path.basename(self.files[0])
-                np.savez(f"network_predictions/{save_file}.npz", y_pred)
-                logger.log(f"Saved network predictions for {self._data_type} to network_predictions/{save_file}.npz")
-            else:
-                np.savez(saveas, y_pred)
-                logger.log(f"Saved network predictions for {self._data_type} to {saveas}")
+                np.savez(f"network_predictions/predictions/{save_file}_predictions.npz", y_pred)
+                np.savez(f"network_predictions/truth/{save_file}_truth.npz", y_true)
+                np.savez(f"network_predictions/weights/{save_file}_weights.npz", weights)
+                logger.log(f"Saved network predictions for {self._data_type}")
 
         self.reset_dataloader()
-        return y_pred
+        return y_pred, y_true, weights

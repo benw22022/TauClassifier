@@ -102,14 +102,14 @@ def plot_confusion_matrix(y_pred, y_true):
 	plt.show()
 	plt.close(fig)
 
-def test():
+def test(network_weights, read_from_cache):
 	
 	ray.init()
-	read = False
+	read = True
 	plot = True
 	jet_tau_comp = True
 	dm_analy = True
-	model_weights = "network_weights/weights-12.h5"
+	model_weights = "network_weights/weights-13.h5"
 	reweighter = Reweighter(ntuple_dir)
 	testing_batch_generator = DataGenerator(testing_files, variables_dictionary, nbatches=50, cuts=get_cuts(), reweighter=reweighter)
 
@@ -119,29 +119,9 @@ def test():
 
 	if read:
 		model_config = config_dict
-		model_config["shapes"]["TauTrack"] = (len(variables_dictionary["TauTracks"]),) + (10,)
-		model_config["shapes"]["ConvTrack"] = (len(variables_dictionary["ConvTrack"]),) + (10,)
-		model_config["shapes"]["NeutralPFO"] = (len(variables_dictionary["NeutralPFO"]),) + (10,)
-		model_config["shapes"]["ShotPFO"] = (len(variables_dictionary["ShotPFO"]),) + (10,)
-		model_config["shapes"]["TauJets"] = (len(variables_dictionary["TauJets"]),)
-		#model = ModelDSNN(model_config)
-
-		normalizers = {"TauTrack": preprocessing.Normalization(),
-					   "NeutralPFO": preprocessing.Normalization(),
-					   "ShotPFO": preprocessing.Normalization(),
-					   "ConvTrack": preprocessing.Normalization(),
-					   "TauJets": preprocessing.Normalization()}
-		# for batch in testing_batch_generator:
-		# 	normalizers["TauTrack"].adapt(batch[0][0])
-		# 	normalizers["NeutralPFO"].adapt(batch[0][1])
-		# 	normalizers["ShotPFO"].adapt(batch[0][2])
-		# 	normalizers["ConvTrack"].adapt(batch[0][3])
-		# 	normalizers["TauJets"].adapt(batch[0][4])
-		testing_batch_generator.reset_generator()
-		model = ModelDSNN(model_config, normalizers=None)
-		# model = SetTransformer(model_config)
-
-		load_status = model.load_weights(model_weights, )
+		
+		model = SetTransformer(model_config)
+		# model = ModelDSNN(model_config)
 
 		for i in range(0, len(testing_batch_generator)):
 			batch_tmp, y_true_tmp, weights_tmp = testing_batch_generator[i]
@@ -164,12 +144,11 @@ def test():
 		with np.load("cache/weights.npz", allow_pickle=True) as file:
 			weights = file["arr_0"]
 
-	print(y_pred)
 
-	if dm_analy:
-		plot_confusion_matrix(y_pred, y_true)
+	# Plot confusion matrix
+	plot_confusion_matrix(y_pred, y_true)
 
-	#true_jets = true_taus = y_true
+	# Get truth arrays
 	true_jets = y_true[:, 0]
 	true_1p0n = y_true[:, 1]
 	true_1p1n = y_true[:, 2]
@@ -183,6 +162,7 @@ def test():
 	for arr in true_tau_arrs:
 		true_taus = np.add(true_taus, arr)
 
+	# Work out number of each class
 	true_n_jets = np.sum(true_jets)
 	true_n_1p0n = np.sum(true_1p0n)
 	true_n_1p1n = np.sum(true_1p1n)

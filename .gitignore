@@ -19,7 +19,7 @@ plots/*
 *training
 batch/*training_*/*
 *tmp
-scratch
+scratch/*
 
 # Ignore logs
 *.log

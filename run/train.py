@@ -22,38 +22,45 @@ import pickle
 import sys
 
 from config.variables import variables_dictionary
-from model.models import ModelDSNN, SetTransformer
 from scripts.DataGenerator import DataGenerator
 from config.files import training_files, validation_files, ntuple_dir
 from model.callbacks import ParallelModelCheckpoint
 from scripts.utils import logger
-from config.config import config_dict, get_cuts, models
+from config.config import config_dict, get_cuts, models_dict
 from scripts.preprocessing import Reweighter
 
 
-def train(prong=None, log_level='INFO', model="DSNN", tf_log_level='2'):
+def train(args):
+
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    Setup enviroment
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     # Set log levels
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = tf_log_level # Sets Tensorflow Logging Level
-    logger.set_log_level(log_level)
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level # Sets Tensorflow Logging Level
+    logger.set_log_level(args.log_level)
 
     # Initialize ray
     ray.init(include_dashboard=True)
-    
 
+    # Remove old network weights
+    old_weights = glob.glob("network_weights/*.h5")
+    for file in old_weights:
+        os.remove(file)
+        
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Generators
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-    reweighter = Reweighter(ntuple_dir, prong=prong)
+    reweighter = Reweighter(ntuple_dir, prong=args.prong)
 
-    cuts = get_cuts(prong)
+    cuts = get_cuts(args.prong)
 
     training_batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=250, cuts=cuts,
-                                             reweighter=reweighter, prong=prong, label="Training Generator")
+                                             reweighter=reweighter, prong=args.prong, label="Training Generator")
 
     validation_batch_generator = DataGenerator(validation_files, variables_dictionary, nbatches=50, cuts=cuts,
-                                               reweighter=reweighter, prong=prong, label="Validation Generator")
+                                               reweighter=reweighter, prong=args.prong, label="Validation Generator")
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Model
@@ -61,13 +68,7 @@ def train(prong=None, log_level='INFO', model="DSNN", tf_log_level='2'):
 
     # Configure model
     model_config = config_dict
-    model_config["shapes"]["TauTrack"] = (len(variables_dictionary["TauTracks"]),) + (10,)
-    model_config["shapes"]["ConvTrack"] = (len(variables_dictionary["ConvTrack"]),) + (10,)
-    model_config["shapes"]["NeutralPFO"] = (len(variables_dictionary["NeutralPFO"]),) + (10,)
-    model_config["shapes"]["ShotPFO"] = (len(variables_dictionary["ShotPFO"]),) + (10,)
-    model_config["shapes"]["TauJets"] = (len(variables_dictionary["TauJets"]),)
-
-    model = models[model](model_config)
+    model = models_dict[model](model_config)
 
     # Configure callbacks
     early_stopping = EarlyStopping(
@@ -106,10 +107,10 @@ def train(prong=None, log_level='INFO', model="DSNN", tf_log_level='2'):
                     4: weight_for_3p0n,
                     5: weight_for_3p1n,
                     }
-    model.layers[-1].bias.assign([np.log(njets/(total)),
-                                  np.log(n1p0n/(total)),
-                                  np.log(n1p1n/(total)),
-                                  np.log(n1pxn/(total)),
+    model.layers[-1].bias.assign([np.log(njets / (total)),
+                                  np.log(n1p0n / (total)),
+                                  np.log(n1p1n / (total)),
+                                  np.log(n1pxn / (total)),
                                   np.log(n3p0n / (total)),
                                   np.log(n3pxn / (total)),
                                   ])

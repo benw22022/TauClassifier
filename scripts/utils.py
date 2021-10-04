@@ -70,21 +70,25 @@ class FileHandler:
     """
     A class to handle files
     Can be sliced and printed
+    Stores additional useful data
     """
-    def __init__(self, label, search_dir, class_label=0):
+    def __init__(self, label, search_dir, class_label=0, cuts=None):
         """
         Constructor
         :param label: A string to label the file handler
         :param search_dir: A string that can be passed to glob.glob that will grab the desired files
         :param class_label: A label that can be used to class the data - default is 0
+        :param cuts: A string of cuts that can be parsed by uproot.iterate
         """
         self.label = label
         self.file_list = glob.glob(search_dir)
         self.class_label = class_label
+        self.cuts = cuts
 
     def __getitem__(self, key):
         """
         Overloads the [] operator
+        Action slices the file list and returns a new FileHandler with the sliced list
         :param key: An integer or slice
         :return: A new file handler object containing only the files at the requested index/slice
         """

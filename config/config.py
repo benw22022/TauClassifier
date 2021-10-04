@@ -79,5 +79,5 @@ def get_cuts(prong=None):
 				}
 	return cuts_dict
 
-models = {"DSNN": ModelDSNN,
-		  "SetTransformer": SetTransformer}
+models_dict = {"DSNN": ModelDSNN,
+		  	   "SetTransformer": SetTransformer}

@@ -17,7 +17,7 @@ from run.train import train
 from run.evaluate import evaluate
 from run.test import test
 from scripts.utils import logger
-from config.config import models
+from config.config import models_dict
 import scratch
 
 
@@ -78,7 +78,7 @@ def main():
     # Sets mode: 1 - (p10n, 1p1n, 1pxn, jets) | 3 - (3p0n, 3pxn, jets) | None - (p10n, 1p1n, 1pxn, 3p0n, 3pxn, jets)
     prong_list = [1, 3, None]                                           
 
-    model_list = list(models.keys())                                   # List of available models
+    model_list = list(models_dict.keys())                                   # List of available models
     log_levels = ['ERROR', 'WARNING', 'INFO', 'DEBUG', 'HELPME ']      # Custom logging levels for program
     tf_log_levels = ['0', '1', '2', '3']                               # TF logging levels 
 
@@ -94,6 +94,7 @@ def main():
     parser.add_argument("-tf_log_level", help="Set Tensorflow logging level", type=str, default='2')
     parser.add_argument("-function", help="Scratch function to run")
     parser.add_argument("-condor", help='Run on ht condor batch system', type=bool, default=False)
+    parser.add_argument("-load", help="Load last saved network predictions", type=bool, default=False)
     args = parser.parse_args()
 
     # If training
@@ -104,7 +105,8 @@ def main():
             return run_training_on_batch_system(prong=args.prong, model=args.model, log_level=args.log_level, tf_log_level=args.tf_log_level)
 
         # If training on local machine
-        return train(prong=args.prong, model=args.model, log_level=args.log_level, tf_log_level=args.tf_log_level)
+        # return train(prong=args.prong, model=args.model, log_level=args.log_level, tf_log_level=args.tf_log_level)
+        return train(args)
          
 
     # If testing
