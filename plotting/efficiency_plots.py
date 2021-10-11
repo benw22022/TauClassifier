@@ -128,10 +128,11 @@ if __name__ == "__main__":
 	EfficiencyRejectionPlot(gammatautau_pred_files, gammatautau_root_files, "TauJets.mu", working_points, cuts=cuts['Gammatautau'], n_test_points=20).plot()
 	EfficiencyRejectionPlot(gammatautau_pred_files, gammatautau_root_files, "TauJets.etaJetSeed", working_points,
 							cuts=cuts['Gammatautau'], n_test_points=20).plot()
-	EfficiencyRejectionPlot(gammatautau_pred_files, gammatautau_root_files, "TauJets.phiJetSeed", working_points,
-							cuts=cuts['Gammatautau'], n_test_points=20).plot()
+	plot = EfficiencyRejectionPlot(gammatautau_pred_files, gammatautau_root_files, "TauJets.phiJetSeed", working_points,
+							cuts=cuts['Gammatautau'], n_test_points=20)
+	plot.plot()
 
-	cut_values = [0.017611205577850342, 0.12696415185928345, 0.35216039419174194, 0.7186274230480195, 0.9145175814628601]
+	cut_values = plot.cut_values
 
 	EfficiencyRejectionPlot(jz_pred_files, jz_root_files, "TauJets.ptJetSeed", working_points, cut_values=cut_values,
 							cuts=cuts['JZ1'], log=True, n_test_points=20,rejection=True).plot()

@@ -15,10 +15,13 @@ from datetime import datetime
 from shutil import copyfile
 from run.train import train
 from run.evaluate import evaluate
+from run.permutation_rank import permutation_rank
 from run.test import test
 from scripts.utils import logger
 from config.config import models_dict
 import scratch
+import faulthandler
+
 
 
 def run_training_on_batch_system(prong=None, log_level=None, model='DSNN', tf_log_level='2'):
@@ -73,7 +76,7 @@ def main():
 
     # 'train' - train model | 'evaluate' =  make npz files of predictions for test data | 'plot' - make performance plots
     # 'scratch' - run a standalone testing script. We want to be able to run it from here so imports work properly
-    mode_list = ["train", "evaluate", "plot", "scratch"]  
+    mode_list = ["train", "evaluate", "plot", "rank", "scratch"]  
 
     # Sets mode: 1 - (p10n, 1p1n, 1pxn, jets) | 3 - (3p0n, 3pxn, jets) | None - (p10n, 1p1n, 1pxn, 3p0n, 3pxn, jets)
     prong_list = [1, 3, None]                                           
@@ -106,12 +109,19 @@ def main():
 
         # If training on local machine
         # return train(prong=args.prong, model=args.model, log_level=args.log_level, tf_log_level=args.tf_log_level)
-        return train(args)
-         
+
+        with open("fault_handler.log", "w") as fobj:
+            faulthandler.enable(fobj)
+
+            return train(args)
+            
 
     # If testing
     if args.run_mode == 'evaluate':
         return evaluate(args.weights, ncores=args.ncores)
+    
+    if args.run_mode == 'rank':
+        return permutation_rank(args)
 
     # Make performance plots
     if args.run_mode == 'plot':

@@ -34,3 +34,6 @@ scratch/*
 __pycache__
 *.xml
 *.iml
+*.swp
+*.so
+*.o

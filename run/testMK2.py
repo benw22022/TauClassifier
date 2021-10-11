@@ -1,3 +1,9 @@
+"""
+Test
+___________________________________________________________
+Plot confusion matrix and ROC curve using testing dataset
+"""
+
 import matplotlib.pyplot as plt
 from keras.models import load_model
 from sklearn.metrics import auc, roc_auc_score
@@ -22,7 +28,7 @@ from scripts.preprocessing import Reweighter
 
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disables GPU
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Sets Tensorflow Logging Level
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'   # Sets Tensorflow Logging Level
 
 
 
@@ -49,8 +55,6 @@ def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas="ROC.svg"):
 	plt.plot([0, 1], [0, 1], 'k--')
 	#plt.plot(fpr_keras, tpr_keras, label='Keras (AUC = {:.3f})'.format(auc_keras))
 	plt.plot(eff, rej)#, label='AUC (area = {:.3f})'.format(auc_keras))
-	# plt.xlabel('False positive rate')
-	# plt.ylabel('True positive rate')
 	plt.xlabel('Signal Efficiency')
 	plt.ylabel('Background Rejection')
 	plt.title(title)
@@ -128,49 +132,11 @@ def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None):
 	plt.close(fig)
 
 
-def test(args)
-
-	# reweighter = Reweighter(ntuple_dir)
-	# testing_batch_generator = DataGenerator(testing_files, variables_dictionary, nbatches=50, cuts=get_cuts(), reweighter=reweighter)
-
-	# y_pred = []
-	# y_true = []
-	# weights = []
-
-	# if read_from_cache:
-	# 	model_config = config_dict
-	# 	model = models[model](model_config)
-
-	# 	for i in range(0, len(testing_batch_generator)):
-	# 		batch_tmp, y_true_tmp, weights_tmp = testing_batch_generator[i]
-	# 		y_pred_tmp = model.predict(batch_tmp)
-	# 		y_pred.append(y_pred_tmp)
-	# 		y_true.append(y_true_tmp)
-	# 		weights.append(weights_tmp)
-	# 	y_true = np.concatenate([arr for arr in y_true])
-	# 	y_pred = np.concatenate([arr for arr in y_pred])
-	# 	weights = np.concatenate([arr for arr in weights])
-	# 	np.savez(os.path.join("cache", "y_pred.npz"), np.array(y_pred, dtype='object'))
-	# 	np.savez(os.path.join("cache", "y_true.npz"), np.array(y_true, dtype='object'))
-	# 	np.savez(os.path.join("cache", "weights.npz)", np.array(weights, dtype='object'))
-
-	# else:
-	# 	with np.load(os.path.join("cache", "y_pred.npz"), allow_pickle=True) as file:
-	# 		y_pred = file["arr_0"].astype("float32")
-	# 	with np.load(os.path.join("cache", "y_true.npz"), allow_pickle=True) as file:
-	# 		y_true = file["arr_0"].astype("int")
-	# 	with np.load(os.path.join("cache", "weights.npz"), allow_pickle=True) as file:
-	# 		weights = file["arr_0"]
-
-	# # Plot confusion matrix
-	# plot_confusion_matrix(y_pred, y_true, prong=prong, weights=weights)
-
-	# # Plot ROC Curve
-	# true_jets = y_true[:, 0]
-	# pred_jets = y_pred[:, 0]
-	# plot_ROC(1 - true_jets, 1 - true_taus, weights=weights, title="ROC Curve: Tau-Jets",
-	# 		 saveas=os.path.join("plots","ROC_jets.png"))
-
+def test(args):
+	"""
+	Plots confusion matrix and ROC curve
+	:param args: Args parsed by tauclassifier.py
+	"""
 	
 	testing_files = testing_files.file_list
 
@@ -195,7 +161,7 @@ def test(args)
 	weights = np.concatenate([arr for arr in weights])
 
 	# Plot confusion matrix
-	plot_confusion_matrix(y_pred, y_true, prong=prong, weights=weights)
+	plot_confusion_matrix(y_pred, y_true, prong=args.prong, weights=weights)
 
 	# Plot ROC Curve
 	true_jets = y_true[:, 0]

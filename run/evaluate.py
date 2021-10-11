@@ -10,7 +10,7 @@ import os
 import ray
 import glob
 from config.config import get_cuts, config_dict
-from config.utils import logger
+from scripts.utils import logger
 from config.variables import variables_dictionary
 from config.files import gammatautau_files, jz_files, testing_files, ntuple_dir
 from scripts.DataLoader import DataLoader

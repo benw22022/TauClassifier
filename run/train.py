@@ -20,6 +20,7 @@ import numpy as np
 from tensorflow.keras.layers.experimental import preprocessing
 import pickle
 import sys
+import glob
 
 from config.variables import variables_dictionary
 from scripts.DataGenerator import DataGenerator
@@ -56,7 +57,7 @@ def train(args):
 
     cuts = get_cuts(args.prong)
 
-    training_batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=250, cuts=cuts,
+    training_batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=1000, cuts=cuts,
                                              reweighter=reweighter, prong=args.prong, label="Training Generator")
 
     validation_batch_generator = DataGenerator(validation_files, variables_dictionary, nbatches=50, cuts=cuts,
@@ -68,7 +69,7 @@ def train(args):
 
     # Configure model
     model_config = config_dict
-    model = models_dict[model](model_config)
+    model = models_dict[args.model](model_config)
 
     # Configure callbacks
     early_stopping = EarlyStopping(

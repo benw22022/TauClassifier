@@ -168,35 +168,3 @@ if __name__ == "__main__":
 					var = variables_dictionary[names[j]][k]
 					plt.savefig(f"plots\\variables\\batch_1_{var}.png")
 					plt.show()
-
-
-		# variables = variables_dictionary["TauJets"]
-		# arr = batch[0]
-		# for i in range(0, len(variables)):
-		# 	for j in range(0, len(variables)):
-		# 		var1 = variables[i]
-		# 		var2 = variables[j]
-		# 		if var1 != var2:
-		#
-		# 			arr1 = arr[i]
-		# 			arr2 = arr[j]
-		#
-		# 			jets_data1 = np.take(arr1, np.argwhere(labels[:, 0] == 1))
-		# 			taus_data1 = np.take(arr1, np.argwhere(labels[:, 0] == 0))
-		#
-		# 			jets_data2 = np.take(arr2, np.argwhere(labels[:, 0] == 1))
-		# 			taus_data2 = np.take(arr2, np.argwhere(labels[:, 0] == 0))
-		#
-		# 			jets_hist1, jets_bins1 = np.histogram(jets_data1, bins=50)
-		# 			jets_hist2, jets_bins2 = np.histogram(jets_data2, bins=50)
-		#
-		# 			taus_hist1, taus_bins1 = np.histogram(jets_data1, bins=50)
-		# 			taus_hist2, taus_bins2 = np.histogram(jets_data2, bins=50)
-		#
-		# 			jet_var1_var2_data = zip(jets_hist1, jets_hist2)
-		# 			tau_var1_var2_data = zip(taus_hist1, taus_hist2)
-		#
-		# 			ax = sns.heatmap(jet_var1_var2_data, linewidth=0.5)
-		# 			plt.show()
-		# 			ax2 = sns.heatmap(tau_var1_var2_data, linewidth=0.5)
-		# 			plt.show()

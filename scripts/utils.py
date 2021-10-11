@@ -174,3 +174,4 @@ class Result:
         new_result.labels = self.labels[key]
         new_result.weights = self.weights[key]
         return new_result
+

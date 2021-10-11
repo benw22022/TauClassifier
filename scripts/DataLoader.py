@@ -176,7 +176,7 @@ class DataLoader:
         self._current_index += 1
         return batch
 
-    def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=10):
+    def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=10, shuffle_var=None):
         """
         Function that acts on nested data to read relevant variables, pad, reshape and convert data from uproot into
         rectilinear numpy arrays
@@ -194,11 +194,14 @@ class DataLoader:
             ak_arr = batch[var]
             ak_arr = ak.pad_none(ak_arr, max_items, clip=True, axis=1)
             arr = ak.to_numpy(abs(ak_arr)).filled(dummy_val)
+            if var == shuffle_var:
+                arr = np.random.shuffle(arr)
             # arr = limits_dict[var].transform(arr)
             if np.amax(np.abs(arr)) > 50:
                 arr = np.where(arr < 1e7, arr, -4)
                 arr = np.where(arr > -1000, arr, -4)
-                arr = np.where(arr > 0, np.log10(arr), dummy_val)
+                with np.errstate(divide='ignore'):
+                    arr = np.where(arr > 0, np.log10(arr), dummy_val)
                 arr = np.where(arr < 100, arr, dummy_val)
             np_arrays[:, i] = arr
         # np_arrays = apply_scaling(np_arrays, thresh=thresh, dummy_val=dummy_val)
@@ -206,7 +209,7 @@ class DataLoader:
         # np_arrays = np_arrays.reshape((len(np_arrays), max_items, len(variables)))
         return np_arrays
 
-    def reshape_arrays(self, batch, variable_type):
+    def reshape_arrays(self, batch, variable_type, shuffle_var=None):
         """
         Function that acts on flat data to read relevant variables, reshape and convert data from uproot into
         rectilinear numpy arrays
@@ -222,19 +225,22 @@ class DataLoader:
             var = variables[i]
             ak_arr = batch[var]
             arr = ak.to_numpy(abs(ak_arr))
+            if var == shuffle_var:
+                arr = np.random.shuffle(arr)
             dummy_val = 0
             # arr = limits_dict[var].transform(arr, dummy_val=dummy_val)
             if np.max(arr) > 50:
                 arr = np.where(arr < 1e7, arr, -4)
                 arr = np.where(arr > -1000, arr, -4)
-                arr = np.where(arr > 0, np.log10(arr), dummy_val)
+                with np.errstate(divide='ignore'):
+                    arr = np.where(arr > 0, np.log10(arr), dummy_val)
                 arr = np.where(arr < 100, arr, dummy_val)
             np_arrays[:, i] = arr
         # np_arrays = apply_scaling(np_arrays)
         np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float64")
         return np_arrays
 
-    def get_batch(self):
+    def get_batch(self, shuffle_var=None):
         """
         Loads a batch of data of a specific data type and then stores it for later retrieval.
         Pads ragged track and PFO arrays to make them rectilinear
@@ -243,11 +249,11 @@ class DataLoader:
         """
         batch = self.next_batch()
 
-        track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=10)
-        conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=10)
-        shot_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ShotPFO", max_items=10)
-        neutral_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "NeutralPFO", max_items=10)
-        jet_np_arrays = self.reshape_arrays(batch, "TauJets")
+        track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=10, shuffle_var=shuffle_var)
+        conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=10, shuffle_var=shuffle_var)
+        shot_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ShotPFO", max_items=10, shuffle_var=shuffle_var)
+        neutral_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "NeutralPFO", max_items=10, shuffle_var=shuffle_var)
+        jet_np_arrays = self.reshape_arrays(batch, "TauJets", shuffle_var=shuffle_var)
 
         # Compute labels
         labels_np_array = np.zeros((len(batch), self._nclasses))

@@ -16,11 +16,12 @@ import ray
 from ray.util import inspect_serializability
 from scripts.DataLoader import DataLoader, apply_scaling
 from scripts.utils import logger, find_anomalous_entries
+from config.config import models_dict
 
 class DataGenerator(tf.keras.utils.Sequence):
 
     def __init__(self, file_handler_list, variables_dict, nbatches=1000, cuts=None, label="DataGenerator", reweighter=None,
-                prong=None, _benchmark=False):
+                prong=None, shuffle_var=None, no_gpu=False, _benchmark=False):
         """
         Class constructor for DataGenerator. Inherits from keras.utils.Sequence. When passed to model.fit(...) loads a
         batch of data from file for the network to train on. This avoids having to load large amounts of data into
@@ -45,12 +46,15 @@ class DataGenerator(tf.keras.utils.Sequence):
         """
 
         logger.log(f"Initializing DataGenerator: {label}", 'INFO')
+        
+
         self._file_handlers = file_handler_list
         self.label = label
         self.data_loaders = []
         self.cuts = cuts
         self._current_index = 0
         self._epochs = 0
+        self.shuffle_var = shuffle_var
         self.__benchmark = _benchmark
 
         # Organise a list of all variables
@@ -88,10 +92,18 @@ class DataGenerator(tf.keras.utils.Sequence):
         for data_loader in self.data_loaders:
             self._total_num_events.append(ray.get(data_loader.num_events.remote()))
             num_batches_list.append(ray.get(data_loader.number_of_batches.remote()))
-        logger.log(f"{self.label} - Found {sum(self._total_num_events)} events total", "INFO")
+        self._total_num_events = sum(self._total_num_events)
+        logger.log(f"{self.label} - Found {self._total_num_events} events total", "INFO")
 
         # Work out how many batches to split the data into
         self._num_batches = min(num_batches_list)
+
+        # Work out number of classes
+        self._nclasses = 6
+        if prong == 1:
+            self._nclasses = 4
+        if prong == 3:
+            self.nclasses = 3
 
     def load_batch(self):
         """
@@ -126,23 +138,59 @@ class DataGenerator(tf.keras.utils.Sequence):
             del track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array, label_array, weight_array
             gc.collect()
 
-    def predict(self, model_func, *args, **kwargs):
-        # TODO: WORK IN PROGRESS
-        y_pred = []
-        y_true = []
-        weights = []
-        model = model_func(*args, **kwargs)
-        for i in range(0, len(self)):
-            batch_tmp, y_true_tmp, weights_tmp = self[i]
-            y_pred_tmp = model.predict(batch_tmp)
-            y_pred.append(y_pred_tmp)
-            y_true.append(y_true_tmp)
-            weights.append(weights_tmp)
-        self.reset_generator()
-        y_true = np.concatenate([arr for arr in y_true])
-        y_pred = np.concatenate([arr for arr in y_pred])
-        weights = np.concatenate([arr for arr in weights])
-        return y_pred, y_true, weights
+    def predict(self, model, model_config, model_weights, save_predictions=False):
+        """
+        Function to generate arrays of y_pred, y_true and weights given a network weight file
+        :param model: A string of corresponding to a key in config.config.models_dict specifiying desired model
+        :param model_config: model config dictionary to use
+        :param model_weights: Path to model weights file to load
+        :param save_predictions (optional, default=False): write y_pred, y_true and weights to file
+        """
+
+        # Model needs to be initialized on each actor separately - cannot share model between multiple processes
+        model = models_dict[model](model_config)
+        model.load_weights(model_weights)
+
+        # Allocate arrays for y_pred, y_true and weights
+        y_pred = np.ones((self._total_num_events, self._nclasses)) * -999  # multiply by -999 so mistakes are obvious
+        y_true = np.ones((self._total_num_events, self._nclasses)) * -999
+        weights = np.ones((self._total_num_events)) * -999
+        losses = []
+        accs = []
+
+        # Iterate through the DataLoader
+        position = 0
+        for i in range(0, self.__len__()):
+            batch, truth_labels, batch_weights = self.load_batch()
+            try:
+                # Fill arrays
+                y_pred[position: position + len(batch[1])] = model.predict(batch)
+                y_pred[position: position + len(batch[1])] = truth_labels
+                weights[position: position + len(batch[1])] = batch_weights
+            except ValueError:
+                # If we overstep the end of the array - fill in the last few entries
+                y_pred[position:] = model.predict(batch)
+                y_pred[position:] = truth_labels
+                weights[position:] = batch_weights
+                loss, acc = model.evaluate(batch, truth_lables, batch_weights)
+                losses.append(loss)
+                accs.append(acc)
+
+            # Move to the next position
+            position += len(batch[1])
+            logger.log(f"{self._data_type} -- predicted batch {i}/{self._len__()}")
+
+        # Save the predictions, truth and weight to file
+        if save_predictions:
+            if saveas is None:
+                save_file = os.path.basename(self.files[0])
+                np.savez(f"network_predictions/predictions/{save_file}_predictions.npz", y_pred)
+                np.savez(f"network_predictions/truth/{save_file}_truth.npz", y_true)
+                np.savez(f"network_predictions/weights/{save_file}_weights.npz", weights)
+                logger.log(f"Saved network predictions for {self._data_type}")
+
+        self.reset_dataloader()
+        return y_pred, y_true, weights, np.mean(losses), np.mean(accs)
 
     def __len__(self):
         """
