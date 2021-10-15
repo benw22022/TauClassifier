@@ -57,7 +57,7 @@ def train(args):
 
     cuts = get_cuts(args.prong)
 
-    training_batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=1000, cuts=cuts,
+    training_batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=100, cuts=cuts,
                                              reweighter=reweighter, prong=args.prong, label="Training Generator")
 
     validation_batch_generator = DataGenerator(validation_files, variables_dictionary, nbatches=50, cuts=cuts,
@@ -77,7 +77,7 @@ def train(args):
         patience=10, verbose=0, restore_best_weights=True)
 
     model_checkpoint = ParallelModelCheckpoint(model, path=os.path.join("network_weights", 'weights-{epoch:02d}.h5'),
-                                               monitor="val_loss", save_best_only=False, save_weights_only=True)
+                                               monitor="val_loss", save_best_only=True, save_weights_only=True)
 
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.4, patience=3, min_lr=4e-6)
 

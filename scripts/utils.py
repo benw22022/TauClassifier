@@ -1,6 +1,6 @@
 """
 Utilities
-___________________________________________
+___________________________________________________________________
 File containing useful functions and classes
 """
 
@@ -175,3 +175,71 @@ class Result:
         new_result.weights = self.weights[key]
         return new_result
 
+def get_best_weights(search_dir="network_weights"):
+    """
+    Search a directory of weights files and find the one from the last epoch saved
+    Weights files must have naming convention along the lines of weights-<epoch>.h5
+    :param search_dir (optional, default="network_weights"): Directory to search weight files for 
+    """
+    avail_weights = glob.glob(os.path.join(search_dir, "*.h5"))
+    best_weights_num = 0 
+    best_weights = ""
+    for fname in avail_weights:
+        weights_num = float(fname.split("-")[1].split(".")[0])
+        if weights_num > best_weights_num:
+            best_weights_num = weights_num
+            best_weights = fname
+    return best_weights
+
+def none_or_int(value):
+    """
+    A little function that will return None if parsed 'None' or a int. Used to parse -prong argument 
+    :param value: A string tha
+    """
+    if value == 'None':
+        return None
+    return int(value)
+
+def run_training_on_batch_system(prong=None, log_level=None, model='DSNN', tf_log_level='2'):
+    """
+    Script to run training on ht condor batch system on lxplus 
+    Word of warning I found this to be very slow and job would time out before finishing - I found that increasing the 
+    runtime of the job meant that it never got started
+    """
+    #  Check that user has changed the submit file to their email if they plan on using the batch system
+    if getpass.getuser() != "bewilson":
+        with open("batch/htc_training.submit", "r") as submit_file:
+            for line in submit_file:
+                assert "benjamin.james.wilson@cern.ch" not in line, "In batch/htc_generation.submit please change the notify_user field to your email!"
+
+    # Make a new directory to run in and copy code into it
+    current_dir = os.getcwd()
+    now = datetime.now()
+    parent_dir = Path(current_dir).parent.absolute()
+    new_dir = os.path.join(parent_dir, "training_" + now.strftime("%Y-%m-%d_%H.%M.%S"))
+    os.mkdir(new_dir)
+    logger.log(f"Created new directory to run in {new_dir} ")
+    os.system(f"cp batch/htc_training.submit {new_dir}")
+    os.system("rsync -ar --progress --exclude=.git --exclude=.idea --exclude=*pycache* {} {}".format(current_dir, new_dir))
+
+    # Write a script that will run on the batch system (There is probably a easier way to do this but I can't figure it out)
+    script = f"""
+#!/bin/bash 
+# Activate the conda enviroment
+eval "$(conda shell.bash hook)"
+conda activate tauid
+echo "Conda Enviroment: " $CONDA_DEFAULT_ENV
+
+# Move to folder
+cd {new_dir}/TauClassifier
+
+# Run the training 
+python3 tauclassifier.py train -prong={prong} -log_level={log_level} -model={model} -tf_log_levl={tf_log_level} | tee training.log
+"""
+    with open(f"{new_dir}/train_on_batch.sh", 'w') as file:
+        file.write(script)        
+
+    # Move to new directory and run 
+    os.chdir(new_dir)
+    os.system("condor_submit -batch-name TauClassifierTraining htc_training.submit ")
+    return 0

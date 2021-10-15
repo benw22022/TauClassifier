@@ -5,6 +5,7 @@
 *.awkd
 *.h5
 *.tfr
+*.csv
 
 # Ignore any plots
 *.png

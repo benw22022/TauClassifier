@@ -6,6 +6,7 @@ data into memory at once
 TODO: Make this generalisable to different problems
 """
 
+import os
 import numpy as np
 import keras
 import tensorflow as tf
@@ -15,13 +16,15 @@ import gc
 import ray
 from ray.util import inspect_serializability
 from scripts.DataLoader import DataLoader, apply_scaling
+from run.testMK2 import make_confusion_matrix
 from scripts.utils import logger, find_anomalous_entries
 from config.config import models_dict
+
 
 class DataGenerator(tf.keras.utils.Sequence):
 
     def __init__(self, file_handler_list, variables_dict, nbatches=1000, cuts=None, label="DataGenerator", reweighter=None,
-                prong=None, shuffle_var=None, no_gpu=False, _benchmark=False):
+                prong=None, no_gpu=False, _benchmark=False):
         """
         Class constructor for DataGenerator. Inherits from keras.utils.Sequence. When passed to model.fit(...) loads a
         batch of data from file for the network to train on. This avoids having to load large amounts of data into
@@ -41,12 +44,16 @@ class DataGenerator(tf.keras.utils.Sequence):
         :param label: A label to give this object (helpful if you have multiple DataGenerators running at once)
         :param reweighter: An instance of a reweighting class 
         :param prong: Number of prongs - either 1-prong with 4 classes, 3-prong with 3 classes or 1+3-prong for 6 classes
+        :param no_gpu: If True will make TensorFlow use CPU rather than GPU - useful when creating multiple models  
         :param _benchmark: If set to True will return additional information when load_batch() is called. This will
         cause model.fit() to break and is only used for testing purposes
         """
 
         logger.log(f"Initializing DataGenerator: {label}", 'INFO')
         
+        # Disables GPU - useful if you want to instantiate multiple tensorflow model instances
+        if no_gpu:
+            os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
         self._file_handlers = file_handler_list
         self.label = label
@@ -54,8 +61,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.cuts = cuts
         self._current_index = 0
         self._epochs = 0
-        self.shuffle_var = shuffle_var
         self.__benchmark = _benchmark
+        self.model = None
 
         # Organise a list of all variables
         self._variables_dict = variables_dict
@@ -105,7 +112,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         if prong == 3:
             self.nclasses = 3
 
-    def load_batch(self):
+    def load_batch(self, shuffle_var=""):
         """
         Loads a batch of data from each DataLoader and concatenates them into single arrays for training
         :return: A list of arrays to be passed to model.fit()
@@ -113,7 +120,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         batch_load_time = time.time()
 
-        batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
+        batch = ray.get([dl.get_batch.remote(shuffle_var=shuffle_var) for dl in self.data_loaders])
 
         track_array = np.concatenate([result[0][0] for result in batch])
         neutral_pfo_array = np.concatenate([result[0][1] for result in batch])
@@ -125,7 +132,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         load_time = str(datetime.timedelta(seconds=time.time()-batch_load_time))
         logger.log(f"{self.label}: Processed batch {self._current_index}/{self.__len__()} - {len(label_array)} events"
-                   f" in {load_time}", "INFO")
+                   f" in {load_time}", "DEBUG")
 
         if self.__benchmark:
             return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array),\
@@ -134,22 +141,42 @@ class DataGenerator(tf.keras.utils.Sequence):
         try:
             return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
         finally:
+            # A (probably vain) attempt to free memory
             del batch
             del track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array, label_array, weight_array
             gc.collect()
 
-    def predict(self, model, model_config, model_weights, save_predictions=False):
+    def load_model(self, model, model_config, model_weights)
+        """
+        Function to set the model to be used by the DataGenerator for predictions
+        Seems to me to be more efficient to store this as a class member rather than reinitialising the model
+        everytime predict() is called
+        Note: You should set no_gpu=True if you load models on multiple DataGenerator instances (TensorFlow is likely to complain)
+        """
+        self.model = models_dict[model](model_config)
+        self.model.load_weights(model_weights)
+
+    def predict(self, model=None, model_config=None, model_weights=None, save_predictions=False, shuffle_var="", make_confusion_matrix=False):
         """
         Function to generate arrays of y_pred, y_true and weights given a network weight file
         :param model: A string of corresponding to a key in config.config.models_dict specifiying desired model
         :param model_config: model config dictionary to use
         :param model_weights: Path to model weights file to load
         :param save_predictions (optional, default=False): write y_pred, y_true and weights to file
+        :param shuffle_var (optional, default=""): This variable will be shuffled when generating each batch - this can be used
+        for permutation variable ranking. Shuffling a more important variable will lead to a larger change in loss/accuracy
         """
 
-        # Model needs to be initialized on each actor separately - cannot share model between multiple processes
-        model = models_dict[model](model_config)
-        model.load_weights(model_weights)
+        # Initialise model if it hasn't been already
+        if self.model is None:
+            if model is None or model_config is None or model_weights is None:
+                logger.log(f"No model has been initialised on {self.label}! You must pass a model, model_config and model_weights to predict", "ERROR")
+                logger.log("Alternativly you may pass those arguements to load_model() to set the model seperately", "ERROR")
+                raise ValueError 
+            self.load_model(model, model_config, model_weights)
+        cce_loss = tf.keras.losses.CategoricalCrossentropy()
+        acc_metric = tf.keras.metrics.Accuracy()
+        
 
         # Allocate arrays for y_pred, y_true and weights
         y_pred = np.ones((self._total_num_events, self._nclasses)) * -999  # multiply by -999 so mistakes are obvious
@@ -161,24 +188,29 @@ class DataGenerator(tf.keras.utils.Sequence):
         # Iterate through the DataLoader
         position = 0
         for i in range(0, self.__len__()):
-            batch, truth_labels, batch_weights = self.load_batch()
+            batch, truth_labels, batch_weights = self.load_batch(shuffle_var=shuffle_var)
+            predicted_labels = self.model.predict(batch)
+            loss = cce_loss(truth_labels, predicted_labels).numpy()
+            acc_metric.update_state(truth_labels, predicted_labels, batch_weights) 
+            acc = acc_metric.result().numpy()
+            self._current_index += 1
             try:
                 # Fill arrays
-                y_pred[position: position + len(batch[1])] = model.predict(batch)
+                y_pred[position: position + len(batch[1])] = predicted_labels
                 y_pred[position: position + len(batch[1])] = truth_labels
                 weights[position: position + len(batch[1])] = batch_weights
+                losses.append(loss)
+                accs.append(acc)
             except ValueError:
                 # If we overstep the end of the array - fill in the last few entries
-                y_pred[position:] = model.predict(batch)
+                y_pred[position:] = predicted_labels
                 y_pred[position:] = truth_labels
                 weights[position:] = batch_weights
-                loss, acc = model.evaluate(batch, truth_lables, batch_weights)
                 losses.append(loss)
                 accs.append(acc)
 
             # Move to the next position
             position += len(batch[1])
-            logger.log(f"{self._data_type} -- predicted batch {i}/{self._len__()}")
 
         # Save the predictions, truth and weight to file
         if save_predictions:
@@ -188,8 +220,17 @@ class DataGenerator(tf.keras.utils.Sequence):
                 np.savez(f"network_predictions/truth/{save_file}_truth.npz", y_true)
                 np.savez(f"network_predictions/weights/{save_file}_weights.npz", weights)
                 logger.log(f"Saved network predictions for {self._data_type}")
+        
+        # Plot confusion matrix is requested
+        if make_confusion_matrix:
+            cm_savefile = os.path.join("plots", "confusion_matrix.png")
+            if shuffle_var != "":
+                # Special saveas for
+                cm_savefile = os.path.join("plots", "permutation_ranking", f"{shuffle_var}_shuffled_confusion_matrix.png")
+            plot_confusion_matrix(y_pred, y_true, prong=self.prong, weights=weights, saveas=cm_savefile)
 
-        self.reset_dataloader()
+        self.reset_generator()
+
         return y_pred, y_true, weights, np.mean(losses), np.mean(accs)
 
     def __len__(self):
@@ -237,7 +278,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
     def reset_generator(self):
         """
-        Function that will reset the generator and reset the dataloader objects
+        Function that will reset the generator by reseting the DataLoader objects
         index will also get reset to zero
         :return:
         """

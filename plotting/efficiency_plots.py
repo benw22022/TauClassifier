@@ -1,6 +1,8 @@
 """
 Efficiency vs variables
 """
+
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.font_manager import FontProperties
@@ -114,14 +116,14 @@ class EfficiencyRejectionPlot:
 
 if __name__ == "__main__":
 
-	gammatautau_pred_files = glob.glob("network_outputs//*24794883*")
+	gammatautau_pred_files = glob.glob(os.path.join("network_outputs","*24794883*"))
 	gammatautau_root_files = gammatautau_files.file_list
 	variable = "TauJets.ptJetSeed"
 	working_points = [95, 85, 75, 60, 45]
 
 
-	jz_pred_files = glob.glob("network_outputs//*248*")
-	jz_pred_files.extend(glob.glob("network_outputs//*247949*"))
+	jz_pred_files = glob.glob(os.path.join("network_outputs", "*248*"))
+	jz_pred_files.extend(glob.glob(os.path.join("network_outputs", "*247949*")))
 	jz_root_files = jz_files.file_list
 
 	EfficiencyRejectionPlot(gammatautau_pred_files, gammatautau_root_files, "TauJets.ptJetSeed", working_points, cuts=cuts['Gammatautau'], log=True, n_test_points=20).plot()

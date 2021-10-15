@@ -195,7 +195,7 @@ class DataLoader:
             ak_arr = ak.pad_none(ak_arr, max_items, clip=True, axis=1)
             arr = ak.to_numpy(abs(ak_arr)).filled(dummy_val)
             if var == shuffle_var:
-                arr = np.random.shuffle(arr)
+                np.random.shuffle(arr)
             # arr = limits_dict[var].transform(arr)
             if np.amax(np.abs(arr)) > 50:
                 arr = np.where(arr < 1e7, arr, -4)
@@ -226,7 +226,7 @@ class DataLoader:
             ak_arr = batch[var]
             arr = ak.to_numpy(abs(ak_arr))
             if var == shuffle_var:
-                arr = np.random.shuffle(arr)
+                np.random.shuffle(arr)
             dummy_val = 0
             # arr = limits_dict[var].transform(arr, dummy_val=dummy_val)
             if np.max(arr) > 50:

@@ -27,11 +27,6 @@ from scripts.DataGenerator import DataGenerator
 from scripts.preprocessing import Reweighter
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disables GPU
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'   # Sets Tensorflow Logging Level
-
-
-
 def get_efficiency_and_rejection(y_true, y_pred, weights):
 	fpr_keras, tpr_keras, thresholds_keras = metrics.roc_curve(y_true, y_pred, sample_weight=weights)
 
@@ -96,7 +91,7 @@ def make_confusion_matrix(prediction, truth, weights=None):
 	return cm
 
 
-def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None):
+def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None):
 	"""
 	Function to plot confusion matrix
 
@@ -127,7 +122,10 @@ def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None):
 					 fmt=".2")
 	plt.xlabel("Truth")
 	plt.ylabel("Prediction")
-	plt.savefig(os.path.join("plots", "cm.png"))
+	if saveas is None:
+		plt.savefig(os.path.join("plots", "confusion_matrix.png"))
+	else:
+		plt.savefig(saveas)
 	plt.show()
 	plt.close(fig)
 
@@ -138,6 +136,9 @@ def test(args):
 	:param args: Args parsed by tauclassifier.py
 	"""
 	
+	os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disables GPU
+	os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'   # Sets Tensorflow Logging Level
+
 	testing_files = testing_files.file_list
 
 	y_pred = []
