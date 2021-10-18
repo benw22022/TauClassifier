@@ -5,7 +5,6 @@ Compute predictions using a weights file
 Writes out y_pred array for each NTuple into a .npz
 """
 
-
 import os
 import ray
 import glob
@@ -14,9 +13,6 @@ from scripts.utils import logger
 from config.variables import variables_dictionary
 from config.files import gammatautau_files, jz_files, testing_files, ntuple_dir
 from scripts.DataLoader import DataLoader
-
-
-
 
 def split_list(alist, wanted_parts=1):
     """
@@ -58,11 +54,12 @@ def evaluate(args):
     
     # Make DataLoaders
     for file_chunk in files:
-            dataloaders = []
-            for file in file_chunk:
-                    dl = DataLoader.remote(file, [file], 1, nbatches, variables_dictionary, cuts=get_cuts(args.prong)[file.label], 
-                                           reweighter=reweighter, no_gpu=True)
-                    dataloaders.append(dl)
-            ray.get([dl.predict.remote(args.model, model_config, model_weights, save_predictions=True) for dl in dataloaders])
-            for dl in dataloaders:
-                ray.kill(dl)
+        dataloaders = []
+        for file in file_chunk:
+                dl = DataLoader.remote(file, [file], 1, nbatches, variables_dictionary, cuts=get_cuts(args.prong)[file.label], 
+                                    reweighter=reweighter, no_gpu=True)
+                dataloaders.append(dl)
+        # Save predictions for each file in parallel
+        ray.get([dl.predict.remote(args.model, model_config, model_weights, save_predictions=True) for dl in dataloaders])
+        for dl in dataloaders:
+            ray.kill(dl)

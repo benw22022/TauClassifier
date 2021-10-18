@@ -16,9 +16,10 @@ from shutil import copyfile
 from run.train import train
 from run.evaluate import evaluate
 from run.permutation_rank import permutation_rank
-from run.test import test
+from run.testMK2 import test
 from scripts.utils import logger, get_best_weights, none_or_int, run_training_on_batch_system
 from config.config import models_dict
+from scripts.utils import logger
 import scratch
 import faulthandler
 import glob
@@ -29,7 +30,7 @@ def main():
 
     # 'train' - train model | 'evaluate' =  make npz files of predictions for test data | 'plot' - make performance plots
     # 'scratch' - run a standalone testing script. We want to be able to run it from here so imports work properly
-    mode_list = ["train", "evaluate", "plot", "rank", "scratch"]  
+    mode_list = ["train", "evaluate", "plot", "rank", "scratch", "scan"]  
 
     # Sets mode: 1 - (p10n, 1p1n, 1pxn, jets) | 3 - (3p0n, 3pxn, jets) | None - (p10n, 1p1n, 1pxn, 3p0n, 3pxn, jets)
     prong_list = [1, 3, None]                                           
@@ -48,6 +49,8 @@ def main():
     parser.add_argument("-weights", help="File path to network weights to test", type=str, default=best_weights)
     parser.add_argument("-model", help="Model to use: models are defined in model/models.py and registered in config/config.py in the models dictionary", choices=model_list, 
     type=str, default="DSNN")
+    parser.add_argument("-lr", help="Learning rate of Adam optimiser", type=float, default=1e-3)
+    parser.add_argument("-lr_range", help="Learning rate array to scan through usage: -lr_range <start> <stop> <step>", type=float, nargs=3, default=[1e-4, 1e-2, 10])
     parser.add_argument("-ncores", help="number of CPU cores to use when evaluating network predictions", type=int, default=8)
     parser.add_argument("-log_level", help="Sets log level", type=str, default='INFO', choices=log_levels)
     parser.add_argument("-tf_log_level", help="Set Tensorflow logging level", type=str, default='2')
@@ -82,6 +85,14 @@ def main():
     # Make performance plots
     if args.run_mode == 'plot':
         return test()
+    
+    # Scan through learning rates
+    if args.run_mode == 'scan':
+        try:
+            int(args.lr_range[2])
+        except ValueError:
+            logger.log("Learning rate step size must be an integer!", "ERROR")
+            return 1
 
     # *Super* hacky way of running little standalone testing scripts 
     if args.run_mode == 'scratch':

@@ -13,10 +13,9 @@ import tensorflow as tf
 import datetime
 import time
 import gc
-import ray
-from ray.util import inspect_serializability
+import ray  
 from scripts.DataLoader import DataLoader, apply_scaling
-from run.testMK2 import make_confusion_matrix
+from plotting.plotting_functions import plot_confusion_matrix
 from scripts.utils import logger, find_anomalous_entries
 from config.config import models_dict
 
@@ -63,6 +62,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self._epochs = 0
         self.__benchmark = _benchmark
         self.model = None
+        self.prong = prong
 
         # Organise a list of all variables
         self._variables_dict = variables_dict
@@ -78,9 +78,6 @@ class DataGenerator(tf.keras.utils.Sequence):
                 dl_label = file_handler.label + "_" + self.label
                 file_list = file_handler.file_list
                 class_label = file_handler.class_label
-
-                # Check that dataloader is serializable - needs to be for ray to work
-                inspect_serializability(DataLoader, name="test")
                 dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[file_handler.label],
                                                     label=label, prong=prong, reweighter=reweighter)
                 self.data_loaders.append(dl)
@@ -89,7 +86,6 @@ class DataGenerator(tf.keras.utils.Sequence):
                 dl_label = file_handler.label + "_" + self.label
                 file_list = file_handler.file_list
                 class_label = file_handler.class_label
-                logger.log(inspect_serializability(DataLoader, name="test"))
                 dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variables_dict, prong=prong, label=dl_label, reweighter=reweighter)
                 self.data_loaders.append(dl)
 
@@ -141,12 +137,12 @@ class DataGenerator(tf.keras.utils.Sequence):
         try:
             return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
         finally:
-            # A (probably vain) attempt to free memory
+            # A (probably vain) attempt to free memory (The finally block allows you to run something after function returns)
             del batch
             del track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array, label_array, weight_array
             gc.collect()
 
-    def load_model(self, model, model_config, model_weights)
+    def load_model(self, model, model_config, model_weights):
         """
         Function to set the model to be used by the DataGenerator for predictions
         Seems to me to be more efficient to store this as a class member rather than reinitialising the model
@@ -174,9 +170,10 @@ class DataGenerator(tf.keras.utils.Sequence):
                 logger.log("Alternativly you may pass those arguements to load_model() to set the model seperately", "ERROR")
                 raise ValueError 
             self.load_model(model, model_config, model_weights)
+
+        # Initialise loss and accuracy classes
         cce_loss = tf.keras.losses.CategoricalCrossentropy()
         acc_metric = tf.keras.metrics.Accuracy()
-        
 
         # Allocate arrays for y_pred, y_true and weights
         y_pred = np.ones((self._total_num_events, self._nclasses)) * -999  # multiply by -999 so mistakes are obvious
@@ -212,7 +209,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             # Move to the next position
             position += len(batch[1])
 
-        # Save the predictions, truth and weight to file
+        # Save the predictions, truth and weights to file
         if save_predictions:
             if saveas is None:
                 save_file = os.path.basename(self.files[0])
@@ -221,7 +218,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 np.savez(f"network_predictions/weights/{save_file}_weights.npz", weights)
                 logger.log(f"Saved network predictions for {self._data_type}")
         
-        # Plot confusion matrix is requested
+        # Plot confusion matrix if requested
         if make_confusion_matrix:
             cm_savefile = os.path.join("plots", "confusion_matrix.png")
             if shuffle_var != "":

@@ -45,7 +45,10 @@ def train(args):
     ray.init(include_dashboard=True)
 
     # Remove old network weights
-    old_weights = glob.glob("network_weights/*.h5")
+    old_weights = glob.glob(os.path.join("network_weights", "*.h5"))
+    # If we're doing a learning rate scan only remove the temporary weights file
+    if args.run_mode == 'scan':
+            old_weights = glob.glob(os.path.join("network_weights", "tmp", "*.h5"))
     for file in old_weights:
         os.remove(file)
         
@@ -76,7 +79,12 @@ def train(args):
         monitor="val_loss", min_delta=0.0001,
         patience=10, verbose=0, restore_best_weights=True)
 
-    model_checkpoint = ParallelModelCheckpoint(model, path=os.path.join("network_weights", 'weights-{epoch:02d}.h5'),
+    # If we're doing a learning rate scan save the models to tmp dir
+    save_path = "network_weights"
+    if args.run_mode == 'scan':
+        save_path = os.path.join(save_path, "tmp")
+
+    model_checkpoint = ParallelModelCheckpoint(model, path=os.path.join(save_path, 'weights-{epoch:02d}.h5'),
                                                monitor="val_loss", save_best_only=True, save_weights_only=True)
 
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.4, patience=3, min_lr=4e-6)
@@ -117,7 +125,7 @@ def train(args):
                                   ])
 
 
-    opt = tf.keras.optimizers.Adam(learning_rate=0.001)
+    opt = tf.keras.optimizers.Adam(learning_rate=args.lr) # default lr = 1e-3
     model.compile(optimizer=opt, loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()])
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -149,7 +157,12 @@ def train(args):
     plt.savefig(os.path.join("plots", "accuracy_history.svg"))
     plt.show()
 
-    return 0
+    # Return best validation loss and accuracy
+    best_val_loss_epoch = np.argmin(history.history["val_loss"])
+    best_val_loss = history.history["val_loss"][best_val_loss_epoch]
+    best_val_acc = history.history["val_accuracy"][best_val_loss_epoch]
+
+    return best_val_loss, best_val_acc
 
 
 if __name__ == "__main__":
