@@ -134,9 +134,8 @@ class DataLoader:
         for _, variable_list in variables_dict.items():
             self._variables_list += variable_list
 
-        # Work out how many events there in the sample
-        test_arr = uproot.concatenate(self.files, filter_name="TauJets." + self.dummy_var, step_size=10000,
-                                      cut=self.cut, library='np')
+        # Work out how many events there in the sample by loading up a small array
+        test_arr = uproot.concatenate(self.files, filter_name="TauJets." + self.dummy_var, cut=self.cut, library='np')
         self._num_events = len(test_arr["TauJets." + self.dummy_var])
 
         # Set the DataLoader's batch size
@@ -245,7 +244,7 @@ class DataLoader:
         Loads a batch of data of a specific data type and then stores it for later retrieval.
         Pads ragged track and PFO arrays to make them rectilinear
         and reshapes arrays into correct shape for training. The clip option in ak.pad_none will truncate/extend each
-        array so that they are all of a specific length- here we limit nested arrays to 20 items
+        array so that they are all of a specific length
         """
         batch = self.next_batch()
 
@@ -331,12 +330,11 @@ class DataLoader:
 
         # Save the predictions, truth and weight to file
         if save_predictions:
-            if saveas is None:
-                save_file = os.path.basename(self.files[0])
-                np.savez(f"network_predictions/predictions/{save_file}_predictions.npz", y_pred)
-                np.savez(f"network_predictions/truth/{save_file}_truth.npz", y_true)
-                np.savez(f"network_predictions/weights/{save_file}_weights.npz", weights)
-                logger.log(f"Saved network predictions for {self._data_type}")
+            save_file = os.path.basename(self.files[0])
+            np.savez(f"network_predictions/predictions/{save_file}_predictions.npz", y_pred)
+            np.savez(f"network_predictions/truth/{save_file}_truth.npz", y_true)
+            np.savez(f"network_predictions/weights/{save_file}_weights.npz", weights)
+            logger.log(f"Saved network predictions for {self._data_type}")
 
         self.reset_dataloader()
         return y_pred, y_true, weights

@@ -5,6 +5,8 @@ Plot confusion matrix and ROC curve using testing dataset
 """
 
 import os
+import glob
+import numpy as np
 from config.files import testing_files, ntuple_dir
 from config.variables import variables_dictionary
 from config.config import config_dict, get_cuts, models_dict
@@ -28,9 +30,9 @@ def test(args):
 
 	for test_file in testing_files:
 		file_id = os.path.basename(test_file)
-		y_pred_file = glob.glob(os.path.join("network_predictions", "predictions", f"*file_id*"))[0]
-		y_true_file = glob.glob(os.path.join("network_predictions", "truth", f"*file_id*"))[0]
-		weights_file = glob.glob(os.path.join("network_predictions", "weights", f"*file_id*"))[0]
+		y_pred_file = glob.glob(os.path.join("network_predictions", "predictions", f"*{file_id}*"))[0]
+		y_true_file = glob.glob(os.path.join("network_predictions", "truth", f"*{file_id}*"))[0]
+		weights_file = glob.glob(os.path.join("network_predictions", "weights", f"*{file_id}*"))[0]
 		with np.load(y_pred_file, allow_pickle=True) as file:
 			y_pred.append(file["arr_0"].astype("float32"))
 		with np.load(y_true_file, allow_pickle=True) as file:

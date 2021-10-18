@@ -5,6 +5,8 @@ File containing useful functions and classes
 """
 
 import time
+from pathlib import Path
+from datetime import datetime
 from enum import Enum
 from functools import total_ordering
 from datetime import datetime
@@ -13,6 +15,7 @@ from inspect import getframeinfo, stack
 import glob
 import numpy as np
 import tracemalloc
+import getpass
 tracemalloc.start()
 
 
@@ -141,7 +144,10 @@ def find_anomalous_entries(array, thresh, logger, arr_name=""):
 
 
 class Result:
-
+    """
+    Class to hold a batch of data - tbh never really used it; leaving it in because it has some
+    nice slicing __getitem__
+    """
     def __init__(self, track_arr, nPFO_arr, sPFO_arr, ctrack_arr, jets_arr, labels_arr, weights_arr):
         self.tracks = track_arr
         self.neutral_PFOs = nPFO_arr

@@ -98,7 +98,7 @@ def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None)
     conf_matrix = make_confusion_matrix(y_pred, y_true, weights)
 
     if weights is None:
-        weights = np.ones_like(prediction)
+        weights = np.ones_like(y_true)
 
     for i in range(0, y_pred.shape[1]):
         conf_matrix[:, i] = conf_matrix[:, i] / np.sum(weights * y_true[:, i])
@@ -110,7 +110,7 @@ def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None)
     if prong == 1:
         labels = ["jets", "1p0n", "1p1n", "1pxn"]
     if prong == 3:
-        prong_3_labels = ["jets", "3p0n", "3pxn"]
+        labels = ["jets", "3p0n", "3pxn"]
 
     xticklabels = labels
     yticklabels = labels

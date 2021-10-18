@@ -5,14 +5,13 @@ Compute predictions using a weights file
 Writes out y_pred array for each NTuple into a .npz
 """
 
-import os
 import ray
-import glob
 from config.config import get_cuts, config_dict
 from scripts.utils import logger
 from config.variables import variables_dictionary
-from config.files import gammatautau_files, jz_files, testing_files, ntuple_dir
+from config.files import gammatautau_files, jz_files, testing_files, ntuple_dir, all_files
 from scripts.DataLoader import DataLoader
+from scripts.preprocessing import Reweighter
 
 def split_list(alist, wanted_parts=1):
     """

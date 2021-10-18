@@ -12,6 +12,7 @@ from run.train import train
 from scripts.utils import logger
 import shutil
 import os
+import glob
 
 def lr_scan(args):
     
@@ -41,7 +42,7 @@ def lr_scan(args):
                 os.remove(file)
             
             # move new weights
-            for file in glob.glob(os.path.join("network_weights", "tmp"))
+            for file in glob.glob(os.path.join("network_weights", "tmp")):
                 shutil.move(file, "network_weights")
 
     # Find best result and print

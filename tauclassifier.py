@@ -4,7 +4,7 @@ TauClassifier
 _______________________________________________________________
 Main steering script for running the Tau Classifier
 Example usage:
-python3 tauclassifier.py train -condor=True   # Runs training on batch system
+python3 tauclassifier.py train 
 """
 
 import os
@@ -32,7 +32,7 @@ def main():
     # 'scratch' - run a standalone testing script. We want to be able to run it from here so imports work properly
     mode_list = ["train", "evaluate", "plot", "rank", "scratch", "scan"]  
 
-    # Sets mode: 1 - (p10n, 1p1n, 1pxn, jets) | 3 - (3p0n, 3pxn, jets) | None - (p10n, 1p1n, 1pxn, 3p0n, 3pxn, jets)
+    # Prong options: 1 - (p10n, 1p1n, 1pxn, jets) | 3 - (3p0n, 3pxn, jets) | None - (p10n, 1p1n, 1pxn, 3p0n, 3pxn, jets)
     prong_list = [1, 3, None]                                           
 
     model_list = list(models_dict.keys())                              # List of available models
@@ -67,18 +67,14 @@ def main():
             return run_training_on_batch_system(prong=args.prong, model=args.model, log_level=args.log_level, tf_log_level=args.tf_log_level)
 
         # If training on local machine
-        # return train(prong=args.prong, model=args.model, log_level=args.log_level, tf_log_level=args.tf_log_level)
-
-        with open("fault_handler.log", "w") as fobj:
-            faulthandler.enable(fobj)
-
-            return train(args)
+        return train(args)
             
 
     # If testing
     if args.run_mode == 'evaluate':
         return evaluate(args.weights, ncores=args.ncores)
     
+    # If permutation ranking
     if args.run_mode == 'rank':
         return permutation_rank(args)
 

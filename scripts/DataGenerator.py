@@ -93,9 +93,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         self._total_num_events = []
         num_batches_list = []
         for data_loader in self.data_loaders:
-            self._total_num_events.append(ray.get(data_loader.num_events.remote()))
+            self._total_num_events += sum(ray.get(data_loader.num_events.remote()))
             num_batches_list.append(ray.get(data_loader.number_of_batches.remote()))
-        self._total_num_events = sum(self._total_num_events)
         logger.log(f"{self.label} - Found {self._total_num_events} events total", "INFO")
 
         # Work out how many batches to split the data into
@@ -180,16 +179,19 @@ class DataGenerator(tf.keras.utils.Sequence):
         y_true = np.ones((self._total_num_events, self._nclasses)) * -999
         weights = np.ones((self._total_num_events)) * -999
         losses = []
-        accs = []
+
+        nevents = 0
 
         # Iterate through the DataLoader
         position = 0
-        for i in range(0, self.__len__()):
+        for _ in range(0, self.__len__()):
             batch, truth_labels, batch_weights = self.load_batch(shuffle_var=shuffle_var)
+
+            nevents += len(truth_labels)
+
             predicted_labels = self.model.predict(batch)
             loss = cce_loss(truth_labels, predicted_labels).numpy()
             acc_metric.update_state(truth_labels, predicted_labels, batch_weights) 
-            acc = acc_metric.result().numpy()
             self._current_index += 1
             try:
                 # Fill arrays
@@ -197,27 +199,27 @@ class DataGenerator(tf.keras.utils.Sequence):
                 y_pred[position: position + len(batch[1])] = truth_labels
                 weights[position: position + len(batch[1])] = batch_weights
                 losses.append(loss)
-                accs.append(acc)
             except ValueError:
                 # If we overstep the end of the array - fill in the last few entries
                 y_pred[position:] = predicted_labels
                 y_pred[position:] = truth_labels
                 weights[position:] = batch_weights
                 losses.append(loss)
-                accs.append(acc)
 
             # Move to the next position
             position += len(batch[1])
 
+        logger.log(f"nevents = {nevents}")
+        logger.log(f"self._total_num_events = {self._total_num_events}")
+
         # Save the predictions, truth and weights to file
         if save_predictions:
-            if saveas is None:
-                save_file = os.path.basename(self.files[0])
-                np.savez(f"network_predictions/predictions/{save_file}_predictions.npz", y_pred)
-                np.savez(f"network_predictions/truth/{save_file}_truth.npz", y_true)
-                np.savez(f"network_predictions/weights/{save_file}_weights.npz", weights)
-                logger.log(f"Saved network predictions for {self._data_type}")
-        
+            save_file = os.path.basename(self.files[0])
+            np.savez(f"network_predictions/predictions/{save_file}_predictions.npz", y_pred)
+            np.savez(f"network_predictions/truth/{save_file}_truth.npz", y_true)
+            np.savez(f"network_predictions/weights/{save_file}_weights.npz", weights)
+            logger.log(f"Saved network predictions for {self._data_type}")
+    
         # Plot confusion matrix if requested
         if make_confusion_matrix:
             cm_savefile = os.path.join("plots", "confusion_matrix.png")
@@ -228,7 +230,28 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         self.reset_generator()
 
-        return y_pred, y_true, weights, np.mean(losses), np.mean(accs)
+        # This is probably a bit confusing so I'll try and explain
+        # Uproot splits the data files up into different numbers of chunks
+        # This means that some events get truncated
+        # There is no good way to calculate the true number of events outside of this loop
+        # So we make an array and then slice off the excess
+        y_pred = y_pred[nevents: ]
+        y_true = y_true[nevents: ]
+        weights = weights[nevents: ]
+
+        if -999 in y_pred:
+            print(y_pred)
+            logger.log("Bad value in y_pred array", "WARNING")
+
+        if -999 in y_true:
+            logger.log("Bad value in y_true array", "WARNING")
+
+        if -999 in weights:
+            logger.log("Bad value in weights array", "WARNING")
+
+
+        return y_pred, y_true, weights, np.mean(losses), acc_metric.result().numpy()
+
 
     def __len__(self):
         """
