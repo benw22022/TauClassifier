@@ -19,10 +19,8 @@ from run.permutation_rank import permutation_rank
 from run.testMK2 import test
 from scripts.utils import logger, get_best_weights, none_or_int, run_training_on_batch_system
 from config.config import models_dict
-from scripts.utils import logger
 import scratch
-import faulthandler
-import glob
+
 
 def main():
 
@@ -53,7 +51,7 @@ def main():
     parser.add_argument("-lr_range", help="Learning rate array to scan through usage: -lr_range <start> <stop> <step>", type=float, nargs=3, default=[1e-4, 1e-2, 10])
     parser.add_argument("-ncores", help="number of CPU cores to use when evaluating network predictions", type=int, default=8)
     parser.add_argument("-log_level", help="Sets log level", type=str, default='INFO', choices=log_levels)
-    parser.add_argument("-tf_log_level", help="Set Tensorflow logging level", type=str, default='2')
+    parser.add_argument("-tf_log_level", help="Set Tensorflow logging level", type=str, choices=tf_log_levels, default='2')
     parser.add_argument("-function", help="Scratch function to run")
     parser.add_argument("-condor", help='Run on ht condor batch system', type=bool, default=False)
     parser.add_argument("-load", help="Load last saved network predictions", type=bool, default=False)
@@ -72,7 +70,7 @@ def main():
 
     # If testing
     if args.run_mode == 'evaluate':
-        return evaluate(args.weights, ncores=args.ncores)
+        return evaluate(args)
     
     # If permutation ranking
     if args.run_mode == 'rank':

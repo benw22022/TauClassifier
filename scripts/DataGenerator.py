@@ -194,19 +194,12 @@ class DataGenerator(tf.keras.utils.Sequence):
             loss = cce_loss(truth_labels, predicted_labels).numpy()
             acc_metric.update_state(truth_labels, predicted_labels, batch_weights) 
             self._current_index += 1
-            try:
-                # Fill arrays
-                y_pred[position: position + len(batch[1])] = predicted_labels
-                y_true[position: position + len(batch[1])] = truth_labels
-                weights[position: position + len(batch[1])] = batch_weights
-                losses.append(loss)
-            except ValueError:
-                # If we overstep the end of the array - fill in the last few entries
-                y_pred[position:] = predicted_labels
-                y_true[position:] = truth_labels
-                weights[position:] = batch_weights
-                losses.append(loss)
-                logger.log("Hit Except here!!", "WARNING")
+        
+            # Fill arrays
+            y_pred[position: position + len(batch[1])] = predicted_labels
+            y_true[position: position + len(batch[1])] = truth_labels
+            weights[position: position + len(batch[1])] = batch_weights
+            losses.append(loss)
 
             # Move to the next position
             position += len(batch[1])
@@ -223,8 +216,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         y_true = y_true[ :nevents]
         weights = weights[ :nevents]
 
-        print(y_pred)
-
         # Save the predictions, truth and weights to file
         if save_predictions:
             save_file = os.path.basename(self.files[0])
@@ -237,22 +228,17 @@ class DataGenerator(tf.keras.utils.Sequence):
         if make_confusion_matrix:
             cm_savefile = os.path.join("plots", "confusion_matrix.png")
             if shuffle_var != "":
-                # Special saveas for
+                # Special saveas for ranking
                 cm_savefile = os.path.join("plots", "permutation_ranking", f"{shuffle_var}_shuffled_confusion_matrix.png")
-            plot_confusion_matrix(y_pred, y_true, prong=self.prong, weights=weights, saveas=cm_savefile)
+            plot_confusion_matrix(y_pred, y_true, prong=self.prong, weights=weights, saveas=cm_savefile, title=f"{shuffle_var}_shuffled")
 
+        # Reset the generator
         self.reset_generator()
 
-        if -999 in y_pred:
-            print(y_pred)
-            logger.log("Bad value in y_pred array", "WARNING")
-
-        if -999 in y_true:
-            logger.log("Bad value in y_true array", "WARNING")
-
-        if -999 in weights:
-            logger.log("Bad value in weights array", "WARNING")
-
+        # Sanity checks - if there is a bad value print a warning
+        self.check_array(y_pred, -999, 'y_pred')
+        self.check_array(y_true, -999, 'y_true')
+        self.check_array(weights, -999, 'weights')
 
         return y_pred, y_true, weights, np.mean(losses), acc_metric.result().numpy()
 
@@ -319,3 +305,14 @@ class DataGenerator(tf.keras.utils.Sequence):
 
     def number_events(self):
         return self._total_num_events
+
+    @staticmethod
+    def check_array(arr, number, name='array'):
+        """
+        A little function to check if a number is in an array and raise a 
+        ValueError
+        """
+        if number in arr:
+            print(arr)
+            logger.log(f"Bad value in {name}", "ERROR")
+            raise ValueError

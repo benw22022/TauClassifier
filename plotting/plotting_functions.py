@@ -84,44 +84,45 @@ def make_confusion_matrix(prediction, truth, weights=None):
 	return cm
 
 
-def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None):
-    """
-    Function to plot confusion matrix
+def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None, title=""):
+	"""
+	Function to plot confusion matrix
 
-    :param y_pred: Array of neural network predictions
-    :param y_true: Correspondin array of truth data
-    :param prong (optional, default=None): Number of prongs - determines the axis labels
-    leave as None if you are classifiying 1 and 3 prongs together 
-    :param weights (optional, default=None): An array of weights the same length and y_true and y_pred
-    """
+	:param y_pred: Array of neural network predictions
+	:param y_true: Correspondin array of truth data
+	:param prong (optional, default=None): Number of prongs - determines the axis labels
+	leave as None if you are classifiying 1 and 3 prongs together 
+	:param weights (optional, default=None): An array of weights the same length and y_true and y_pred
+	"""
 
-    conf_matrix = make_confusion_matrix(y_pred, y_true, weights)
+	conf_matrix = make_confusion_matrix(y_pred, y_true, weights)
 
-    if weights is None:
-        weights = np.ones_like(y_true)
+	if weights is None:
+		weights = np.ones_like(y_true)
 
-    for i in range(0, y_pred.shape[1]):
-        conf_matrix[:, i] = conf_matrix[:, i] / np.sum(weights * y_true[:, i])
+	for i in range(0, y_pred.shape[1]):
+		conf_matrix[:, i] = conf_matrix[:, i] / np.sum(weights * y_true[:, i])
 
-    fig = plt.figure()
-	
-	
-    labels = ["jets", "1p0n", "1p1n", "1pxn", "3p0n", "3pxn"]
-    if prong == 1:
-        labels = ["jets", "1p0n", "1p1n", "1pxn"]
-    if prong == 3:
-        labels = ["jets", "3p0n", "3pxn"]
+	fig = plt.figure()
 
-    xticklabels = labels
-    yticklabels = labels
-    ax = sns.heatmap(conf_matrix, annot=True, cmap="Oranges", xticklabels=xticklabels, yticklabels=yticklabels,
-                        fmt=".2")
-    plt.xlabel("Truth")
-    plt.ylabel("Prediction")
-    if saveas is None:
-        plt.savefig(os.path.join("plots", "confusion_matrix.png"))
-    else:
-        plt.savefig(saveas)
-    plt.show()
-    plt.close(fig)
+
+	labels = ["jets", "1p0n", "1p1n", "1pxn", "3p0n", "3pxn"]
+	if prong == 1:
+		labels = ["jets", "1p0n", "1p1n", "1pxn"]
+	if prong == 3:
+		labels = ["jets", "3p0n", "3pxn"]
+
+	xticklabels = labels
+	yticklabels = labels
+	ax = sns.heatmap(conf_matrix, annot=True, cmap="Oranges", xticklabels=xticklabels, yticklabels=yticklabels,
+						fmt=".2")
+	plt.xlabel("Truth")
+	plt.ylabel("Prediction")
+	ax.set_title(title, loc='right', fontsize=22)
+	if saveas is None:
+		plt.savefig(os.path.join("plots", "confusion_matrix.png"))
+	else:
+		plt.savefig(saveas)
+	plt.show()
+	plt.close(fig)
 
