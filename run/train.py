@@ -12,14 +12,10 @@ import os
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'                # Allow tensorflow to use more GPU VRAM
 
 import ray
-import json
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
-from tensorflow.keras.layers.experimental import preprocessing
-import pickle
-import sys
 import glob
 
 from config.variables import variables_dictionary
@@ -48,9 +44,10 @@ def train(args):
     old_weights = glob.glob(os.path.join("network_weights", "*.h5"))
     # If we're doing a learning rate scan only remove the temporary weights file
     if args.run_mode == 'scan':
-            old_weights = glob.glob(os.path.join("network_weights", "tmp", "*.h5"))
+        old_weights = glob.glob(os.path.join("network_weights", "tmp", "*.h5"))
     for file in old_weights:
         os.remove(file)
+    logger.log("Removed old weight files")
         
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Generators
@@ -145,7 +142,7 @@ def train(args):
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     plt.legend()
-    plt.savefig(os.path.join("plots", "loss_history.svg"))
+    plt.savefig(os.path.join("plots", "loss_history.png"))
     plt.show()
 
     # Accuracy history
@@ -154,7 +151,7 @@ def train(args):
     plt.xlabel('Epochs')
     plt.ylabel('Categorical Accuracy')
     plt.legend()
-    plt.savefig(os.path.join("plots", "accuracy_history.svg"))
+    plt.savefig(os.path.join("plots", "accuracy_history.png"))
     plt.show()
 
     # Return best validation loss and accuracy
@@ -163,7 +160,3 @@ def train(args):
     best_val_acc = history.history["val_accuracy"][best_val_loss_epoch]
 
     return best_val_loss, best_val_acc
-
-
-if __name__ == "__main__":
-    train()

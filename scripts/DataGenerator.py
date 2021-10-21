@@ -15,7 +15,7 @@ import time
 import gc
 import ray  
 from scripts.DataLoader import DataLoader, apply_scaling
-from plotting.plotting_functions import plot_confusion_matrix
+from plotting.plotting_functions import plot_confusion_matrix, plot_ROC
 from scripts.utils import logger, find_anomalous_entries
 from config.config import models_dict
 
@@ -63,6 +63,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.__benchmark = _benchmark
         self.model = None
         self.prong = prong
+        self._weights = ""
 
         # Organise a list of all variables
         self._variables_dict = variables_dict
@@ -151,8 +152,10 @@ class DataGenerator(tf.keras.utils.Sequence):
         """
         self.model = models_dict[model](model_config)
         self.model.load_weights(model_weights)
+        self._weights = model_weights
 
-    def predict(self, model=None, model_config=None, model_weights=None, save_predictions=False, shuffle_var="", make_confusion_matrix=False):
+    def predict(self, model=None, model_config=None, model_weights=None, save_predictions=False, shuffle_var="", make_confusion_matrix=False,
+                make_roc=False):
         """
         Function to generate arrays of y_pred, y_true and weights given a network weight file
         :param model: A string of corresponding to a key in config.config.models_dict specifiying desired model
@@ -169,6 +172,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 logger.log(f"No model has been initialised on {self.label}! You must pass a model, model_config and model_weights to predict", "ERROR")
                 logger.log("Alternativly you may pass those arguements to load_model() to set the model seperately", "ERROR")
                 raise ValueError 
+            self._weights = model_weights
             self.load_model(model, model_config, model_weights)
 
         # Initialise loss and accuracy classes
@@ -227,10 +231,26 @@ class DataGenerator(tf.keras.utils.Sequence):
         # Plot confusion matrix if requested
         if make_confusion_matrix:
             cm_savefile = os.path.join("plots", "confusion_matrix.png")
+            title = f"Confusion Matrix:{self._weights}"
             if shuffle_var != "":
                 # Special saveas for ranking
                 cm_savefile = os.path.join("plots", "permutation_ranking", f"{shuffle_var}_shuffled_confusion_matrix.png")
-            plot_confusion_matrix(y_pred, y_true, prong=self.prong, weights=weights, saveas=cm_savefile, title=f"{shuffle_var}_shuffled")
+                title = f"{shuffle_var} - {title}"
+            plot_confusion_matrix(y_pred, y_true, prong=self.prong, weights=weights, saveas=cm_savefile, title=title)
+        
+        # Plot ROC requested
+        if make_roc:
+            roc_savefile = os.path.join("plots", "ROC.png")
+            title = f"ROC:{self._weights}"
+            if shuffle_var != "":
+                # Special saveas for ranking
+                roc_savefile = os.path.join("plots", "permutation_ranking", f"{shuffle_var}_shuffled_ROC.png")
+                title = f"{shuffle_var} - {title}"
+            true_jets = y_true[:, 0]
+            pred_jets = y_pred[:, 0]
+            plot_ROC(1 - true_jets, 1 - pred_jets, weights=weights, title="ROC Curve: Tau-Jets",
+            		 saveas=roc_savefile, )
+
 
         # Reset the generator
         self.reset_generator()

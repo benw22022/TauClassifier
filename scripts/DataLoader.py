@@ -308,29 +308,31 @@ class DataLoader:
         y_pred = np.ones((self.num_events(), self._nclasses)) * -999  # multiply by -999 so mistakes are obvious
         y_true = np.ones((self.num_events(), self._nclasses)) * -999
         weights = np.ones((self.num_events())) * -999
+        nevents = 0
 
         # Iterate through the DataLoader
         position = 0
         for i in range(0, self._num_real_batches):
             batch, truth_labels, batch_weights = self.get_batch()
-            try:
-                # Fill arrays
-                y_pred[position: position + len(batch[1])] = model.predict(batch)
-                y_pred[position: position + len(batch[1])] = truth_labels
-                weights[position: position + len(batch[1])] = batch_weights
-            except ValueError:
-                # If we overstep the end of the array - fill in the last few entries
-                y_pred[position:] = model.predict(batch)
-                y_pred[position:] = truth_labels
-                weights[position:] = batch_weights
+            nevents += len(truth_labels)
+        
+            # Fill arrays
+            y_pred[position: position + len(batch[1])] = model.predict(batch)
+            y_pred[position: position + len(batch[1])] = truth_labels
+            weights[position: position + len(batch[1])] = batch_weights
 
             # Move to the next position
             position += len(batch[1])
             logger.log(f"{self._data_type} -- predicted batch {i}/{self._num_real_batches}")
 
+        # Truncate arrays to get rid of garbage
+        y_pred = y_pred[ :nevents]
+        y_true = y_true[ :nevents]
+        weights = weights[ :nevents]
+
         # Save the predictions, truth and weight to file
         if save_predictions:
-            save_file = os.path.basename(self.files[0])
+            save_file = os.path.basename(str(self.files))
             np.savez(f"network_predictions/predictions/{save_file}_predictions.npz", y_pred)
             np.savez(f"network_predictions/truth/{save_file}_truth.npz", y_true)
             np.savez(f"network_predictions/weights/{save_file}_weights.npz", weights)
