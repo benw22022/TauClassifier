@@ -7,16 +7,15 @@ TODO: Make this generalisable to different problems
 """
 
 import os
-import numpy as np
-import keras
-import tensorflow as tf
 import datetime
 import time
 import gc
 import ray  
-from scripts.DataLoader import DataLoader, apply_scaling
+import numpy as np
+import tensorflow as tf
+from scripts.DataLoader import DataLoader
 from plotting.plotting_functions import plot_confusion_matrix, plot_ROC
-from scripts.utils import logger, find_anomalous_entries
+from scripts.utils import logger
 from config.config import models_dict
 
 
@@ -112,12 +111,23 @@ class DataGenerator(tf.keras.utils.Sequence):
     def load_batch(self, shuffle_var=""):
         """
         Loads a batch of data from each DataLoader and concatenates them into single arrays for training
+        :param shuffle_var: For doing permutation ranking. Set up is a tad confusing:
+            Parsing a string will result it shuffling that variable only within each DataLoader - perhaps useful 
+            for trying to rank the the variables most important in the decay mode classification part
+            Other option is to parse a tuple of the form (<dict key (str)>, <idx (int)>). E.g. ("TauJets", 0)
+            This will shuffle the 0th variable in the TauJets branch of the variables dictionary
+            Apologies to anyone reading this I appreciate this is probably a confusioning way of doing things
+            TODO: Make this less confusing!
         :return: A list of arrays to be passed to model.fit()
         """
 
         batch_load_time = time.time()
+        batch = None
 
-        batch = ray.get([dl.get_batch.remote(shuffle_var=shuffle_var) for dl in self.data_loaders])
+        if isinstance(shuffle_var, str):
+            batch = ray.get([dl.get_batch.remote(shuffle_var=shuffle_var) for dl in self.data_loaders])
+        else:
+            batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
 
         track_array = np.concatenate([result[0][0] for result in batch])
         neutral_pfo_array = np.concatenate([result[0][1] for result in batch])
@@ -126,6 +136,18 @@ class DataGenerator(tf.keras.utils.Sequence):
         jet_array = np.concatenate([result[0][4] for result in batch])
         label_array = np.concatenate([result[1] for result in batch])
         weight_array = np.concatenate([result[2] for result in batch])
+        
+        if isinstance(shuffle_var, tuple):
+            if shuffle_var[0] == "TauJets":
+                np.random.shuffle(jet_array[:, shuffle_var[1]])
+            if shuffle_var[0] == "TauTracks":
+                np.random.shuffle(track_array[:, shuffle_var[1]])
+            if shuffle_var[0] == "ConvTrack":
+                np.random.shuffle(conv_track_array[:, shuffle_var[1]])
+            if shuffle_var[0] == "ShotPFO":
+                np.random.shuffle(shot_pfo_array[:, shuffle_var[1]])
+            if shuffle_var[0] == "NeutralPFO":
+                np.random.shuffle(neutral_pfo_array[:, shuffle_var[1]])
 
         load_time = str(datetime.timedelta(seconds=time.time()-batch_load_time))
         logger.log(f"{self.label}: Processed batch {self._current_index}/{self.__len__()} - {len(label_array)} events"
@@ -164,6 +186,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         :param save_predictions (optional, default=False): write y_pred, y_true and weights to file
         :param shuffle_var (optional, default=""): This variable will be shuffled when generating each batch - this can be used
         for permutation variable ranking. Shuffling a more important variable will lead to a larger change in loss/accuracy
+        TODO: Update documentation here
         """
 
         # Initialise model if it hasn't been already
@@ -234,8 +257,11 @@ class DataGenerator(tf.keras.utils.Sequence):
             title = f"Confusion Matrix:{self._weights}"
             if shuffle_var != "":
                 # Special saveas for ranking
-                cm_savefile = os.path.join("plots", "permutation_ranking", f"{shuffle_var}_shuffled_confusion_matrix.png")
-                title = f"{shuffle_var} - {title}"
+                var_name = shuffle_var
+                if isinstance(shuffle_var, tuple):
+                    var_name = self._variables_dict[shuffle_var[0]][shuffle_var[1]]
+                cm_savefile = os.path.join("plots", "permutation_ranking", f"{var_name}_shuffled_confusion_matrix.png")
+                title = f"{var_name} - {title}"
             plot_confusion_matrix(y_pred, y_true, prong=self.prong, weights=weights, saveas=cm_savefile, title=title)
         
         # Plot ROC requested
@@ -244,8 +270,11 @@ class DataGenerator(tf.keras.utils.Sequence):
             title = f"ROC:{self._weights}"
             if shuffle_var != "":
                 # Special saveas for ranking
-                roc_savefile = os.path.join("plots", "permutation_ranking", f"{shuffle_var}_shuffled_ROC.png")
-                title = f"{shuffle_var} - {title}"
+                var_name = shuffle_var
+                if isinstance(shuffle_var, tuple):
+                    var_name = self._variables_dict[shuffle_var[0]][shuffle_var[1]]
+                roc_savefile = os.path.join("plots", "permutation_ranking", f"{var_name}_shuffled_ROC.png")
+                title = f"{var_name} - {title}"
             true_jets = y_true[:, 0]
             pred_jets = y_pred[:, 0]
             plot_ROC(1 - true_jets, 1 - pred_jets, weights=weights, title="ROC Curve: Tau-Jets",

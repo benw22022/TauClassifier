@@ -157,6 +157,8 @@ def train(args):
     # Return best validation loss and accuracy
     best_val_loss_epoch = np.argmin(history.history["val_loss"])
     best_val_loss = history.history["val_loss"][best_val_loss_epoch]
-    best_val_acc = history.history["val_accuracy"][best_val_loss_epoch]
+    best_val_acc = history.history["val_catagorical_accuracy"][best_val_loss_epoch]
+
+    logger.log(f"Best Epoch: {best_val_loss_epoch} -- Val Loss = {best_val_loss} -- Val Acc = {best_val_acc}")
 
     return best_val_loss, best_val_acc

@@ -49,8 +49,53 @@ def permutation_rank(args):
     # Begin ranking    
     logger.log("Begining permutation variable ranking...")
 
-    for variable in variables_dictionary["TauJets"]:
-        _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=variable, make_confusion_matrix=True)
+    # for variable in variables_dictionary["TauJets"]:
+    #     _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=variable, make_confusion_matrix=True)
+    #     delta_loss = loss -  baseline_loss # If delta loss is positive then variable is important to the NN
+    #     delta_acc = acc - baseline_acc
+    #     results_dict["Variable"].append(variable)        
+    #     results_dict["Loss"].append(delta_loss)
+    #     results_dict["Accuracy"].append(delta_acc)
+    #     logger.log(f"{variable} -- loss difference = {delta_loss}   accuracy difference = {delta_acc}")
+
+    # for variable in variables_dictionary["TauTracks"]:
+    #     _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=variable, make_confusion_matrix=True)
+    #     delta_loss = loss - baseline_loss
+    #     delta_acc = acc - baseline_acc
+    #     results_dict["Variable"].append(variable)
+    #     results_dict["Loss"].append(delta_loss)
+    #     results_dict["Accuracy"].append(delta_acc)
+    #     logger.log(f"{variable} -- loss difference = {delta_loss}   accuracy difference = {delta_acc}")
+
+    # for variable in variables_dictionary["ConvTrack"]:
+    #     _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=variable, make_confusion_matrix=True)
+    #     delta_loss = loss - baseline_loss 
+    #     delta_acc = acc - baseline_acc
+    #     results_dict["Variable"].append(variable)
+    #     results_dict["Loss"].append(delta_loss)
+    #     results_dict["Accuracy"].append(delta_acc)
+    #     logger.log(f"{variable} -- loss difference = {delta_loss}   accuracy difference = {delta_acc}")
+
+    # for variable in variables_dictionary["ShotPFO"]:
+    #     _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=variable, make_confusion_matrix=True)
+    #     delta_loss = loss - baseline_loss 
+    #     delta_acc = acc - baseline_acc
+    #     results_dict["Variable"].append(variable)
+    #     results_dict["Loss"].append(delta_loss)
+    #     results_dict["Accuracy"].append(delta_acc)
+    #     logger.log(f"{variable} -- loss difference = {delta_loss}   accuracy difference = {delta_acc}")
+
+    # for variable in variables_dictionary["NeutralPFO"]:
+    #     _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=variable, make_confusion_matrix=True)
+    #     delta_loss = loss - baseline_loss 
+    #     delta_acc = acc - baseline_acc
+    #     results_dict["Variable"].append(variable)
+    #     results_dict["Loss"].append(delta_loss)
+    #     results_dict["Accuracy"].append(delta_acc)
+    #     logger.log(f"{variable} -- loss difference = {delta_loss}   accuracy difference = {delta_acc}")
+
+    for idx, variable in enumerate(variables_dictionary["TauJets"]):
+        _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=("TauJets", idx), make_confusion_matrix=True)
         delta_loss = loss -  baseline_loss # If delta loss is positive then variable is important to the NN
         delta_acc = acc - baseline_acc
         results_dict["Variable"].append(variable)        
@@ -58,8 +103,8 @@ def permutation_rank(args):
         results_dict["Accuracy"].append(delta_acc)
         logger.log(f"{variable} -- loss difference = {delta_loss}   accuracy difference = {delta_acc}")
 
-    for variable in variables_dictionary["TauTracks"]:
-        _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=variable, make_confusion_matrix=True)
+    for idx, variable in enumerate(variables_dictionary["TauTracks"]):
+        _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=("TauTracks", idx), make_confusion_matrix=True)
         delta_loss = loss - baseline_loss
         delta_acc = acc - baseline_acc
         results_dict["Variable"].append(variable)
@@ -67,8 +112,8 @@ def permutation_rank(args):
         results_dict["Accuracy"].append(delta_acc)
         logger.log(f"{variable} -- loss difference = {delta_loss}   accuracy difference = {delta_acc}")
 
-    for variable in variables_dictionary["ConvTrack"]:
-        _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=variable, make_confusion_matrix=True)
+    for idx, variable in enumerate(variables_dictionary["ConvTrack"]):
+        _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=("ConvTrack", idx), make_confusion_matrix=True)
         delta_loss = loss - baseline_loss 
         delta_acc = acc - baseline_acc
         results_dict["Variable"].append(variable)
@@ -76,8 +121,8 @@ def permutation_rank(args):
         results_dict["Accuracy"].append(delta_acc)
         logger.log(f"{variable} -- loss difference = {delta_loss}   accuracy difference = {delta_acc}")
 
-    for variable in variables_dictionary["ShotPFO"]:
-        _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=variable, make_confusion_matrix=True)
+    for idx, variable in enumerate(variables_dictionary["ShotPFO"]):
+        _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=("ShotPFO", idx), make_confusion_matrix=True)
         delta_loss = loss - baseline_loss 
         delta_acc = acc - baseline_acc
         results_dict["Variable"].append(variable)
@@ -85,14 +130,15 @@ def permutation_rank(args):
         results_dict["Accuracy"].append(delta_acc)
         logger.log(f"{variable} -- loss difference = {delta_loss}   accuracy difference = {delta_acc}")
 
-    for variable in variables_dictionary["NeutralPFO"]:
-        _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=variable, make_confusion_matrix=True)
+    for idx, variable in enumerate(variables_dictionary["NeutralPFO"]):
+        _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=("NeutralPFO", idx), make_confusion_matrix=True)
         delta_loss = loss - baseline_loss 
         delta_acc = acc - baseline_acc
         results_dict["Variable"].append(variable)
         results_dict["Loss"].append(delta_loss)
         results_dict["Accuracy"].append(delta_acc)
         logger.log(f"{variable} -- loss difference = {delta_loss}   accuracy difference = {delta_acc}")
+
 
     # Create pandas DataFrame of the results and sort by loss difference
     results_df = pd.DataFrame(data=results_dict)

@@ -49,7 +49,7 @@ def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas="ROC.svg"):
 	plt.legend(loc='best')
 	plt.yscale("log")
 	plt.savefig(saveas)
-	plt.title(title, loc='right', fontsize=12)
+	plt.title(title, loc='right', fontsize=5)
 	plt.show()
 
 
@@ -118,7 +118,7 @@ def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None,
 						fmt=".2")
 	plt.xlabel("Truth")
 	plt.ylabel("Prediction")
-	ax.set_title(title, loc='right', fontsize=12)
+	ax.set_title(title, loc='right', fontsize=5)
 	if saveas is None:
 		plt.savefig(os.path.join("plots", "confusion_matrix.png"))
 	else:
