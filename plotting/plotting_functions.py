@@ -35,7 +35,7 @@ def get_efficiency_and_rejection(y_true, y_pred, weights):
 	return eff, rej
 
 
-def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas="ROC.svg"):
+def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas="ROC.png"):
 
 	eff, rej = get_efficiency_and_rejection(y_true, y_pred, weights)
 
@@ -46,7 +46,6 @@ def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas="ROC.svg"):
 	plt.xlabel('Signal Efficiency')
 	plt.ylabel('Background Rejection')
 	plt.ylim(1e0, 1e4)
-	plt.legend(loc='best')
 	plt.yscale("log")
 	plt.savefig(saveas)
 	plt.title(title, loc='right', fontsize=5)

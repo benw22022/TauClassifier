@@ -1,6 +1,7 @@
 # TauClassifier
 Development of a combined tau ID and tau decay mode classifier for ATLAS Tau Group
 
+TODO: Write a better README!
 A work in progress - apologies for any confusing bits!
 
 Code is run from the main steering script called tauclassifier.py

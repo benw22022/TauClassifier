@@ -44,6 +44,13 @@ class Logger:
         self._log_level = LogLevels[log_level.upper()]
 
     def log(self, message, level='INFO', log_mem=False):
+        """
+        Logging function. Writes message to terminal in the format
+        <date> <time> <file>:<line> <log level> - <message> 
+        :param message (str): message to be written to terminal
+        :param level (str): string corresponding to enum
+        :param log_mem (bool - default=False): If True will print current memory usage
+        """
         if LogLevels[level] <= self._log_level:
             time_now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             caller = getframeinfo(stack()[1][0])
@@ -65,6 +72,13 @@ class Logger:
         current, peak = tracemalloc.get_traced_memory()
         message = f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB"
         self.log(message, level)
+
+    def timer_start(self):
+        self._start_time = time.time()
+    
+    def log_time(self, message):
+        delta_time = str(datetime.timedelta(seconds=time.time()-self._start_time))
+        self.log(f"{message} in time {delta_time}")
 
 # Initialize logger as global variable
 logger = Logger()
