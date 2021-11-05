@@ -154,11 +154,10 @@ class DataLoader:
                                 step_size=self.specific_batch_size):
             self._num_real_batches += 1
 
-        logger.log(f"Found {len(files)} files for {data_type}", 'INFO')
+        logger.log(f"Found {len(files)} with files {self._num_events} events for {data_type}", 'INFO')
         logger.log(f"Found these files: {files}", 'DEBUG')
-        logger.log(f"Found {self._num_events} events for {data_type}", 'INFO')
         logger.log(f"Number of batches in {self.label} {self.data_type()} = {self._num_real_batches}", 'DEBUG')
-        logger.log(f"DataLoader for {data_type} initialized", "INFO")
+        logger.log(f"DataLoader for {data_type} initialized", "DEBUG")
 
     def next_batch(self):
         """
@@ -196,12 +195,12 @@ class DataLoader:
             if var == shuffle_var:
                 np.random.shuffle(arr)
             # arr = limits_dict[var].transform(arr)
-            if np.amax(np.abs(arr)) > 50:
-                arr = np.where(arr < 1e7, arr, -4)
-                arr = np.where(arr > -1000, arr, -4)
-                with np.errstate(divide='ignore'):
-                    arr = np.where(arr > 0, np.log10(arr), dummy_val)
-                arr = np.where(arr < 100, arr, dummy_val)
+            if np.max(arr) > 1:
+                arr = np.where(arr < 1e7, arr, 10e7)
+                arr = np.where(arr > 10e7, arr, -10e7)
+                # arr = np.where(arr > 0, np.log10(arr), 0)
+                arr = np.ma.log(arr)
+                arr = arr.filled(0)
             np_arrays[:, i] = arr
         # np_arrays = apply_scaling(np_arrays, thresh=thresh, dummy_val=dummy_val)
         np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float64")
@@ -226,14 +225,13 @@ class DataLoader:
             arr = ak.to_numpy(abs(ak_arr))
             if var == shuffle_var:
                 np.random.shuffle(arr)
-            dummy_val = 0
-            # arr = limits_dict[var].transform(arr, dummy_val=dummy_val)
-            if np.max(arr) > 50:
-                arr = np.where(arr < 1e7, arr, -4)
-                arr = np.where(arr > -1000, arr, -4)
-                with np.errstate(divide='ignore'):
-                    arr = np.where(arr > 0, np.log10(arr), dummy_val)
-                arr = np.where(arr < 100, arr, dummy_val)
+            
+            if np.max(arr) > 1:
+                arr = np.where(arr < 1e7, arr, 10e7)
+                arr = np.where(arr > 10e7, arr, -10e7)
+                # arr = np.where(arr > 0, np.log10(arr), 0)
+                arr = np.ma.log(arr)
+                arr = arr.filled(0)
             np_arrays[:, i] = arr
         # np_arrays = apply_scaling(np_arrays)
         np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float64")

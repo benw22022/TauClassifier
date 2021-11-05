@@ -6,11 +6,9 @@ This is basically Bowen's Tau Decay Mode Classifier with an extra branch for Tau
 
 
 from keras import backend as kbe
-from keras.layers import Input, Dense, Masking, TimeDistributed, Concatenate
-from keras.layers import Layer, Activation, BatchNormalization
-from keras.models import Model
-from tensorflow.keras import layers as tfk_layers
-from tensorflow.keras.layers.experimental import preprocessing
+from tensorflow.keras.layers import Input, Dense, Masking, TimeDistributed, Concatenate
+from tensorflow.keras.layers import Layer, Activation, BatchNormalization
+from tensorflow.keras import Model
 import tensorflow as tf
 from model.set_transformer.model import BasicSetTransformer
 
@@ -137,11 +135,10 @@ def ModelDSNN(para, mask_value=-4.0, normalizers=None, bn=True):
     merged = Dense(para["n_fc2"], kernel_initializer=initializer)(merged)
     merged = Activation(activation_func)(merged)
 
-    #y = Dense(para["n_classes"], activation="softmax")(merged)
+    # y = Dense(para["n_classes"], activation="softmax")(merged)
     y = Dense(6, activation="softmax")(merged)
 
     return Model(inputs=[x_1, x_2, x_3, x_4, x_5], outputs=y)
-    #return Model(inputs=[x_5], outputs=y)
 
 def SetTransformer(para, mask_value=-4.0,):
 

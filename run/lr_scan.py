@@ -42,7 +42,7 @@ def lr_scan(args):
                 os.remove(file)
             
             # move new weights
-            for file in glob.glob(os.path.join("network_weights", "tmp")):
+            for file in glob.glob(os.path.join("network_weights", "tmp", "*.h5")):
                 shutil.move(file, "network_weights")
 
     # Find best result and print

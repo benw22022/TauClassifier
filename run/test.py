@@ -99,8 +99,8 @@ def plot_confusion_matrix(y_pred, y_true):
 
 def test(network_weights, read_from_cache):
 	
-	os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disables GPU
-	os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Sets Tensorflow Logging Level
+	# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disables GPU
+	# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Sets Tensorflow Logging Level
 
 	ray.init()
 	read = True

@@ -17,7 +17,7 @@ from scripts.DataLoader import DataLoader
 from plotting.plotting_functions import plot_confusion_matrix, plot_ROC
 from scripts.utils import logger
 from config.config import models_dict
-
+from tqdm import tqdm
 
 class DataGenerator(tf.keras.utils.Sequence):
 
@@ -93,7 +93,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         self._total_num_events = 0
         num_batches_list = []
         for data_loader in self.data_loaders:
-            print(ray.get(data_loader.num_events.remote()))
             self._total_num_events = self._total_num_events + ray.get(data_loader.num_events.remote())
             num_batches_list.append(ray.get(data_loader.number_of_batches.remote()))
         logger.log(f"{self.label} - Found {self._total_num_events} events total", "INFO")
@@ -202,17 +201,16 @@ class DataGenerator(tf.keras.utils.Sequence):
         cce_loss = tf.keras.losses.CategoricalCrossentropy()
         acc_metric = tf.keras.metrics.Accuracy()
 
-        # Allocate arrays for y_pred, y_true and weights
-        y_pred = np.ones((self._total_num_events, self._nclasses)) * -999  # multiply by -999 so mistakes are obvious
-        y_true = np.ones((self._total_num_events, self._nclasses)) * -999
+        # Allocate arrays for y_pred, y_true and weights - multiply by -999 so mistakes are obvious
+        y_pred = np.ones((self._total_num_events, self._nclasses), dtype='float32') * -999  
+        y_true = np.ones((self._total_num_events, self._nclasses), dtype='float32') * -999
         weights = np.ones((self._total_num_events)) * -999
         losses = []
-
         nevents = 0
 
         # Iterate through the DataLoader
         position = 0
-        for _ in range(0, self.__len__()):
+        for _ in tqdm(range(self.__len__())):
             batch, truth_labels, batch_weights = self.load_batch(shuffle_var=shuffle_var)
 
             nevents += len(truth_labels)
@@ -231,14 +229,11 @@ class DataGenerator(tf.keras.utils.Sequence):
             # Move to the next position
             position += len(batch[1])
 
-        logger.log(f"nevents = {nevents}")
-        logger.log(f"self._total_num_events = {self._total_num_events}")
-
         # This is probably a bit confusing so I'll try and explain
         # Uproot splits the data files up into different numbers of chunks
         # This means that some events get truncated
         # There is no good way to calculate the true number of events outside of this loop
-        # So we make an array and then slice off the excess
+        # So we make a gig enough array and then slice off the excess
         y_pred = y_pred[ :nevents]
         y_true = y_true[ :nevents]
         weights = weights[ :nevents]
@@ -362,6 +357,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         ValueError
         """
         if number in arr:
-            print(arr)
             logger.log(f"Bad value in {name}", "ERROR")
+            logger.log(f"The ar")
             raise ValueError

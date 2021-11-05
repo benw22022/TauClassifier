@@ -50,7 +50,7 @@ config_dict = {"shapes":
 					},
 			   "n_fc1": 100,
 			   "n_fc2": 50,
-			   "n_classes": 4,
+			   "n_classes": 6,
 			   "dropout": 0.025
 			   }
 

@@ -8,15 +8,14 @@ Script to run the neural network training
 import os
 # Do these things first before importing
 # os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'    # Accelerated Linear Algebra (XLA) actually seems slower
-# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"                     # Disables GPU
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'                # Allow tensorflow to use more GPU VRAM
 
 import ray
-from keras.callbacks import EarlyStopping, ReduceLROnPlateau
+import glob
 import tensorflow as tf
+# from tf.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import matplotlib.pyplot as plt
 import numpy as np
-import glob
 
 from config.variables import variables_dictionary
 from scripts.DataGenerator import DataGenerator
@@ -72,7 +71,7 @@ def train(args):
     model = models_dict[args.model](model_config)
 
     # Configure callbacks
-    early_stopping = EarlyStopping(
+    early_stopping = tf.keras.callbacks.EarlyStopping(
         monitor="val_loss", min_delta=0.0001,
         patience=10, verbose=0, restore_best_weights=True)
 
@@ -84,7 +83,7 @@ def train(args):
     model_checkpoint = ParallelModelCheckpoint(model, path=os.path.join(save_path, 'weights-{epoch:02d}.h5'),
                                                monitor="val_loss", save_best_only=True, save_weights_only=True)
 
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.4, patience=3, min_lr=4e-6)
+    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.4, patience=3, min_lr=4e-6)
 
     callbacks = [early_stopping, model_checkpoint, reduce_lr]
 
@@ -157,7 +156,7 @@ def train(args):
     # Return best validation loss and accuracy
     best_val_loss_epoch = np.argmin(history.history["val_loss"])
     best_val_loss = history.history["val_loss"][best_val_loss_epoch]
-    best_val_acc = history.history["val_catagorical_accuracy"][best_val_loss_epoch]
+    best_val_acc = history.history["val_categorical_accuracy"][best_val_loss_epoch]
 
     logger.log(f"Best Epoch: {best_val_loss_epoch} -- Val Loss = {best_val_loss} -- Val Acc = {best_val_acc}")
 

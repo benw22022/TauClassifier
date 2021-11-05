@@ -8,21 +8,21 @@ python3 tauclassifier.py train
 """
 
 import os
+import sys
 import argparse
-import getpass
-from pathlib import Path
-from datetime import datetime
-from shutil import copyfile
+import tensorflow as tf
 from run.train import train
 from run.evaluate import evaluate
 from run.permutation_rank import permutation_rank
 from run.testMK2 import test
+from run.lr_scan import lr_scan
+from run.plot_previous_results import plot_previous
 from scripts.utils import logger, get_best_weights, none_or_int, run_training_on_batch_system
 from config.config import models_dict
 import scratch
 
 # This is so that all our plot use the AGG backend - this will disable GUI plotting for saving straight to file
-# Should help avoid issues when working via ssh (I ran into ioctl issues    )
+# Should help avoid issues when working via ssh (I ran into ioctl issues)
 import matplotlib
 matplotlib.use('Agg')
 
@@ -33,7 +33,7 @@ def main():
 
     # 'train' - train model | 'evaluate' =  make npz files of predictions for test data | 'plot' - make performance plots
     # 'scratch' - run a standalone testing script. We want to be able to run it from here so imports work properly
-    mode_list = ["train", "evaluate", "test", "rank", "scratch", "scan"]  
+    mode_list = ["train", "evaluate", "test", "rank", "scratch", "scan", "plot_previous"]  
 
     # Prong options: 1 - (p10n, 1p1n, 1pxn, jets) | 3 - (3p0n, 3pxn, jets) | None - (p10n, 1p1n, 1pxn, 3p0n, 3pxn, jets)
     prong_list = [1, 3, None]                                           
@@ -62,27 +62,39 @@ def main():
     parser.add_argument("-load", help="Load last saved network predictions", type=bool, default=False)
     args = parser.parse_args()
 
+    # Set logging level
+    logger.set_log_level(args.log_level)
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level
+
     # If training
     if args.run_mode == 'train':
-
+        
+        # Check if a gpu is available for training:
+        num_gpus_available = len(tf.config.list_physical_devices('GPU'))
+        logger.log(f"Num GPUs Available: {num_gpus_available}")
+        if num_gpus_available == 0:
+            logger.log("Cannot access GPU", 'WARNING')
+            logger.log("If your machine does not have a GPU then you can ignore this message", 'WARNING')
+            logger.log("Otherwise please check tensorflow version or CUDA installation", 'WARNING')
         # If training on ht condor batch system
         if args.condor:
-            return run_training_on_batch_system(prong=args.prong, model=args.model, log_level=args.log_level, tf_log_level=args.tf_log_level)
+            run_training_on_batch_system(prong=args.prong, model=args.model, log_level=args.log_level, tf_log_level=args.tf_log_level)
+            sys.exit(0)
 
         # If training on local machine
-        return train(args)
+        train(args)
 
     # If testing
     if args.run_mode == 'evaluate':
-        return evaluate(args)
+        evaluate(args)
     
     # If permutation ranking
     if args.run_mode == 'rank':
-        return permutation_rank(args)
+        permutation_rank(args)
 
     # Make performance plots
     if args.run_mode == 'test':
-        return test(args)
+        test(args)
     
     # Scan through learning rates
     if args.run_mode == 'scan':
@@ -90,12 +102,19 @@ def main():
             int(args.lr_range[2])
         except ValueError:
             logger.log("Learning rate step size must be an integer!", "ERROR")
-            return 1
+            sys.exit(1)
+        lr_scan(args)
+        
+
+    # Plot the previous Tau ID RNN and Tau Decay Mode Classifier Results
+    if args.run_mode == 'plot_previous':
+        plot_previous()
 
     # *Super* hacky way of running little standalone testing scripts 
     if args.run_mode == 'scratch':
-        return getattr(globals()[scratch], args.function)()   
-
+        getattr(globals()[scratch], args.function)()   
+    
+    sys.exit(0)
         
 
 

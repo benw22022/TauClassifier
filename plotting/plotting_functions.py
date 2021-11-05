@@ -53,7 +53,7 @@ def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas="ROC.svg"):
 	plt.show()
 
 
-#@nb.njit()
+# @nb.njit()
 def make_confusion_matrix(prediction, truth, weights=None):
 	"""
 	Function to make the confusion matrix
@@ -76,7 +76,8 @@ def make_confusion_matrix(prediction, truth, weights=None):
 	nclasses = prediction.shape[1]
 	cm = np.zeros((nclasses, nclasses), dtype="float32")
 	if weights is None:
-		weights = np.ones_like(prediction)
+		weights = np.ones(len(prediction), dtype='float32')
+
 	for pred, true, weight in zip(prediction, truth, weights):
 		pred_max_idx = np.argmax(pred)
 		truth_max_idx = np.argmax(true)        
@@ -84,7 +85,7 @@ def make_confusion_matrix(prediction, truth, weights=None):
 	return cm
 
 
-def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None, title=""):
+def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None, title="", no_jets=False):
 	"""
 	Function to plot confusion matrix
 
@@ -101,7 +102,7 @@ def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None,
 		weights = np.ones_like(y_true)
 
 	for i in range(0, y_pred.shape[1]):
-		conf_matrix[:, i] = conf_matrix[:, i] / np.sum(weights * y_true[:, i])
+		conf_matrix[:, i] = conf_matrix[:, i] / np.sum(y_true[:, i])
 
 	fig = plt.figure()
 
@@ -111,6 +112,8 @@ def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None,
 		labels = ["jets", "1p0n", "1p1n", "1pxn"]
 	if prong == 3:
 		labels = ["jets", "3p0n", "3pxn"]
+	if no_jets:
+		labels.remove("jets")
 
 	xticklabels = labels
 	yticklabels = labels
