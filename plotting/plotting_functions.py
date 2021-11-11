@@ -121,7 +121,7 @@ def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None,
 	xticklabels = labels
 	yticklabels = labels
 	ax = sns.heatmap(conf_matrix, annot=True, cmap="Oranges", xticklabels=xticklabels, yticklabels=yticklabels,
-						fmt=".2")
+						fmt=".2", vmin=0, vmax=1)
 	plt.xlabel("Truth")
 	plt.ylabel("Prediction")
 	ax.set_title(title, loc='right', fontsize=5)
