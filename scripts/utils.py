@@ -2,11 +2,15 @@
 Utilities
 ___________________________________________________________________
 File containing useful functions and classes
+Key objects:
+Logger: a logging class
+logger: a global instance of Logger shared between all code
+FileHandler: A class to make the handling of file list easier
 """
 
 import time
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from functools import total_ordering
 from datetime import datetime
@@ -21,6 +25,10 @@ tracemalloc.start()
 
 @total_ordering
 class LogLevels(Enum):
+    """
+    An enum class to help set logging levels
+    Used in conjunction with Logger
+    """
     ERROR = 0
     WARNING = 1
     INFO = 2
@@ -76,9 +84,10 @@ class Logger:
     def timer_start(self):
         self._start_time = time.time()
     
-    def log_time(self, message):
-        delta_time = str(datetime.timedelta(seconds=time.time()-self._start_time))
-        self.log(f"{message} in time {delta_time}")
+    def log_time(self, message, level='INFO'):
+        delta_time = str(timedelta(seconds=time.time()-self._start_time))
+        self.log(f"{message} in time {delta_time}", level)
+        return delta_time
 
 # Initialize logger as global variable
 logger = Logger()

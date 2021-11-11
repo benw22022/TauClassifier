@@ -39,14 +39,18 @@ def train(args):
     # Initialize ray
     ray.init(include_dashboard=True)
 
+    # If we're doing a learning rate scan save the models to tmp dir
+    if args.run_mode == 'scan':
+        args.weights_save_dir = os.path.join("network_weights", "tmp")
+
     # Remove old network weights
-    old_weights = glob.glob(os.path.join("network_weights", "*.h5"))
+    old_weights = glob.glob(os.path.join(args.weights_save_dir, "*.h5"))
     # If we're doing a learning rate scan only remove the temporary weights file
     if args.run_mode == 'scan':
         old_weights = glob.glob(os.path.join("network_weights", "tmp", "*.h5"))
     for file in old_weights:
         os.remove(file)
-    logger.log("Removed old weight files")
+    logger.log(f"Removed old weight files from {args.weights_save_dir}")
         
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Generators
@@ -75,12 +79,7 @@ def train(args):
         monitor="val_loss", min_delta=0.0001,
         patience=10, verbose=0, restore_best_weights=True)
 
-    # If we're doing a learning rate scan save the models to tmp dir
-    save_path = "network_weights"
-    if args.run_mode == 'scan':
-        save_path = os.path.join(save_path, "tmp")
-
-    model_checkpoint = ParallelModelCheckpoint(model, path=os.path.join(save_path, 'weights-{epoch:02d}.h5'),
+    model_checkpoint = ParallelModelCheckpoint(model, path=os.path.join(args.weights_save_dir, 'weights-{epoch:02d}.h5'),
                                                monitor="val_loss", save_best_only=True, save_weights_only=True)
 
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.4, patience=3, min_lr=4e-6)
@@ -159,5 +158,8 @@ def train(args):
     best_val_acc = history.history["val_categorical_accuracy"][best_val_loss_epoch]
 
     logger.log(f"Best Epoch: {best_val_loss_epoch} -- Val Loss = {best_val_loss} -- Val Acc = {best_val_acc}")
+
+    # Shut down Ray - will raise an execption if ray.init() is called twice otherwise
+    ray.shutdown()
 
     return best_val_loss, best_val_acc

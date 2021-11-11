@@ -120,7 +120,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         :return: A list of arrays to be passed to model.fit()
         """
 
-        batch_load_time = time.time()
+        logger.timer_start()
         batch = None
 
         if isinstance(shuffle_var, str):
@@ -148,9 +148,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             if shuffle_var[0] == "NeutralPFO":
                 np.random.shuffle(neutral_pfo_array[:, shuffle_var[1]])
 
-        load_time = str(datetime.timedelta(seconds=time.time()-batch_load_time))
-        logger.log(f"{self.label}: Processed batch {self._current_index}/{self.__len__()} - {len(label_array)} events"
-                   f" in {load_time}", "DEBUG")
+        load_time = logger.log_time(f"{self.label}: Processed batch {self._current_index}/{self.__len__()} - {len(label_array)} events", "DEBUG")
 
         if self.__benchmark:
             return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array),\

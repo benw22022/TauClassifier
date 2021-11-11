@@ -16,7 +16,7 @@ import glob
 
 def lr_scan(args):
     
-    lr_range = np.linspace(args.lr_range[0],args.lr_range[1], args.lr_range[2])
+    lr_range = np.linspace(args.lr_range[0],args.lr_range[1], int(args.lr_range[2]))
     val_losses = []
 
     # Make directory to temporarily save weights to
@@ -28,6 +28,7 @@ def lr_scan(args):
     # Loop through learninig rates
     for lr in lr_range:
         args.lr = lr
+        logger.log(f"Beginning training with lr = {args.lr}")
         val_loss, _ = train(args)
         logger.log(f"Learning rate = {lr}  -- Val Loss = {val_loss}")
         val_losses.append(val_loss) 

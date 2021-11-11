@@ -16,6 +16,7 @@ import numba as nb
 # from scripts.preprocessing import reweighter
 from scripts.utils import logger
 from config.config import models_dict
+from sklearn.ensemble import IsolationForest
 
 
 @nb.njit()
@@ -47,36 +48,6 @@ def labeler(truth_decay_mode_np_array, labels_np_array, prong=None):
         elif prong == 3:
             labels_np_array[i][elem - 4 + 1] = 1
     return labels_np_array
-
-
-@nb.njit()
-def apply_scaling(np_arrays, dummy_val=0, thresh=45, flag=False):
-    """
-    Rescales each varaible to be between zero and one. Function is jitted for speed
-    :param np_arrays: The numpy arrays containing a set of input variables
-    :return: A new array containing the rescaled data
-    """
-
-    # if len(np_arrays.shape) == 3:
-    for i in nb.prange(0, np_arrays.shape[1]):
-        arr = np.ravel(np_arrays[:, i])
-        # arr = arr[arr != dummy_val]
-        arr = np.ma.masked_equal(arr, dummy_val)
-        arr_median = np.median(arr)
-        q75, q25 = np.percentile(arr, [75, 25])
-        arr_iqr = q75 - q25
-
-        if arr_iqr != 0:
-            np_arrays[:, i] = (np_arrays[:,
-                               i] - arr_median) / arr_iqr  # np.where(np_arrays[:, i] != dummy_val, (np_arrays[:, i] - arr_median) / arr_iqr, dummy_val)
-            np_arrays[:, i] = np.where(np_arrays[:, i] < thresh, np_arrays[:, i], thresh)
-            np_arrays[:, i] = np.where(np_arrays[:, i] > -thresh, np_arrays[:, i], -thresh)
-
-        if flag == True:
-            print(arr_median)
-            print(arr_iqr)
-
-    return np_arrays
 
 
 @ray.remote
@@ -174,37 +145,47 @@ class DataLoader:
         self._current_index += 1
         return batch
 
+    @staticmethod
+    def standardise_data(arr, cutoff=1.25):
+        """
+        Function to standardise the data by removing outliers and if the maximum value in the array is 
+        greater than 10 to take the log10 of the data. The outlier removal is done by calculating the 
+        interquartile range and setting all data falling outside of the the iqr * cutoff to an upper
+        """
+        lower_qtl, upper_qtl = np.percentile(arr, 10), np.percentile(arr, 90)
+        iqr = upper_qtl - lower_qtl
+        cut_off = iqr * cutoff
+        lower, upper =  upper_qtl - cut_off, lower_qtl + cut_off                
+        arr = np.where(arr < upper, arr, upper)
+        arr = np.where(arr > lower, arr, lower)
+
+        if np.max(arr) > 10:
+                arr = np.ma.log10(arr)
+                arr = arr.filled(0)
+        return arr
+
     def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=10, shuffle_var=None):
         """
         Function that acts on nested data to read relevant variables, pad, reshape and convert data from uproot into
         rectilinear numpy arrays
-        :param batch: A dict of awkward arrays from uproot
-        :param variable_type: Variable type to be selected e.g. Tracks, Neutral PFO, Jets etc...
-        :param max_items: Maximum number of tracks/PFOs etc... to be associated to event
-        :return: a rectilinear numpy array of shape:
+        :param batch (dict): A dict of awkward arrays from uproot
+        :param variable_type (str): Variable type to be selected e.g. Tracks, Neutral PFO, Jets etc...
+        :param max_items (int): Maximum number of tracks/PFOs etc... to be associated to event
+        :param shuffle_var (str): When permutation ranking Variable to shuffle 
+        :return np_arrays: a rectilinear numpy array of shape:
                 (num events in batch, number of variables belonging to variable type, max_items)
         """
         variables = self._variables_dict[variable_type]
         np_arrays = np.zeros((ak.num(batch[variables[0]], axis=0), len(variables), max_items))
         dummy_val = -4.0
-        for i in range(0, len(variables)):
-            var = variables[i]
-            ak_arr = batch[var]
+        for i, variable in enumerate(variables):
+            ak_arr = batch[variable]
             ak_arr = ak.pad_none(ak_arr, max_items, clip=True, axis=1)
             arr = ak.to_numpy(abs(ak_arr)).filled(dummy_val)
-            if var == shuffle_var:
-                np.random.shuffle(arr)
-            # arr = limits_dict[var].transform(arr)
-            if np.max(arr) > 1:
-                arr = np.where(arr < 1e7, arr, 10e7)
-                arr = np.where(arr > 10e7, arr, -10e7)
-                # arr = np.where(arr > 0, np.log10(arr), 0)
-                arr = np.ma.log(arr)
-                arr = arr.filled(0)
-            np_arrays[:, i] = arr
-        # np_arrays = apply_scaling(np_arrays, thresh=thresh, dummy_val=dummy_val)
-        np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float64")
-        # np_arrays = np_arrays.reshape((len(np_arrays), max_items, len(variables)))
+            if variable == shuffle_var:
+                np.random.shuffle(arr)            
+            np_arrays[:, i] = self.standardise_data(arr)
+        np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float32")
         return np_arrays
 
     def reshape_arrays(self, batch, variable_type, shuffle_var=None):
@@ -219,22 +200,13 @@ class DataLoader:
         variables = self._variables_dict[variable_type]
         np_arrays = np.zeros((ak.num(batch[variables[0]], axis=0), len(variables)))
 
-        for i in range(0, len(variables)):
-            var = variables[i]
-            ak_arr = batch[var]
+        for i, variable in enumerate(variables):
+            ak_arr = batch[variable]
             arr = ak.to_numpy(abs(ak_arr))
-            if var == shuffle_var:
+            if variable == shuffle_var:
                 np.random.shuffle(arr)
-            
-            if np.max(arr) > 1:
-                arr = np.where(arr < 1e7, arr, 10e7)
-                arr = np.where(arr > 10e7, arr, -10e7)
-                # arr = np.where(arr > 0, np.log10(arr), 0)
-                arr = np.ma.log(arr)
-                arr = arr.filled(0)
-            np_arrays[:, i] = arr
-        # np_arrays = apply_scaling(np_arrays)
-        np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float64")
+            np_arrays[:, i] = self.standardise_data(arr)
+        np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float32")
         return np_arrays
 
     def get_batch(self, shuffle_var=None):
@@ -243,6 +215,7 @@ class DataLoader:
         Pads ragged track and PFO arrays to make them rectilinear
         and reshapes arrays into correct shape for training. The clip option in ak.pad_none will truncate/extend each
         array so that they are all of a specific length
+        :param shuffle_var (optional, default=None): A variable to shuffle (for permutation ranking)
         """
         batch = self.next_batch()
 
@@ -277,8 +250,19 @@ class DataLoader:
         """
         self._current_index = 0
         self._batches_generator = uproot.iterate(self.files, filter_name=self._variables_list, cut=self.cut,
-                                                 library='ak', step_size=self.specific_batch_size)
+                                                 library='ak', step_size=self.specific_batch_size)        
         gc.collect()
+
+    def _set_generator_to_single_file(self, file, cut=None):
+        """
+        Function to set the uproot iterator. Definitely a bit hacky!
+        The idea is that we can set the iterator to iterate over just a single file for when we want to 
+        update the scores in the NTuples.
+        :param file (str): file path to an NTuple
+        :param cut (str: optional - default=None): A string defining cuts
+        """
+        self._batches_generator = uproot.iterate(file, filter_name=self._variables_list, cut=cut,
+                                                 library='ak', step_size=self.specific_batch_size)
 
     def num_events(self):
         return self._num_events
@@ -289,14 +273,19 @@ class DataLoader:
     def number_of_batches(self):
         return self._num_real_batches
 
-    def predict(self, model, model_config, model_weights, save_predictions=False):
+    def predict(self, model, model_config, model_weights, file=None, save_predictions=False):
         """
         Function to generate arrays of y_pred, y_true and weights given a network weight file
         :param model: A string of corresponding to a key in config.config.models_dict specifiying desired model
         :param model_config: model config dictionary to use
         :param model_weights: Path to model weights file to load
         :param save_predictions (optional, default=False): write y_pred, y_true and weights to file
+        :param file (optional, default=None): A file path to a single NTuple
         """
+
+        # Set generator to use just a single file. Used when writing predictions to NTuples
+        if file is not None:
+            self._set_generator_to_single_file(files=file)
 
         # Model needs to be initialized on each actor separately - cannot share model between multiple processes
         model = models_dict[model](model_config)
@@ -336,5 +325,26 @@ class DataLoader:
             np.savez(f"network_predictions/weights/{save_file}_weights.npz", weights)
             logger.log(f"Saved network predictions for {self._data_type}")
 
+        # Reset DataLoader
         self.reset_dataloader()
+
         return y_pred, y_true, weights
+
+def update_ntuples(self, model, model_config, model_weights):
+    """
+    Update the NTuples belongs to this DataLoader
+    """
+
+    for file in self.files:
+        y_pred, _, weights = self.predict(self, model, model_config, model_weights, file=file)
+        with uproot.update(self.file[0]) as ntuple:
+            logger.log(f"Writing predictions for {file} to NTuple")
+            ntuple['tree'] = ({"TauClassifier_jetScore": y_pred[:, 0],
+                                    "TauClassifier_1p0nScore": y_pred[:, 1],
+                                    "TauClassifier_1p1nScore": y_pred[:, 2],
+                                    "TauClassifier_1pxnScore": y_pred[:, 3],
+                                    "TauClassifier_3p0nScore": y_pred[:, 4],
+                                    "TauClassifier_3pxnScore": y_pred[:, 5],
+                                    "TauClassifier_weights": weights})
+
+            

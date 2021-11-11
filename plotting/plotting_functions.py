@@ -100,8 +100,12 @@ def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None,
 	if weights is None:
 		weights = np.ones_like(y_true)
 
+	# Normalise entries to total amount of each class
 	for i in range(0, y_pred.shape[1]):
-		conf_matrix[:, i] = conf_matrix[:, i] / np.sum(y_true[:, i])
+		class_truth_total = np.sum(y_true[:, i])
+		if class_truth_total == 0:
+			class_truth_total = 1  # For if we have a dummy class still get nice plot
+		conf_matrix[:, i] = conf_matrix[:, i] / class_truth_total
 
 	fig = plt.figure()
 

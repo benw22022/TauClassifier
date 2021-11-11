@@ -19,7 +19,8 @@ data/*
 plots/*
 *training
 batch/*training_*/*
-*tmp
+*tmp*
+*temp*
 scratch/*
 
 # Ignore logs

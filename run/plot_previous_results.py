@@ -19,22 +19,25 @@ def plot_bowens_confusion_matrix(tau_arr):
     y_pred = []
 
     for i, truth_dm in enumerate(tqdm(tau_arr["TauJets.truthDecayMode"])):
-        tmp_arr = [0, 0, 0, 0, 0]
-        tmp_arr[truth_dm] = 1
+        tmp_arr = [0, 0, 0, 0, 0, 0]
+        tmp_arr[int(truth_dm)+1] = 1
         y_true.append(tmp_arr)
-        tmp_arr = [0, 0, 0, 0, 0]
-        tmp_arr[0] = tau_arr["TauJets.is1p0n"][i]
-        tmp_arr[1] = tau_arr["TauJets.is1p1n"][i]
-        tmp_arr[2] = tau_arr["TauJets.is1pxn"][i]
-        tmp_arr[3] = tau_arr["TauJets.is3p0n"][i]
-        tmp_arr[4] = tau_arr["TauJets.is3pxn"][i]
+        tmp_arr = [0, 0, 0, 0, 0, 0]
+        tmp_arr[0] = 0
+        tmp_arr[1] = tau_arr["TauJets.is1p0n"][i]
+        tmp_arr[2] = tau_arr["TauJets.is1p1n"][i]
+        tmp_arr[3] = tau_arr["TauJets.is1pxn"][i]
+        tmp_arr[4] = tau_arr["TauJets.is3p0n"][i]
+        tmp_arr[5] = tau_arr["TauJets.is3pxn"][i]
         y_pred.append(tmp_arr)
 
     y_pred = np.array(y_pred, dtype='float32')
     y_true = np.array(y_true, dtype='float32')
 
+    print(y_true.shape)
+    print(y_pred.shape)
 
-    plot_confusion_matrix(y_pred, y_true, no_jets=True, title=os.path.join("plots", "Bowens_Confusion_Matrix.png"), 
+    plot_confusion_matrix(y_pred, y_true, title=os.path.join("plots", "Bowens_Confusion_Matrix.png"), 
                           saveas=os.path.join("plots", "Bowens_Confusion_Matrix.png"))
 
 def plot_juans_ROC(tau_arr, jet_arr):
@@ -67,7 +70,7 @@ def plot_previous():
     tau_arr = uproot.concatenate(tau_files, cut=get_cuts(), library='np', filter_name=dm_vars+id_vars)
     jet_arr = uproot.concatenate(JZ_files, cut=get_cuts(), library='np', filter_name=id_vars)
 
-    # plot_bowens_confusion_matrix(tau_arr)
-    plot_juans_ROC(tau_arr, jet_arr)
+    plot_bowens_confusion_matrix(tau_arr)
+    # plot_juans_ROC(tau_arr, jet_arr)
     
     
