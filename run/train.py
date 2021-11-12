@@ -13,15 +13,13 @@ os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'                # Allow tensorfl
 import ray
 import glob
 import tensorflow as tf
-# from tf.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import matplotlib.pyplot as plt
 import numpy as np
-
 from config.variables import variables_dictionary
 from scripts.DataGenerator import DataGenerator
 from config.files import training_files, validation_files, ntuple_dir
 from model.callbacks import ParallelModelCheckpoint
-from scripts.utils import logger
+from scripts.utils import logger, get_number_of_events
 from config.config import config_dict, get_cuts, models_dict
 from scripts.preprocessing import Reweighter
 
@@ -89,12 +87,8 @@ def train(args):
     # Compile and summarise model
     model.summary()
 
-    njets = 9647968
-    n1p0n = 1962842
-    n1p1n = 4773455
-    n1pxn = 2092967
-    n3p0n = 1913289
-    n3pxn = 1055423
+    # Compute class weights
+    njets, n1p0n, n1p1n,  n1pxn, n3p0n, n3pxn = get_number_of_events(training_files)
     total = njets + n1p0n + n1p1n + n1pxn + n3p0n + n3pxn
 
     weight_for_jets = (1 / njets) * (total / 2.0)
@@ -111,6 +105,8 @@ def train(args):
                     4: weight_for_3p0n,
                     5: weight_for_3p1n,
                     }
+
+    # Assign output layer bias
     model.layers[-1].bias.assign([np.log(njets / (total)),
                                   np.log(n1p0n / (total)),
                                   np.log(n1p1n / (total)),

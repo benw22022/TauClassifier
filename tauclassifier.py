@@ -3,8 +3,9 @@
 TauClassifier
 _______________________________________________________________
 Main steering script for running the Tau Classifier
-Example usage:
-python3 tauclassifier.py train 
+Example usages:
+python3 tauclassifier.py train
+python3 tauclassifier.py test -weights=network_weights/weights-20.h5
 python3 tauclassifier.py scan -lr_range 5e-4 1e-1 10
 """
 
@@ -58,7 +59,7 @@ def main():
     parser.add_argument("-ncores", help="number of CPU cores to use when evaluating network predictions", type=int, default=8)
     parser.add_argument("-log_level", help="Sets log level", type=str, default='INFO', choices=log_levels)
     parser.add_argument("-tf_log_level", help="Set Tensorflow logging level", type=str, choices=tf_log_levels, default='2')
-    parser.add_argument("-weights_save_dir", help="Set the directory to save network weights to when training", type=str, default="nework_weights")
+    parser.add_argument("-weights_save_dir", help="Set the directory to save network weights to when training", type=str, default="network_weights")
     parser.add_argument("-function", help="Scratch function to run")
     parser.add_argument("-condor", help='Run on ht condor batch system', type=bool, default=False)
     parser.add_argument("-load", help="Load last saved network predictions", type=bool, default=False)
@@ -96,6 +97,9 @@ def main():
 
     # Make performance plots
     if args.run_mode == 'test':
+        if args.weights == "":
+            logger.log("No network weights found!", "ERROR")
+            sys.exit(1)
         test(args)
     
     # Scan through learning rates

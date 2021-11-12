@@ -8,7 +8,10 @@ logger: a global instance of Logger shared between all code
 FileHandler: A class to make the handling of file list easier
 """
 
+import re
 import time
+import uproot
+from tqdm import tqdm
 from pathlib import Path
 from datetime import datetime, timedelta
 from enum import Enum
@@ -43,6 +46,16 @@ class LogLevels(Enum):
 
 class Logger:
 
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
     def __init__(self, log_level='INFO'):
         """
         Constructor for a basic logging tool
@@ -65,7 +78,7 @@ class Logger:
             filename = caller.filename
             line_num = caller.lineno
             filename = os.path.basename(filename)
-            log_message = f"{time_now} {filename}:{line_num} {level} - {message}"
+            log_message = f"{time_now} {filename}:{line_num} {self.colour_level(level)} - {message}"
             if log_mem:
                 current, peak = tracemalloc.get_traced_memory()
                 message = f"Current memory usage is {current / 10 ** 6}MB; Peak was {peak / 10 ** 6}MB"
@@ -88,6 +101,19 @@ class Logger:
         delta_time = str(timedelta(seconds=time.time()-self._start_time))
         self.log(f"{message} in time {delta_time}", level)
         return delta_time
+
+    def colour_level(self, level):
+        if level == "INFO":
+            return f"{self.OKBLUE}{level}{self.ENDC}"
+        elif level == "DEBUG":
+            return f"{self.OKCYAN}{level}{self.ENDC}"
+        elif level == "HELPME":
+            return f"{self.OKGREEN}{level}{self.ENDC}"
+        elif level == "WARNING":
+            return f"{self.WARNING}{level}{self.ENDC}"
+        elif level == "ERROR":
+            return f"{self.FAIL}{level}{self.ENDC}"
+        return f"{self.OKBLUE}{level}{self.ENDC}"
 
 # Initialize logger as global variable
 logger = Logger()
@@ -220,6 +246,28 @@ def get_best_weights(search_dir="network_weights"):
             best_weights = fname
     return best_weights
 
+
+def get_number_of_events(fh_list):
+    """
+    Given a list of FileHandler Objects computes the number of events belonging to each class
+    """
+    njets = n1p0n = n1p1n = n1pXn = n3p0n = n3p1n = 0
+
+    for fh in tqdm(fh_list):
+        data = uproot.concatenate(fh.file_list, filter_name="TauJets.truthDecayMode", library='np')
+        data = data["TauJets.truthDecayMode"]
+        if fh.label == "Gammatautau":
+            n1p0n += np.count_nonzero(data == 0)
+            n1p1n += np.count_nonzero(data == 1)
+            n1pXn += np.count_nonzero(data == 2)
+            n3p0n += np.count_nonzero(data == 3)
+            n3p1n += np.count_nonzero(data == 4)
+        else:
+            njets += len(data)
+
+    return njets, n1p0n, n1p1n, n1pXn, n3p0n, n3p1n
+
+
 def none_or_int(value):
     """
     A little function that will return None if parsed 'None' or a int. Used to parse -prong argument 
@@ -228,6 +276,7 @@ def none_or_int(value):
     if value == 'None':
         return None
     return int(value)
+
 
 def run_training_on_batch_system(prong=None, log_level=None, model='DSNN', tf_log_level='2'):
     """
