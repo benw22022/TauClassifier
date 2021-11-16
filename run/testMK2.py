@@ -22,7 +22,7 @@ def test(args):
 	cuts = get_cuts(args.prong)
 
 	testing_batch_generator = DataGenerator(testing_files, variables_dictionary, nbatches=50, cuts=cuts,
-												reweighter=reweighter, prong=args.prong, label="Ranking Generator")
+												reweighter=reweighter, prong=args.prong, label="Testing Generator")
 
 	testing_batch_generator.load_model(args.model, config_dict, args.weights)
 	_, _, _, baseline_loss, baseline_acc = testing_batch_generator.predict(make_confusion_matrix=True, make_roc=True)

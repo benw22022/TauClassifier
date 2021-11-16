@@ -137,6 +137,23 @@ def create_normalizers(data_generator=None, load=False):
 
         return normalizers
 
+def standardise_data(arr, cutoff=1.25):
+        """
+        Function to standardise the data by removing outliers and if the maximum value in the array is 
+        greater than 10 to take the log10 of the data. The outlier removal is done by calculating the 
+        interquartile range and setting all data falling outside of the the iqr * cutoff to an upper
+        """
+        # lower_qtl, upper_qtl = np.percentile(arr, 10), np.percentile(arr, 90)
+        # iqr = upper_qtl - lower_qtl
+        # cut_off = iqr * cutoff
+        # lower, upper =  upper_qtl - cut_off, lower_qtl + cut_off                
+        # arr = np.where(arr < upper, arr, upper)
+        # arr = np.where(arr > lower, arr, lower)
+
+        if np.max(arr) > 10:
+                arr = np.ma.log10(arr)
+                arr = arr.filled(-1)
+        return arr
 
 
 limits_dict = {"TauTracks.dEta": PreProcTransform("TauTracks.dEta"),

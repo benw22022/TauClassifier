@@ -88,6 +88,7 @@ def train(args):
     model.summary()
 
     # Compute class weights
+    logger.log("Computing class weights", 'INFO')
     njets, n1p0n, n1p1n,  n1pxn, n3p0n, n3pxn = get_number_of_events(training_files)
     total = njets + n1p0n + n1p1n + n1pxn + n3p0n + n3pxn
 

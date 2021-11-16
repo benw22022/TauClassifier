@@ -51,7 +51,7 @@ class Sum(Layer):
 # Functional models
 # =================
 
-def ModelDSNN(para, mask_value=-4.0, normalizers=None, bn=True):
+def ModelDSNN(para, mask_value=-1, normalizers=None, bn=True):
 
     initializer = tf.keras.initializers.HeNormal()
     activation_func = 'elu'

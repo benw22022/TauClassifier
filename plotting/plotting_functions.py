@@ -45,7 +45,7 @@ def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas="ROC.png"):
 	plt.plot(eff, rej)#, label='AUC (area = {:.3f})'.format(auc_keras))
 	plt.xlabel('Signal Efficiency')
 	plt.ylabel('Background Rejection')
-	plt.ylim(1e0, 1e4)
+	plt.ylim(1e0, 1e6)
 	plt.yscale("log")
 	plt.savefig(saveas)
 	plt.title(title, loc='right', fontsize=5)

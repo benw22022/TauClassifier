@@ -27,10 +27,9 @@ def labeler(truth_decay_mode_np_array, labels_np_array, prong=None):
     :param truth_decay_mode_np_array: The Truth Decay Mode - an enum corresponding to the decay mode
         - 1p0n == 0
         - 1p1n == 1
-        - 1p2n == 2
-        - 1pXn == 3
-        - 3p0n == 4
-        - 3p0n == 5
+        - 1pXn == 2
+        - 3p0n == 3
+        - 3pXn == 4
     :param labels_np_array: The array of labels - already initialized ready to be modified
     Convention:
     [1, 0, 0, 0, 0, 0] == Background Jets
@@ -143,26 +142,7 @@ class DataLoader:
                                                      step_size=self.specific_batch_size)
             return self.next_batch()
         self._current_index += 1
-        return batch
-
-    @staticmethod
-    def standardise_data(arr, cutoff=1.25):
-        """
-        Function to standardise the data by removing outliers and if the maximum value in the array is 
-        greater than 10 to take the log10 of the data. The outlier removal is done by calculating the 
-        interquartile range and setting all data falling outside of the the iqr * cutoff to an upper
-        """
-        lower_qtl, upper_qtl = np.percentile(arr, 10), np.percentile(arr, 90)
-        iqr = upper_qtl - lower_qtl
-        cut_off = iqr * cutoff
-        lower, upper =  upper_qtl - cut_off, lower_qtl + cut_off                
-        arr = np.where(arr < upper, arr, upper)
-        arr = np.where(arr > lower, arr, lower)
-
-        if np.max(arr) > 10:
-                arr = np.ma.log10(arr)
-                arr = arr.filled(0)
-        return arr
+        return batch    
 
     def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=10, shuffle_var=None):
         """
@@ -177,14 +157,16 @@ class DataLoader:
         """
         variables = self._variables_dict[variable_type]
         np_arrays = np.zeros((ak.num(batch[variables[0]], axis=0), len(variables), max_items))
-        dummy_val = -4.0
+        dummy_val = -1
         for i, variable in enumerate(variables):
             ak_arr = batch[variable]
             ak_arr = ak.pad_none(ak_arr, max_items, clip=True, axis=1)
             arr = ak.to_numpy(abs(ak_arr)).filled(dummy_val)
             if variable == shuffle_var:
                 np.random.shuffle(arr)            
-            np_arrays[:, i] = self.standardise_data(arr)
+            if np.max(arr) > 10:
+                arr = np.ma.log10(arr)
+                arr = arr.filled(-1)
         np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float32")
         return np_arrays
 
@@ -205,7 +187,9 @@ class DataLoader:
             arr = ak.to_numpy(abs(ak_arr))
             if variable == shuffle_var:
                 np.random.shuffle(arr)
-            np_arrays[:, i] = self.standardise_data(arr)
+            if np.max(arr) > 10:
+                arr = np.ma.log10(arr)
+                arr = arr.filled(-1)
         np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float32")
         return np_arrays
 
