@@ -45,7 +45,7 @@ def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas="ROC.png"):
 	plt.plot(eff, rej)#, label='AUC (area = {:.3f})'.format(auc_keras))
 	plt.xlabel('Signal Efficiency')
 	plt.ylabel('Background Rejection')
-	plt.ylim(1e0, 1e6)
+	plt.ylim(1e0, 1e4)
 	plt.yscale("log")
 	plt.savefig(saveas)
 	plt.title(title, loc='right', fontsize=5)
@@ -83,32 +83,41 @@ def make_confusion_matrix(prediction, truth, weights=None):
 		cm[pred_max_idx][truth_max_idx] += weight
 	return cm
 
+def get_diag_score(conf_matrix, del_first=False):
 
+	if del_first:
+		np.delete(conf_matrix, 0, axis=0)
+		np.delete(conf_matrix, 0, axis=1)
+
+	return np.trace(conf_matrix) / conf_matrix.shape[0]
+	
 def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None, title="", no_jets=False):
 	"""
 	Function to plot confusion matrix
-
+	Makes two plots:
+		One where columns are normalised to unity (Each cell corresponds to purity)
+		One where rows are normalised to unity (Each cell corresponds to efficiency)
+	
 	:param y_pred: Array of neural network predictions
 	:param y_true: Correspondin array of truth data
 	:param prong (optional, default=None): Number of prongs - determines the axis labels
 	leave as None if you are classifiying 1 and 3 prongs together 
 	:param weights (optional, default=None): An array of weights the same length and y_true and y_pred
+	:param saveas (optional, default=None): A filepath to save to
+	:param title (optional, default=""): Title of the plot
+	:param no_jets (optional, default=False): If True exclude jet catagory from plotting
 	"""
 
 	conf_matrix = make_confusion_matrix(y_pred, y_true, weights)
 
-	if weights is None:
-		weights = np.ones_like(y_true)
+	# Normalise entries to unity
+	purity_matrix = conf_matrix / conf_matrix.sum(axis=0, keepdims=1)        # nomalise columns to unity
+	efficiency_matrix = conf_matrix / conf_matrix.sum(axis=1, keepdims=1)    # nomalise rows to unity
+	
+	efficiency_matrix = np.nan_to_num(efficiency_matrix, posinf=0, neginf=0, copy=False).astype("float32")
+	purity_matrix = np.nan_to_num(purity_matrix, posinf=0, neginf=0, copy=False).astype("float32")
 
-	# Normalise entries to total amount of each class
-	for i in range(0, y_pred.shape[1]):
-		class_truth_total = np.sum(y_true[:, i])
-		if class_truth_total == 0:
-			class_truth_total = 1  # For if we have a dummy class still get nice plot
-		conf_matrix[:, i] = conf_matrix[:, i] / class_truth_total
-
-	fig = plt.figure()
-
+	fig, (ax1, ax2) = plt.subplots(1,2, figsize=(35,15))
 
 	labels = ["jets", "1p0n", "1p1n", "1pxn", "3p0n", "3pxn"]
 	if prong == 1:
@@ -120,15 +129,23 @@ def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None,
 
 	xticklabels = labels
 	yticklabels = labels
-	ax = sns.heatmap(conf_matrix, annot=True, cmap="Oranges", xticklabels=xticklabels, yticklabels=yticklabels,
-						fmt=".2", vmin=0, vmax=1)
-	plt.xlabel("Truth")
-	plt.ylabel("Prediction")
-	ax.set_title(title, loc='right', fontsize=5)
+	sns.heatmap(efficiency_matrix, annot=True, cmap="Oranges", xticklabels=xticklabels, yticklabels=yticklabels,
+						fmt=".2", vmin=0, vmax=1, ax=ax1, annot_kws={"size": 35 / np.sqrt(len(efficiency_matrix))},)
+	sns.heatmap(purity_matrix, annot=True, cmap="Oranges", xticklabels=xticklabels, yticklabels=yticklabels,
+						fmt=".2", vmin=0, vmax=1, ax=ax2, annot_kws={"size": 35 / np.sqrt(len(purity_matrix))},)
+	sns.set(font_scale=8) 
+	ax1.set_xlabel("Truth", fontsize=18)
+	ax1.set_ylabel("Prediction", fontsize=18)
+	ax2.set_xlabel("Truth", fontsize=18)
+	ax2.set_ylabel("Prediction", fontsize=18)
+	ax1.set_title(f"Diagonal Score = {get_diag_score(efficiency_matrix):.2f} Efficiency: {title}", loc='right', fontsize=12)
+	ax2.set_title(f"Diagonal Score = {get_diag_score(purity_matrix):.2f} Purity: {title}", loc='right', fontsize=12)
 	if saveas is None:
 		plt.savefig(os.path.join("plots", "confusion_matrix.png"))
 	else:
 		plt.savefig(saveas)
 	plt.show()
 	plt.close(fig)
+
+	return np.trace(purity_matrix) / purity_matrix.shape[0]
 

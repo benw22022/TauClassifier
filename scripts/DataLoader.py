@@ -5,6 +5,7 @@ A helper class and ray actor to generate batches of data from a set of root file
 transformations to the data and computes the class labels.
 """
 
+import sys
 import math
 import os.path
 import awkward as ak
@@ -14,7 +15,7 @@ import ray
 import gc
 import numba as nb
 # from scripts.preprocessing import reweighter
-from scripts.utils import logger
+from scripts.utils import logger, profile_memory
 from config.config import models_dict
 from sklearn.ensemble import IsolationForest
 
@@ -164,9 +165,7 @@ class DataLoader:
             arr = ak.to_numpy(abs(ak_arr)).filled(dummy_val)
             if variable == shuffle_var:
                 np.random.shuffle(arr)            
-            if np.max(arr) > 10:
-                arr = np.ma.log10(arr)
-                arr = arr.filled(-1)
+            np_arrays[:, i] = arr
         np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float32")
         return np_arrays
 
@@ -187,9 +186,7 @@ class DataLoader:
             arr = ak.to_numpy(abs(ak_arr))
             if variable == shuffle_var:
                 np.random.shuffle(arr)
-            if np.max(arr) > 10:
-                arr = np.ma.log10(arr)
-                arr = arr.filled(-1)
+            np_arrays[:, i] = arr
         np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float32")
         return np_arrays
 
@@ -314,21 +311,23 @@ class DataLoader:
 
         return y_pred, y_true, weights
 
-def update_ntuples(self, model, model_config, model_weights):
-    """
-    Update the NTuples belongs to this DataLoader
-    """
+    def update_ntuples(self, model, model_config, model_weights):
+        """
+        Update the NTuples belonging to this DataLoader
+        """
 
-    for file in self.files:
-        y_pred, _, weights = self.predict(self, model, model_config, model_weights, file=file)
-        with uproot.update(self.file[0]) as ntuple:
-            logger.log(f"Writing predictions for {file} to NTuple")
-            ntuple['tree'] = ({"TauClassifier_jetScore": y_pred[:, 0],
-                                    "TauClassifier_1p0nScore": y_pred[:, 1],
-                                    "TauClassifier_1p1nScore": y_pred[:, 2],
-                                    "TauClassifier_1pxnScore": y_pred[:, 3],
-                                    "TauClassifier_3p0nScore": y_pred[:, 4],
-                                    "TauClassifier_3pxnScore": y_pred[:, 5],
-                                    "TauClassifier_weights": weights})
-
+        for file in self.files:
+            y_pred, _, weights = self.predict(self, model, model_config, model_weights, file=file)
+            with uproot.update(self.file[0]) as ntuple:
+                logger.log(f"Writing predictions for {file} to NTuple")
+                ntuple['tree'] = ({"TauClassifier_jetScore": y_pred[:, 0],
+                                        "TauClassifier_1p0nScore": y_pred[:, 1],
+                                        "TauClassifier_1p1nScore": y_pred[:, 2],
+                                        "TauClassifier_1pxnScore": y_pred[:, 3],
+                                        "TauClassifier_3p0nScore": y_pred[:, 4],
+                                        "TauClassifier_3pxnScore": y_pred[:, 5],
+                                        "TauClassifier_weights": weights})
+    
+    def get_memory_profile(self):
+        return profile_memory(self)
             

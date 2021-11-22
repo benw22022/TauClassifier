@@ -15,9 +15,10 @@ import numpy as np
 import tensorflow as tf
 from scripts.DataLoader import DataLoader
 from plotting.plotting_functions import plot_confusion_matrix, plot_ROC
-from scripts.utils import logger
+from scripts.utils import logger, profile_memory
 from config.config import models_dict
 from tqdm import tqdm
+from tabulate import tabulate
 from scripts.preprocessing import standardise_data
 
 class DataGenerator(tf.keras.utils.Sequence):
@@ -129,13 +130,13 @@ class DataGenerator(tf.keras.utils.Sequence):
         else:
             batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
 
-        track_array = np.concatenate([result[0][0] for result in batch])
-        neutral_pfo_array = np.concatenate([result[0][1] for result in batch])
-        shot_pfo_array = np.concatenate([result[0][2] for result in batch])
-        conv_track_array = np.concatenate([result[0][3] for result in batch])
-        jet_array = np.concatenate([result[0][4] for result in batch])
-        label_array = np.concatenate([result[1] for result in batch])
-        weight_array = np.concatenate([result[2] for result in batch])
+        track_array = standardise_data(np.concatenate([result[0][0] for result in batch]))
+        neutral_pfo_array = standardise_data(np.concatenate([result[0][1] for result in batch]))
+        shot_pfo_array = standardise_data(np.concatenate([result[0][2] for result in batch]))
+        conv_track_array = standardise_data(np.concatenate([result[0][3] for result in batch]))
+        jet_array = standardise_data(np.concatenate([result[0][4] for result in batch]))
+        label_array = standardise_data(np.concatenate([result[1] for result in batch]))
+        weight_array = standardise_data(np.concatenate([result[2] for result in batch]))
         
         if isinstance(shuffle_var, tuple):
             if shuffle_var[0] == "TauJets":
@@ -345,6 +346,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         :return:
         """
         self.reset_generator()
+        self.profile_dataloader_memory()
 
     def number_events(self):
         return self._total_num_events
@@ -359,3 +361,11 @@ class DataGenerator(tf.keras.utils.Sequence):
             logger.log(f"Bad value in {name}", "ERROR")
             logger.log(f"The ar")
             raise ValueError
+    
+    def profile_dataloader_memory(self):
+        mem_profiles = ray.get([dl.get_memory_profile.remote() for dl in self.data_loaders])
+        logger.log("DataLoader memory profiles", 'DEBUG')
+        for mem_dict in mem_profiles:
+            for key, value in mem_dict.items():
+                logger.log(f"{key}      {value}", 'DEBUG') 
+            logger.log("\n")

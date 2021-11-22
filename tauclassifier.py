@@ -22,7 +22,6 @@ from run.plot_previous_results import plot_previous
 from run.plot_variables import plot_variables
 from scripts.utils import logger, get_best_weights, none_or_int, run_training_on_batch_system
 from config.config import models_dict
-import scratch
 
 # This is so that all our plot use the AGG backend - this will disable GUI plotting for saving straight to file
 # Should help avoid issues when working via ssh (I ran into ioctl issues)
@@ -35,8 +34,7 @@ def main():
     # Available options
 
     # 'train' - train model | 'evaluate' =  make npz files of predictions for test data | 'plot' - make performance plots
-    # 'scratch' - run a standalone testing script. We want to be able to run it from here so imports work properly
-    mode_list = ["train", "evaluate", "test", "rank", "scratch", "scan", "plot_previous", "plot_variables"]  
+    mode_list = ["train", "evaluate", "test", "rank", "scan", "plot_previous", "plot_variables"]  
 
     # Prong options: 1 - (p10n, 1p1n, 1pxn, jets) | 3 - (3p0n, 3pxn, jets) | None - (p10n, 1p1n, 1pxn, 3p0n, 3pxn, jets)
     prong_list = [1, 3, None]                                           
@@ -118,11 +116,7 @@ def main():
         plot_previous()
 
     if args.run_mode == 'plot_variables':
-        plot_variables()
-
-    # *Super* hacky way of running little standalone testing scripts 
-    if args.run_mode == 'scratch':
-        getattr(globals()[scratch], args.function)()   
+        plot_variables()  
     
     sys.exit(0)
         

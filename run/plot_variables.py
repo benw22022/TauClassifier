@@ -33,16 +33,13 @@ class Plotter:
         greater than 10 to take the log10 of the data. The outlier removal is done by calculating the 
         interquartile range and setting all data falling outside of the the iqr * cutoff to an upper
         """
-        lower_qtl, upper_qtl = np.percentile(arr, 10), np.percentile(arr, 90)
-        iqr = upper_qtl - lower_qtl
-        cut_off = iqr * cutoff
-        lower, upper  =  upper_qtl - cut_off, lower_qtl + cut_off                
-        arr = np.where(arr < upper, arr, upper)
-        arr = np.where(arr > lower, arr, lower)
+        upper_qtl = np.percentile(arr, 95)
+        # upper  =  upper_qtl * cutoff                
+        arr = np.where(arr < upper_qtl, arr, upper_qtl)
 
-        if np.max(arr) > 10:
-                arr = np.ma.log10(arr)
-                arr = arr.filled(0)
+        # if np.max(arr) > 10:
+        #         arr = np.ma.log10(arr)
+        #         arr = arr.filled(-1)
         return arr
 
     def plot(self, quantity, ax, bins=50):
@@ -50,11 +47,13 @@ class Plotter:
         data = data[quantity]
         if "TauJets" not in quantity:
             data = ak.pad_none(data, 10, clip=True, axis=1)
-            data = ak.to_numpy(abs(data)).filled(-1).ravel()
-        if np.max(data) > 10:
-            data = np.ma.log10(data)
-            data = data.filled(-1)
+            data = ak.to_numpy(abs(data)).filled(-1e12).ravel()
+        # if np.max(data) > 10:
+        #     data = np.ma.log10(data)
+        #     data = data.filled(-1)
+        data = self.standardise_data(data)
         ax.hist(data, bins=np.linspace(0, np.amax(data), 50), density=True, histtype='step', label=self.label, color=self.colour)
+        # ax.hist(data, bins=np.linspace(0, 0.00005, 500), density=True, histtype='step', label=self.label, color=self.colour)
 
 def plot_variable(plotters, quantity):
     """
@@ -98,11 +97,13 @@ def plot_variables():
     for key in variables_dictionary:
         variables_list += variables_dictionary[key]
 
+    plot_variable((tau_plotter, jet_plotter), "NeutralPFO.SECOND_ENG_DENS")
+
     # logger.log(f"Plotting {len(variables_list)} histograms comparing taus and jets")
     # for variable in tqdm(variables_list):
         # plot_variable((tau_plotter, jet_plotter), variable)
 
-    logger.log(f"Plotting {len(variables_list)}  histograms comparing tau decay modes")
-    logger.log(f"Plotting {len(variables_list)} histograms")
-    for variable in tqdm(variables_list):
-        plot_variable(dm_plotters, variable)
+    # logger.log(f"Plotting {len(variables_list)}  histograms comparing tau decay modes")
+    # logger.log(f"Plotting {len(variables_list)} histograms")
+    # for variable in tqdm(variables_list):
+    #     plot_variable(dm_plotters, variable)

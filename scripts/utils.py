@@ -23,6 +23,8 @@ import glob
 import numpy as np
 import tracemalloc
 import getpass
+from tabulate import tabulate
+import sys
 tracemalloc.start()
 
 
@@ -276,6 +278,48 @@ def none_or_int(value):
     if value == 'None':
         return None
     return int(value)
+
+def bytes_to_human(n_bytes):
+    """
+    Convert bytes to a human readable string
+    """
+    if n_bytes < 1e3:
+        return f"{n_bytes:.2f} B"
+    elif 1e3 <= n_bytes < 1e6:
+        return f"{n_bytes / 1e3:.2f} kB"
+    elif 1e6 <= n_bytes < 1e9:
+        return f"{n_bytes / 1e6:.2f} MB"
+    elif 1e9 <= n_bytes < 1e12:
+        return f"{n_bytes / 1e9:.2f} GB"
+    elif 1e12 <= n_bytes:
+        return f"{n_bytes / 1e9:.2f} TB"
+
+
+def profile_memory(obj, level='DEBUG'):
+    """
+    Get memory used by each class member
+    :param obj: A class instance to get memory profile of 
+    :param level (optional, default=DEBUG): Set logging level
+    """
+    members = [attr for attr in dir(obj) if not callable(getattr(obj, attr)) and not attr.startswith("__")]
+    memory_dict = dict.fromkeys(members)
+
+    for class_member in members:
+        member_memory = sys.getsizeof(getattr(obj, class_member))
+        memory_dict[class_member] = member_memory
+    total_memory = sum(memory_dict.values())
+
+    human_readable_mem_dict = memory_dict
+    for key in human_readable_mem_dict:
+        human_readable_mem_dict[key] = bytes_to_human(human_readable_mem_dict[key]) 
+
+    # logger.log(f"Memory profile for {obj}:", level=level)
+    # logger.log(f"{human_readable_mem_dict}")
+    # print(tabulate(human_readable_mem_dict, headers='keys'))
+    logger.log(f"Total memory consumed by {obj}: {total_memory / 1e9} GB", level=level)
+
+    return human_readable_mem_dict
+
 
 
 def run_training_on_batch_system(prong=None, log_level=None, model='DSNN', tf_log_level='2'):
