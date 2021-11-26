@@ -3,9 +3,11 @@ Development of a combined tau ID and tau decay mode classifier for ATLAS Tau Gro
 
 TODO: Write a better README!
 A work in progress - apologies for any confusing bits!
+Documentation is unfortunatly still lacking as I work out the best way to implement features 
+and fix bugs
 
 Code is run from the main steering script called tauclassifier.py
-Modes supported:
+Several running modes are supported, mainly:
 1. train: Runs the training of the neural network
 2. evaluate: Evalutes the predictions for all NTuples and stores the results to a npz file
 3. test: Plots confusion matrix and ROC curve for the testing data

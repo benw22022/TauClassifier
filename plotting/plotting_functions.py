@@ -117,7 +117,7 @@ def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None,
 	efficiency_matrix = np.nan_to_num(efficiency_matrix, posinf=0, neginf=0, copy=False).astype("float32")
 	purity_matrix = np.nan_to_num(purity_matrix, posinf=0, neginf=0, copy=False).astype("float32")
 
-	fig, (ax1, ax2) = plt.subplots(1,2, figsize=(35,15))
+	fig, (ax1, ax2) = plt.subplots(1,2, figsize=(40,15))
 
 	labels = ["jets", "1p0n", "1p1n", "1pxn", "3p0n", "3pxn"]
 	if prong == 1:
@@ -145,7 +145,8 @@ def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None,
 	else:
 		plt.savefig(saveas)
 	plt.show()
+	plt.clf()
 	plt.close(fig)
-
+	
 	return np.trace(purity_matrix) / purity_matrix.shape[0]
 

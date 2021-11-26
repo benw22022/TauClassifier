@@ -1,6 +1,6 @@
 """
 List of input variables from MxAODs
-TODO: Make this a yaml config file (Bad practice to use a .py file for configs)
+TODO: Make this better - maybe a python DataClass?
 """
 variables_dictionary = {"TauTracks": ["TauTracks.nInnermostPixelHits",
                                       "TauTracks.nPixelHits",
@@ -37,7 +37,8 @@ variables_dictionary = {"TauTracks": ["TauTracks.nInnermostPixelHits",
                                     "ShotPFO.detaECal",
                                     "ShotPFO.deta",
                                     "ShotPFO.pt",
-                                    "ShotPFO.jetpt"],
+                                    "ShotPFO.jetpt",
+                                    ],
 
                         "NeutralPFO": [
                                        "NeutralPFO.dphiECal",
@@ -78,60 +79,4 @@ variables_dictionary = {"TauTracks": ["TauTracks.nInnermostPixelHits",
                         "DecayMode": ["TauJets.truthDecayMode"],
                         "Prong": ["TauJets.truthProng"],
                         "Weight": ["TauJets.ptJetSeed"]}
-
-var_lims =  {"ConvTrack.d0SigTJVA" : 8,
-             "ConvTrack.d0TJVA" : 6,
-             "ConvTrack.deta" : 8,
-             "ConvTrack.detaECal" : 8,
-             "ConvTrack.dphi" : 8,
-             "ConvTrack.dphiECal" : 8,
-             "ConvTrack.jetpt" : 8,
-             "ConvTrack.pt": 15,
-             "ConvTrack.z0sinthetaSigTJVA": 15,
-             "ConvTrack.z0sinthetaTJVA": 15,
-             "NeutralPFO.CENTER_LAMBDA" : 15,
-             "NeutralPFO.DELTA_THETA" : 8,
-             "NeutralPFO.deta" : 3.5,
-             "NeutralPFO.detaECal" : 3.5,
-             "NeutralPFO.dphi" : 3.5,
-             "NeutralPFO.dphiECal" : 4,
-             "NeutralPFO.EM1CoreFrac" : 3,
-             "NeutralPFO.energy_EM1" : 25,
-             "NeutralPFO.energy_EM2" : 45,
-             "NeutralPFO.ENG_FRAC_CORE" : 5,
-             "NeutralPFO.FIRST_ETA" : 3,
-             "NeutralPFO.firstEtaWRTClusterPosition_EM1" : 45,
-             "NeutralPFO.firstEtaWRTClusterPosition_EM2" : 45,
-             "NeutralPFO.jetpt" : 35,
-             "NeutralPFO.LONGITUDINAL" : 2,
-             "NeutralPFO.NPosECells_EM1" : 15,
-             "NeutralPFO.NPosECells_EM2" : 15,
-             "NeutralPFO.pt" : 25,
-             "NeutralPFO.SECOND_ENG_DENS" : 30,
-             "NeutralPFO.SECOND_R" : 15,
-             "NeutralPFO.secondEtaWRTClusterPosition_EM1" : 15,
-             "NeutralPFO.secondEtaWRTClusterPosition_EM2" : 15,
-
-             "ShotPFO.deta" : 15,
-             "ShotPFO.detaECal" : 20,
-             "ShotPFO.dphi" : 10,
-             "ShotPFO.dphiECal" : 15,
-             "ShotPFO.jetpt" : 45,
-             "ShotPFO.pt" : 25,
-
-             "TauTracks.d0SigTJVA" : 30,
-             "TauTracks.d0TJVA" : 15,
-             "TauTracks.dEta" : 10,
-             "TauTracks.dPhi" : 10,
-             "TauTracks.nPixelHits" : 10,
-             "TauTracks.nSCTHits" : 15,
-             "TauTracks.pt" : 40,
-             "TauTracks.z0sinthetaSigTJVA" : 45,
-             "TauTracks.z0sinthetaTJVA" : 45
- }
-
-
-
-
-
 

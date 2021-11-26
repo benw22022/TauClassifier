@@ -4,17 +4,13 @@ ________________________________________________
 Script to run the neural network training
 """
 
-# Configure enviroment variables
 import os
-# Do these things first before importing
-# os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'    # Accelerated Linear Algebra (XLA) actually seems slower
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'                # Allow tensorflow to use more GPU VRAM
-
 import ray
 import glob
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
+import time
 from config.variables import variables_dictionary
 from scripts.DataGenerator import DataGenerator
 from config.files import training_files, validation_files, ntuple_dir
@@ -32,6 +28,7 @@ def train(args):
 
     # Set log levels
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level # Sets Tensorflow Logging Level
+    os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'       # Allow tensorflow to use more GPU VRAM
     logger.set_log_level(args.log_level)
 
     # Initialize ray
@@ -41,14 +38,23 @@ def train(args):
     if args.run_mode == 'scan':
         args.weights_save_dir = os.path.join("network_weights", "tmp")
 
-    # Remove old network weights
     old_weights = glob.glob(os.path.join(args.weights_save_dir, "*.h5"))
-    # If we're doing a learning rate scan only remove the temporary weights file
+    # If we're doing a learning rate scan remove network weights
     if args.run_mode == 'scan':
         old_weights = glob.glob(os.path.join("network_weights", "tmp", "*.h5"))
-    for file in old_weights:
-        os.remove(file)
-    logger.log(f"Removed old weight files from {args.weights_save_dir}")
+        for file in old_weights:
+            os.remove(file)
+        logger.log(f"Removed old weight files from {args.weights_save_dir}")
+    # Otherwise move old network weights to a backup directory (I've accidently deleted weights too many times!)
+    elif len(old_weights) > 0:
+        time_since_modification = os.path.getmtime(old_weights[0])
+        modification_time = time.strftime('%Y-%m-%d_%H.%M.%S', time.localtime(time_since_modification))
+        backup_dir = os.path.join(f"{os.path.dirname(old_weights[0])}", "backup",  modification_time)
+        os.mkdir(backup_dir)
+        for file in old_weights:
+            os.replace(file, os.path.join(backup_dir, file))
+        logger.log(f"Moved old weight files to {backup_dir}")
+
         
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Generators
@@ -88,33 +94,35 @@ def train(args):
     model.summary()
 
     # Compute class weights
-    logger.log("Computing class weights", 'INFO')
-    njets, n1p0n, n1p1n,  n1pxn, n3p0n, n3pxn = get_number_of_events(training_files)
-    total = njets + n1p0n + n1p1n + n1pxn + n3p0n + n3pxn
+    # logger.log("Computing class weights", 'INFO')
+    # njets, n1p0n, n1p1n,  n1pxn, n3p0n, n3pxn = get_number_of_events(training_files)
+    # total = njets + n1p0n + n1p1n + n1pxn + n3p0n + n3pxn
+    # n1prong = n1p0n + n1p1n + n1pxn
+    # n3prong = n3p0n + n3pxn 
 
-    weight_for_jets = (1 / njets) * (total / 2.0)
-    weight_for_1p0n = (1 / n1p0n) * (total / 2.0)
-    weight_for_1p1n = (1 / n1p1n) * (total / 2.0)
-    weight_for_1pxn = (1 / n1pxn) * (total / 2.0)
-    weight_for_3p0n = (1 / n3p0n) * (total / 2.0)
-    weight_for_3p1n = (1 / n3pxn) * (total / 2.0)
+    # weight_for_jets = (1 / njets) * (total / 2.0)
+    # weight_for_1p0n = (1 / n1prong) * (total / 2.0)
+    # weight_for_1p1n = (1 / n1prong) * (total / 2.0)
+    # weight_for_1pxn = (1 / n1prong) * (total / 2.0)
+    # weight_for_3p0n = (1 / n3prong) * (total / 2.0)
+    # weight_for_3p1n = (1 / n3prong) * (total / 2.0)
 
-    class_weight = {0: weight_for_jets,
-                    1: weight_for_1p0n,
-                    2: weight_for_1p1n,
-                    3: weight_for_1pxn,
-                    4: weight_for_3p0n,
-                    5: weight_for_3p1n,
-                    }
+    # class_weight = {0: weight_for_jets,
+    #                 1: weight_for_1p0n,
+    #                 2: weight_for_1p1n,
+    #                 3: weight_for_1pxn,
+    #                 4: weight_for_3p0n,
+    #                 5: weight_for_3p1n,
+    #                 }
 
-    # Assign output layer bias
-    model.layers[-1].bias.assign([np.log(njets / (total)),
-                                  np.log(n1p0n / (total)),
-                                  np.log(n1p1n / (total)),
-                                  np.log(n1pxn / (total)),
-                                  np.log(n3p0n / (total)),
-                                  np.log(n3pxn / (total)),
-                                  ])
+    # # Assign output layer bias
+    # model.layers[-1].bias.assign([np.log(njets / (total)),
+    #                               np.log(n1p0n / (total)),
+    #                               np.log(n1p1n / (total)),
+    #                               np.log(n1pxn / (total)),
+    #                               np.log(n3p0n / (total)),
+    #                               np.log(n3pxn / (total)),
+    #                               ])
 
 
     opt = tf.keras.optimizers.Adam(learning_rate=args.lr) # default lr = 1e-3
@@ -123,7 +131,7 @@ def train(args):
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
      Train Model
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    history = model.fit(training_batch_generator, epochs=100, callbacks=callbacks, class_weight=class_weight,
+    history = model.fit(training_batch_generator, epochs=100, callbacks=callbacks, #class_weight=class_weight,
                         validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
                         steps_per_epoch=len(training_batch_generator))
 

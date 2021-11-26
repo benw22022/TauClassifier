@@ -15,6 +15,7 @@ from config.variables import variables_dictionary
 from tqdm import tqdm
 from config.config import ntuple_dir
 from scripts.utils import logger
+from config.variablesMK2 import variable_handler
 
 
 class Plotter:
@@ -43,15 +44,15 @@ class Plotter:
         return arr
 
     def plot(self, quantity, ax, bins=50):
-        data = uproot.concatenate(self.file_list, filter_name=quantity, cut=self.cuts, library='ak')
-        data = data[quantity]
-        if "TauJets" not in quantity:
+        data = uproot.concatenate(self.file_list, filter_name=quantity.name, cut=self.cuts, library='ak')
+        data = data[quantity.name]
+        if "TauJets" not in quantity.name:
             data = ak.pad_none(data, 10, clip=True, axis=1)
             data = ak.to_numpy(abs(data)).filled(-1e12).ravel()
         # if np.max(data) > 10:
         #     data = np.ma.log10(data)
         #     data = data.filled(-1)
-        data = self.standardise_data(data)
+        data = quantity.standardise_data(data)
         ax.hist(data, bins=np.linspace(0, np.amax(data), 50), density=True, histtype='step', label=self.label, color=self.colour)
         # ax.hist(data, bins=np.linspace(0, 0.00005, 500), density=True, histtype='step', label=self.label, color=self.colour)
 
@@ -93,15 +94,20 @@ def plot_variables():
 
     dm_plotters = (plotter_1p0n, plotter_1p1n, plotter_1pXn, plotter_3p0n, plotter_3pXn)
 
-    variables_list = []
-    for key in variables_dictionary:
-        variables_list += variables_dictionary[key]
+    logger.log(f"Plotting {len(variable_handler)} histograms comparing taus and jets")
+    for variable in tqdm(variable_handler):
+        plot_variable((tau_plotter, jet_plotter), variable)
 
-    plot_variable((tau_plotter, jet_plotter), "NeutralPFO.SECOND_ENG_DENS")
+
+    # variables_list = []
+    # for key in variables_dictionary:
+    #     variables_list += variables_dictionary[key]
+
+    # # plot_variable((tau_plotter, jet_plotter), "NeutralPFO.SECOND_ENG_DENS")
 
     # logger.log(f"Plotting {len(variables_list)} histograms comparing taus and jets")
     # for variable in tqdm(variables_list):
-        # plot_variable((tau_plotter, jet_plotter), variable)
+    #     plot_variable((tau_plotter, jet_plotter), variable)
 
     # logger.log(f"Plotting {len(variables_list)}  histograms comparing tau decay modes")
     # logger.log(f"Plotting {len(variables_list)} histograms")

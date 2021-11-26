@@ -123,12 +123,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         """
 
         logger.timer_start()
-        batch = None
 
-        if isinstance(shuffle_var, str):
-            batch = ray.get([dl.get_batch.remote(shuffle_var=shuffle_var) for dl in self.data_loaders])
-        else:
-            batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
+        batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
 
         track_array = standardise_data(np.concatenate([result[0][0] for result in batch]))
         neutral_pfo_array = standardise_data(np.concatenate([result[0][1] for result in batch]))
@@ -245,19 +241,6 @@ class DataGenerator(tf.keras.utils.Sequence):
             np.savez(f"network_predictions/truth/{save_file}_truth.npz", y_true)
             np.savez(f"network_predictions/weights/{save_file}_weights.npz", weights)
             logger.log(f"Saved network predictions for {self._data_type}")
-    
-        # Plot confusion matrix if requested
-        if make_confusion_matrix:
-            cm_savefile = os.path.join("plots", "confusion_matrix.png")
-            title = f"Confusion Matrix:{self._weights}"
-            if shuffle_var != "":
-                # Special saveas for ranking
-                var_name = shuffle_var
-                if isinstance(shuffle_var, tuple):
-                    var_name = self._variables_dict[shuffle_var[0]][shuffle_var[1]]
-                cm_savefile = os.path.join("plots", "permutation_ranking", f"{var_name}_shuffled_confusion_matrix.png")
-                title = f"{var_name} - {title}"
-            plot_confusion_matrix(y_pred, y_true, prong=self.prong, weights=weights, saveas=cm_savefile, title=title)
         
         # Plot ROC requested
         if make_roc:
@@ -274,7 +257,19 @@ class DataGenerator(tf.keras.utils.Sequence):
             pred_jets = y_pred[:, 0]
             plot_ROC(1 - true_jets, 1 - pred_jets, weights=weights, title="ROC Curve: Tau-Jets",
             		 saveas=roc_savefile, )
-
+        
+        # Plot confusion matrix if requested
+        if make_confusion_matrix:
+            cm_savefile = os.path.join("plots", "confusion_matrix.png")
+            title = f"Confusion Matrix:{self._weights}"
+            if shuffle_var != "":
+                # Special saveas for ranking
+                var_name = shuffle_var
+                if isinstance(shuffle_var, tuple):
+                    var_name = self._variables_dict[shuffle_var[0]][shuffle_var[1]]
+                cm_savefile = os.path.join("plots", "permutation_ranking", f"{var_name}_shuffled_confusion_matrix.png")
+                title = f"{var_name} - {title}"
+            plot_confusion_matrix(y_pred, y_true, prong=self.prong, weights=weights, saveas=cm_savefile, title=title)
 
         # Reset the generator
         self.reset_generator()
@@ -367,5 +362,4 @@ class DataGenerator(tf.keras.utils.Sequence):
         logger.log("DataLoader memory profiles", 'DEBUG')
         for mem_dict in mem_profiles:
             for key, value in mem_dict.items():
-                logger.log(f"{key}      {value}", 'DEBUG') 
-            logger.log("\n")
+                logger.log(f"{key}      {value}", 'DEBUG')
