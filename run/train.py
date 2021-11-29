@@ -11,13 +11,15 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 import time
-from config.variables import variables_dictionary
+from config.variablesMK2 import variable_handler
 from scripts.DataGenerator import DataGenerator
 from config.files import training_files, validation_files, ntuple_dir
 from model.callbacks import ParallelModelCheckpoint
 from scripts.utils import logger, get_number_of_events
 from config.config import config_dict, get_cuts, models_dict
 from scripts.preprocessing import Reweighter
+import shutil
+
 
 
 def train(args):
@@ -50,9 +52,12 @@ def train(args):
         time_since_modification = os.path.getmtime(old_weights[0])
         modification_time = time.strftime('%Y-%m-%d_%H.%M.%S', time.localtime(time_since_modification))
         backup_dir = os.path.join(f"{os.path.dirname(old_weights[0])}", "backup",  modification_time)
-        os.mkdir(backup_dir)
+        try:
+            os.mkdir(backup_dir)
+        except FileExistsError:
+            pass
         for file in old_weights:
-            os.replace(file, os.path.join(backup_dir, file))
+            shutil.move(file, os.path.join(backup_dir, os.path.basename(file)))
         logger.log(f"Moved old weight files to {backup_dir}")
 
         
@@ -64,10 +69,10 @@ def train(args):
 
     cuts = get_cuts(args.prong)
 
-    training_batch_generator = DataGenerator(training_files, variables_dictionary, nbatches=100, cuts=cuts,
+    training_batch_generator = DataGenerator(training_files, variable_handler, nbatches=100, cuts=cuts,
                                              reweighter=reweighter, prong=args.prong, label="Training Generator")
 
-    validation_batch_generator = DataGenerator(validation_files, variables_dictionary, nbatches=50, cuts=cuts,
+    validation_batch_generator = DataGenerator(validation_files, variable_handler, nbatches=50, cuts=cuts,
                                                reweighter=reweighter, prong=args.prong, label="Validation Generator")
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -94,26 +99,26 @@ def train(args):
     model.summary()
 
     # Compute class weights
-    # logger.log("Computing class weights", 'INFO')
-    # njets, n1p0n, n1p1n,  n1pxn, n3p0n, n3pxn = get_number_of_events(training_files)
-    # total = njets + n1p0n + n1p1n + n1pxn + n3p0n + n3pxn
-    # n1prong = n1p0n + n1p1n + n1pxn
-    # n3prong = n3p0n + n3pxn 
+    logger.log("Computing class weights", 'INFO')
+    njets, n1p0n, n1p1n,  n1pxn, n3p0n, n3pxn = get_number_of_events(training_files)
+    total = njets + n1p0n + n1p1n + n1pxn + n3p0n + n3pxn
+    n1prong = n1p0n + n1p1n + n1pxn
+    n3prong = n3p0n + n3pxn 
 
-    # weight_for_jets = (1 / njets) * (total / 2.0)
-    # weight_for_1p0n = (1 / n1prong) * (total / 2.0)
-    # weight_for_1p1n = (1 / n1prong) * (total / 2.0)
-    # weight_for_1pxn = (1 / n1prong) * (total / 2.0)
-    # weight_for_3p0n = (1 / n3prong) * (total / 2.0)
-    # weight_for_3p1n = (1 / n3prong) * (total / 2.0)
+    weight_for_jets = (1 / njets) * (total / 2.0)
+    weight_for_1p0n = (1 / n1prong) * (total / 2.0)
+    weight_for_1p1n = (1 / n1prong) * (total / 2.0)
+    weight_for_1pxn = (1 / n1prong) * (total / 2.0)
+    weight_for_3p0n = (1 / n3prong) * (total / 2.0)
+    weight_for_3p1n = (1 / n3prong) * (total / 2.0)
 
-    # class_weight = {0: weight_for_jets,
-    #                 1: weight_for_1p0n,
-    #                 2: weight_for_1p1n,
-    #                 3: weight_for_1pxn,
-    #                 4: weight_for_3p0n,
-    #                 5: weight_for_3p1n,
-    #                 }
+    class_weight = {0: weight_for_jets,
+                    1: weight_for_1p0n,
+                    2: weight_for_1p1n,
+                    3: weight_for_1pxn,
+                    4: weight_for_3p0n,
+                    5: weight_for_3p1n,
+                    }
 
     # # Assign output layer bias
     # model.layers[-1].bias.assign([np.log(njets / (total)),

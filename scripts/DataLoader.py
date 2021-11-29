@@ -53,7 +53,7 @@ def labeler(truth_decay_mode_np_array, labels_np_array, prong=None):
 @ray.remote
 class DataLoader:
 
-    def __init__(self, data_type, files, class_label, nbatches, variables_dict, dummy_var="truthProng", cuts=None,
+    def __init__(self, data_type, files, class_label, nbatches, variable_handler, dummy_var="truthProng", cuts=None,
                  batch_size=None, prong=None, reweighter=None, label="Dataloader", no_gpu=False):
         """
         Class constructor for the DataLoader object. Object is decorated with @ray.remote for easy multiprocessing
@@ -88,7 +88,7 @@ class DataLoader:
         self.cut = cuts
         self._nbatches = nbatches
         self.class_label = class_label
-        self._variables_dict = variables_dict
+        self._variable_handler = variable_handler
         self._current_index = 0
         self._reweighter = reweighter
 
@@ -99,11 +99,6 @@ class DataLoader:
             self._nclasses = 4  # [1p0n, 1p1n, 1pxn, jets]
         elif prong == 3:
             self._nclasses = 3  # [3p0n, 3pxn, jets]
-
-        # Parse variables
-        self._variables_list = []
-        for _, variable_list in variables_dict.items():
-            self._variables_list += variable_list
 
         # Work out how many events there in the sample by loading up a small array
         test_arr = uproot.concatenate(self.files, filter_name="TauJets." + self.dummy_var, cut=self.cut, library='np')
@@ -116,12 +111,12 @@ class DataLoader:
             self.specific_batch_size = batch_size
 
         # Setup the iterator
-        self._batches_generator = uproot.iterate(self.files, filter_name=self._variables_list, cut=self.cut,
+        self._batches_generator = uproot.iterate(self.files, filter_name=self._variable_handler.list(), cut=self.cut,
                                                  step_size=self.specific_batch_size)
 
         # Work out the number of batches there are in the generator
         self._num_real_batches = 0
-        for _ in uproot.iterate(self.files, filter_name=self._variables_list[0], cut=self.cut,
+        for _ in uproot.iterate(self.files, filter_name="TauJets." + self.dummy_var, cut=self.cut,
                                 step_size=self.specific_batch_size):
             self._num_real_batches += 1
 
@@ -139,7 +134,7 @@ class DataLoader:
         try:
             batch = next(self._batches_generator)
         except StopIteration:
-            self._batches_generator = uproot.iterate(self.files, filter_name=self._variables_list, cut=self.cut,
+            self._batches_generator = uproot.iterate(self.files, filter_name=self._variable_handler.list(), cut=self.cut,
                                                      step_size=self.specific_batch_size)
             return self.next_batch()
         self._current_index += 1
@@ -156,14 +151,15 @@ class DataLoader:
         :return np_arrays: a rectilinear numpy array of shape:
                 (num events in batch, number of variables belonging to variable type, max_items)
         """
-        variables = self._variables_dict[variable_type]
-        np_arrays = np.zeros((ak.num(batch[variables[0]], axis=0), len(variables), max_items))
+        variables = self._variable_handler.get(variable_type)
+        np_arrays = np.zeros((ak.num(batch[variables[0].name], axis=0), len(variables), max_items))
         dummy_val = -1
         for i, variable in enumerate(variables):
-            ak_arr = batch[variable]
+            ak_arr = batch[variable.name]
             ak_arr = ak.pad_none(ak_arr, max_items, clip=True, axis=1)
             arr = ak.to_numpy(abs(ak_arr)).filled(dummy_val)
-            if variable == shuffle_var:
+            arr = variable.standardise(arr, dummy_val=dummy_val)
+            if variable.name == shuffle_var:
                 np.random.shuffle(arr)            
             np_arrays[:, i] = arr
         np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float32")
@@ -178,13 +174,14 @@ class DataLoader:
         :return: a rectilinear numpy array of shape:
                 (num events in batch, number of variables belonging to variable type)
         """
-        variables = self._variables_dict[variable_type]
-        np_arrays = np.zeros((ak.num(batch[variables[0]], axis=0), len(variables)))
+        variables = self._variable_handler.get(variable_type)
+        np_arrays = np.zeros((ak.num(batch[variables[0].name], axis=0), len(variables)))
 
         for i, variable in enumerate(variables):
-            ak_arr = batch[variable]
+            ak_arr = batch[variable.name]
             arr = ak.to_numpy(abs(ak_arr))
-            if variable == shuffle_var:
+            arr = variable.standardise(arr)
+            if variable.name == shuffle_var:
                 np.random.shuffle(arr)
             np_arrays[:, i] = arr
         np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float32")
@@ -211,13 +208,13 @@ class DataLoader:
         if self.class_label == 0:
             labels_np_array[:, 0] = 1
         else:
-            truth_decay_mode_np_array = ak.to_numpy(batch[self._variables_dict["DecayMode"]]).astype(np.int64)
+            truth_decay_mode_np_array = ak.to_numpy(batch["TauJets.truthDecayMode"]).astype(np.int64)
             labels_np_array = labeler(truth_decay_mode_np_array, labels_np_array, prong=self._prong)
 
         # Apply pT re-weighting
         weight_np_array = np.ones(len(labels_np_array))
         if self.class_label == 0:
-            weight_np_array = self._reweighter.reweight(ak.to_numpy(batch[self._variables_dict["Weight"]]).astype("float32"))
+            weight_np_array = self._reweighter.reweight(ak.to_numpy(batch["TauJets.ptJetSeed"]).astype("float32"))
 
         result = ((track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays),
                   labels_np_array, weight_np_array)
@@ -230,7 +227,7 @@ class DataLoader:
         :return:
         """
         self._current_index = 0
-        self._batches_generator = uproot.iterate(self.files, filter_name=self._variables_list, cut=self.cut,
+        self._batches_generator = uproot.iterate(self.files, filter_name=self._variable_handler.list(), cut=self.cut,
                                                  library='ak', step_size=self.specific_batch_size)        
         gc.collect()
 
@@ -242,7 +239,7 @@ class DataLoader:
         :param file (str): file path to an NTuple
         :param cut (str: optional - default=None): A string defining cuts
         """
-        self._batches_generator = uproot.iterate(file, filter_name=self._variables_list, cut=cut,
+        self._batches_generator = uproot.iterate(file, filter_name=self._variable_handler.list(), cut=cut,
                                                  library='ak', step_size=self.specific_batch_size)
 
     def num_events(self):

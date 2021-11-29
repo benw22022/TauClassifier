@@ -321,6 +321,12 @@ def profile_memory(obj, level='DEBUG'):
     return human_readable_mem_dict
 
 
+# def make_run_card(args):
+
+#     with open(os.path.join(f"{args.weights_save_dir}", "MetaData.dat"), 'w') as file:
+#         file.write("")
+#         pass
+        
 
 def run_training_on_batch_system(prong=None, log_level=None, model='DSNN', tf_log_level='2'):
     """

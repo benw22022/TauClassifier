@@ -7,8 +7,6 @@ TODO: Make this generalisable to different problems
 """
 
 import os
-import datetime
-import time
 import gc
 import ray  
 import numpy as np
@@ -18,12 +16,11 @@ from plotting.plotting_functions import plot_confusion_matrix, plot_ROC
 from scripts.utils import logger, profile_memory
 from config.config import models_dict
 from tqdm import tqdm
-from tabulate import tabulate
-from scripts.preprocessing import standardise_data
+
 
 class DataGenerator(tf.keras.utils.Sequence):
 
-    def __init__(self, file_handler_list, variables_dict, nbatches=1000, cuts=None, label="DataGenerator", reweighter=None,
+    def __init__(self, file_handler_list, variable_handler, nbatches=1000, cuts=None, label="DataGenerator", reweighter=None,
                 prong=None, no_gpu=False, _benchmark=False):
         """
         Class constructor for DataGenerator. Inherits from keras.utils.Sequence. When passed to model.fit(...) loads a
@@ -67,10 +64,10 @@ class DataGenerator(tf.keras.utils.Sequence):
         self._weights = ""
 
         # Organise a list of all variables
-        self._variables_dict = variables_dict
+        self._variable_handler = variable_handler
         self._variables_list = []
-        for _, variable_list in variables_dict.items():
-            self._variables_list += variable_list
+        # for _, variable_list in variables_dict.items():
+        #     self._variables_list += variable_list
 
         # Initialize ray actors from FileHandlers, variables_dict and cuts
         for file_handler in self._file_handlers:
@@ -80,7 +77,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 dl_label = file_handler.label + "_" + self.label
                 file_list = file_handler.file_list
                 class_label = file_handler.class_label
-                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variables_dict, cuts=self.cuts[file_handler.label],
+                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
                                                     label=label, prong=prong, reweighter=reweighter)
                 self.data_loaders.append(dl)
 
@@ -88,7 +85,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 dl_label = file_handler.label + "_" + self.label
                 file_list = file_handler.file_list
                 class_label = file_handler.class_label
-                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variables_dict, prong=prong, label=dl_label, reweighter=reweighter)
+                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
                 self.data_loaders.append(dl)
 
         # Get number of events in each dataset
@@ -126,13 +123,13 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
 
-        track_array = standardise_data(np.concatenate([result[0][0] for result in batch]))
-        neutral_pfo_array = standardise_data(np.concatenate([result[0][1] for result in batch]))
-        shot_pfo_array = standardise_data(np.concatenate([result[0][2] for result in batch]))
-        conv_track_array = standardise_data(np.concatenate([result[0][3] for result in batch]))
-        jet_array = standardise_data(np.concatenate([result[0][4] for result in batch]))
-        label_array = standardise_data(np.concatenate([result[1] for result in batch]))
-        weight_array = standardise_data(np.concatenate([result[2] for result in batch]))
+        track_array = np.concatenate([result[0][0] for result in batch])
+        neutral_pfo_array = np.concatenate([result[0][1] for result in batch])
+        shot_pfo_array = np.concatenate([result[0][2] for result in batch])
+        conv_track_array = np.concatenate([result[0][3] for result in batch])
+        jet_array = np.concatenate([result[0][4] for result in batch])
+        label_array = np.concatenate([result[1] for result in batch])
+        weight_array = np.concatenate([result[2] for result in batch])
         
         if isinstance(shuffle_var, tuple):
             if shuffle_var[0] == "TauJets":
