@@ -5,7 +5,6 @@ A helper class and ray actor to generate batches of data from a set of root file
 transformations to the data and computes the class labels.
 """
 
-import sys
 import math
 import os.path
 import awkward as ak
@@ -14,10 +13,8 @@ import uproot
 import ray
 import gc
 import numba as nb
-# from scripts.preprocessing import reweighter
 from scripts.utils import logger, profile_memory
 from config.config import models_dict
-from sklearn.ensemble import IsolationForest
 
 
 @nb.njit()
@@ -218,8 +215,10 @@ class DataLoader:
 
         result = ((track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays),
                   labels_np_array, weight_np_array)
-
-        return result
+        try:
+            return result
+        finally:
+            del result
 
     def reset_dataloader(self):
         """

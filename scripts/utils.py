@@ -8,7 +8,6 @@ logger: a global instance of Logger shared between all code
 FileHandler: A class to make the handling of file list easier
 """
 
-import re
 import time
 import uproot
 from tqdm import tqdm
@@ -119,6 +118,30 @@ class Logger:
 
 # Initialize logger as global variable
 logger = Logger()
+
+class TermLogger:
+    """
+    Class for logging stdout to a log file
+    """
+    def __init__(self):
+        self.terminal = sys.stdout
+        time_now = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
+        with open(os.path.join("logs", f"{time_now}.log"), "w") as file:
+            file.write(f"Log file automatically generated on {time_now}\n")
+        self.log = open(os.path.join("logs", f"{time_now}.log"), "a")
+   
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(f"{message}")  
+
+    def flush(self):
+        # this flush method is needed for python 3 compatibility.
+        # this handles the flush command by doing nothing.
+        # you might want to specify some extra behavior here.
+        pass 
+
+sys.stdout = TermLogger()
+
 
 class FileHandler:
     """
@@ -321,11 +344,30 @@ def profile_memory(obj, level='DEBUG'):
     return human_readable_mem_dict
 
 
-# def make_run_card(args):
+def make_run_card(args):
 
-#     with open(os.path.join(f"{args.weights_save_dir}", "MetaData.dat"), 'w') as file:
-#         file.write("")
-#         pass
+    now = datetime.now()
+
+    dirname = os.path.dirname(__file__)
+    train_script = os.path.join(dirname, "run", "train.py")
+
+    with open(os.path.join(f"{args.weights_save_dir}", "MetaData.dat"), 'w') as file:
+        file.write("Training config")
+        file.write(now.strftime("%d/%m/%Y %H:%M:%S"))
+        file.write("\n")
+        file.write(args.run_mode)
+        file.write(f"Prong arguement is {args.prong}")
+        file.write(f"Learning rate: {args.lr}")
+        file.write(f"Model weights saved to {args.weights_save_dir}")
+        file.write("Training script run is: \n")
+        with open(train_script, 'r') as script: 
+            for line in script: 
+                file.write(line)
+
+        file.write("\n\n")
+        file.write("Model config is: ")
+
+        
         
 
 def run_training_on_batch_system(prong=None, log_level=None, model='DSNN', tf_log_level='2'):

@@ -6,7 +6,7 @@ TODO: This should really be done using YAML - user shouldn't need to edit .py fi
 """
 
 import tensorflow as tf
-from config.variables import variables_dictionary
+from config.variables import variable_handler
 from model.models import ModelDSNN, SetTransformer
 
 # Directory pointing to the NTuples to train/test on
@@ -14,11 +14,11 @@ ntuple_dir = "../NTuples"
 
 # Bowen's DSNN config dictionary
 config_dict = {"shapes":
-				   {"TauTrack": (len(variables_dictionary["TauTracks"]),) + (10,),
-					"NeutralPFO": (len(variables_dictionary["NeutralPFO"]),) + (10,),
-					"ShotPFO": (len(variables_dictionary["ShotPFO"]),) + (10,),
-					"ConvTrack": (len(variables_dictionary["ConvTrack"]),) + (10,),
-					"TauJets": (len(variables_dictionary["TauJets"]),),
+				   {"TauTrack": (len(variable_handler.get("TauTracks")),) + (10,),
+					"NeutralPFO": (len(variable_handler.get("NeutralPFO")),) + (10,),
+					"ShotPFO": (len(variable_handler.get("ShotPFO")),) + (10,),
+					"ConvTrack": (len(variable_handler.get("ConvTrack")),) + (10,),
+					"TauJets": (len(variable_handler.get("TauJets")),),
 					},
 			   "n_tdd":
 				   {"TauTrack": 3,

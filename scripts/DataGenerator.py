@@ -106,7 +106,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         if prong == 3:
             self.nclasses = 3
 
-    def load_batch(self, shuffle_var=""):
+    def load_batch(self, shuffle_var=None):
         """
         Loads a batch of data from each DataLoader and concatenates them into single arrays for training
         :param shuffle_var: For doing permutation ranking. Set up is a tad confusing:
@@ -131,7 +131,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         label_array = np.concatenate([result[1] for result in batch])
         weight_array = np.concatenate([result[2] for result in batch])
         
-        if isinstance(shuffle_var, tuple):
+        if shuffle_var is not None:
             if shuffle_var[0] == "TauJets":
                 np.random.shuffle(jet_array[:, shuffle_var[1]])
             if shuffle_var[0] == "TauTracks":
@@ -168,7 +168,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.model.load_weights(model_weights)
         self._weights = model_weights
 
-    def predict(self, model=None, model_config=None, model_weights=None, save_predictions=False, shuffle_var="", make_confusion_matrix=False,
+    def predict(self, model=None, model_config=None, model_weights=None, save_predictions=False, shuffle_var=None, make_confusion_matrix=False,
                 make_roc=False):
         """
         Function to generate arrays of y_pred, y_true and weights given a network weight file
@@ -192,7 +192,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         # Initialise loss and accuracy classes
         cce_loss = tf.keras.losses.CategoricalCrossentropy()
-        acc_metric = tf.keras.metrics.Accuracy()
+        acc_metric = tf.keras.metrics.Accuracy() # TODO Yes I know the Acc is broken - need to fix it
 
         # Allocate arrays for y_pred, y_true and weights - multiply by -999 so mistakes are obvious
         y_pred = np.ones((self._total_num_events, self._nclasses), dtype='float32') * -999  
@@ -201,7 +201,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         losses = []
         nevents = 0
 
-        # Iterate through the DataLoader
+        # Iterate through the DataGenerator
         position = 0
         for _ in tqdm(range(self.__len__())):
             batch, truth_labels, batch_weights = self.load_batch(shuffle_var=shuffle_var)
@@ -226,7 +226,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         # Uproot splits the data files up into different numbers of chunks
         # This means that some events get truncated
         # There is no good way to calculate the true number of events outside of this loop
-        # So we make a gig enough array and then slice off the excess
+        # So we make a big enough array and then slice off the excess
         y_pred = y_pred[ :nevents]
         y_true = y_true[ :nevents]
         weights = weights[ :nevents]
@@ -239,11 +239,11 @@ class DataGenerator(tf.keras.utils.Sequence):
             np.savez(f"network_predictions/weights/{save_file}_weights.npz", weights)
             logger.log(f"Saved network predictions for {self._data_type}")
         
-        # Plot ROC requested
+        # Plot ROC if requested
         if make_roc:
             roc_savefile = os.path.join("plots", "ROC.png")
             title = f"ROC:{self._weights}"
-            if shuffle_var != "":
+            if shuffle_var is not None:
                 # Special saveas for ranking
                 var_name = shuffle_var
                 if isinstance(shuffle_var, tuple):
@@ -252,14 +252,14 @@ class DataGenerator(tf.keras.utils.Sequence):
                 title = f"{var_name} - {title}"
             true_jets = y_true[:, 0]
             pred_jets = y_pred[:, 0]
-            plot_ROC(1 - true_jets, 1 - pred_jets, weights=weights, title="ROC Curve: Tau-Jets",
-            		 saveas=roc_savefile, )
+            plot_ROC(1 - true_jets, 1 - pred_jets, weights=weights, title=title,
+            		 saveas=roc_savefile)
         
         # Plot confusion matrix if requested
         if make_confusion_matrix:
             cm_savefile = os.path.join("plots", "confusion_matrix.png")
             title = f"Confusion Matrix:{self._weights}"
-            if shuffle_var != "":
+            if shuffle_var is not None:
                 # Special saveas for ranking
                 var_name = shuffle_var
                 if isinstance(shuffle_var, tuple):

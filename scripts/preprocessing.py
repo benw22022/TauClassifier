@@ -12,7 +12,6 @@ from sklearn.preprocessing import StandardScaler
 import numba as nb
 import matplotlib.pyplot as plt
 from tensorflow.keras.layers.experimental import preprocessing
-from config.variables import variables_dictionary
 
 
 class Reweighter:

@@ -9,7 +9,7 @@ import ray
 import numpy as np
 from config.config import get_cuts, config_dict
 from scripts.utils import logger
-from config.variables import variables_dictionary
+from config.variables import variable_handler
 from config.files import gammatautau_files, jz_files, testing_files, ntuple_dir, all_files
 from scripts.DataLoader import DataLoader
 from scripts.preprocessing import Reweighter
@@ -60,7 +60,7 @@ def evaluate(args):
                 flabel = "JZ1" 
                 if "26443658" in file:
                     flabel = "Gammatautau"
-                dl = DataLoader.remote(file, [file], 1, nbatches, variables_dictionary, cuts=get_cuts(args.prong)[flabel], 
+                dl = DataLoader.remote(file, [file], 1, nbatches, variable_handler, cuts=get_cuts(args.prong)[flabel], 
                                     reweighter=reweighter, no_gpu=True)
                 dataloaders.append(dl)
         # Save predictions for each file in parallel

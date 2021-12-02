@@ -11,7 +11,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 import time
-from config.variablesMK2 import variable_handler
+from config.variables import variable_handler
 from scripts.DataGenerator import DataGenerator
 from config.files import training_files, validation_files, ntuple_dir
 from model.callbacks import ParallelModelCheckpoint
@@ -86,12 +86,12 @@ def train(args):
     # Configure callbacks
     early_stopping = tf.keras.callbacks.EarlyStopping(
         monitor="val_loss", min_delta=0.0001,
-        patience=10, verbose=0, restore_best_weights=True)
+        patience=5, verbose=0, restore_best_weights=True)
 
     model_checkpoint = ParallelModelCheckpoint(model, path=os.path.join(args.weights_save_dir, 'weights-{epoch:02d}.h5'),
                                                monitor="val_loss", save_best_only=True, save_weights_only=True)
 
-    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.4, patience=3, min_lr=4e-6)
+    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.9, patience=6, min_lr=4e-6)
 
     callbacks = [early_stopping, model_checkpoint, reduce_lr]
 
@@ -106,11 +106,11 @@ def train(args):
     n3prong = n3p0n + n3pxn 
 
     weight_for_jets = (1 / njets) * (total / 2.0)
-    weight_for_1p0n = (1 / n1prong) * (total / 2.0)
-    weight_for_1p1n = (1 / n1prong) * (total / 2.0)
-    weight_for_1pxn = (1 / n1prong) * (total / 2.0)
-    weight_for_3p0n = (1 / n3prong) * (total / 2.0)
-    weight_for_3p1n = (1 / n3prong) * (total / 2.0)
+    weight_for_1p0n = (1 / n1p0n) * (total / 2.0)
+    weight_for_1p1n = (1 / n1p1n) * (total / 2.0)
+    weight_for_1pxn = (1 / n1pxn) * (total / 2.0)
+    weight_for_3p0n = (1 / n3p0n) * (total / 2.0)
+    weight_for_3p1n = (1 / n3pxn) * (total / 2.0)
 
     class_weight = {0: weight_for_jets,
                     1: weight_for_1p0n,
@@ -121,13 +121,13 @@ def train(args):
                     }
 
     # # Assign output layer bias
-    # model.layers[-1].bias.assign([np.log(njets / (total)),
-    #                               np.log(n1p0n / (total)),
-    #                               np.log(n1p1n / (total)),
-    #                               np.log(n1pxn / (total)),
-    #                               np.log(n3p0n / (total)),
-    #                               np.log(n3pxn / (total)),
-    #                               ])
+    model.layers[-1].bias.assign([np.log(njets / (total)),
+                                  np.log(n1p0n / (total)),
+                                  np.log(n1p1n / (total)),
+                                  np.log(n1pxn / (total)),
+                                  np.log(n3p0n / (total)),
+                                  np.log(n3pxn / (total)),
+                                  ])
 
 
     opt = tf.keras.optimizers.Adam(learning_rate=args.lr) # default lr = 1e-3
@@ -136,7 +136,7 @@ def train(args):
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
      Train Model
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    history = model.fit(training_batch_generator, epochs=100, callbacks=callbacks, #class_weight=class_weight,
+    history = model.fit(training_batch_generator, epochs=200, callbacks=callbacks, class_weight=class_weight,
                         validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
                         steps_per_epoch=len(training_batch_generator))
 

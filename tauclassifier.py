@@ -16,7 +16,7 @@ import tensorflow as tf
 from run.train import train
 from run.evaluate import evaluate
 from run.permutation_rank import permutation_rank
-from run.testMK2 import test
+from run.test import test
 from run.lr_scan import lr_scan
 from run.plot_previous_results import plot_previous
 from run.plot_variables import plot_variables
@@ -92,6 +92,13 @@ def main():
     
     # If permutation ranking
     if args.run_mode == 'rank':
+          # Check that weights were given
+        if args.weights == "":
+            logger.log("You must specify a weights file!", 'ERROR')
+            sys.exit(1)
+        if not os.path.isfile(args.weights):
+            logger.log(f"Could not open weights file: {args.weights}", 'ERROR')
+            sys.exit(1)
         permutation_rank(args)
 
     # Make performance plots
