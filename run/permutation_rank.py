@@ -18,7 +18,7 @@ from config.variables import variable_handler
 
 class Ranker:
 
-    def __init__(args, var_handler):
+    def __init__(self, args, var_handler):
         # Initialize objects
         reweighter = Reweighter(ntuple_dir, prong=args.prong)
         cuts = get_cuts(args.prong)
@@ -29,7 +29,7 @@ class Ranker:
         self.batch_generator.load_model(args.model, config_dict, args.weights)
         _, _, _, self.baseline_loss, self.baseline_acc = self.batch_generator.predict(make_confusion_matrix=True)
 
-        logger.log(f"Baseline: Loss = {baseline_loss}   Accuracy = {baseline_acc}")
+        logger.log(f"Baseline: Loss = {self.baseline_loss}   Accuracy = {self.baseline_acc}")
 
         # Store results in this dict
         self.results_dict = {"Variable": [], "Loss": [], "Accuracy": []}
