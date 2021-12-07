@@ -14,7 +14,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from config.config import get_cuts
 from config.config import ntuple_dir
-from scripts.utils import logger
+from source.utils import logger
 from config.variables import variable_handler
 
 

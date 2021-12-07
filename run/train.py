@@ -7,18 +7,18 @@ Script to run the neural network training
 import os
 import ray
 import glob
+import time
+import shutil
+import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-import numpy as np
-import time
 from config.variables import variable_handler
-from scripts.DataGenerator import DataGenerator
 from config.files import training_files, validation_files, ntuple_dir
-from model.callbacks import ParallelModelCheckpoint
-from scripts.utils import logger, get_number_of_events
 from config.config import config_dict, get_cuts, models_dict
-from scripts.preprocessing import Reweighter
-import shutil
+from model.callbacks import ParallelModelCheckpoint
+from source.DataGenerator import DataGenerator
+from source.utils import logger, get_number_of_events
+from source.preprocessing import Reweighter
 
 
 

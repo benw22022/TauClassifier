@@ -4,12 +4,12 @@ ___________________________________________________________
 Plot confusion matrix and ROC curve using testing dataset
 """
 
-from scripts.utils import logger
 from config.files import testing_files, ntuple_dir
 from config.variables import variable_handler
 from config.config import config_dict, get_cuts
-from scripts.DataGenerator import DataGenerator
-from scripts.preprocessing import Reweighter
+from source.DataGenerator import DataGenerator
+from source.preprocessing import Reweighter
+from source.utils import logger
 
 def test(args):
 	"""

@@ -11,9 +11,9 @@ import gc
 import ray  
 import numpy as np
 import tensorflow as tf
-from scripts.DataLoader import DataLoader
+from source.DataLoader import DataLoader
 from plotting.plotting_functions import plot_confusion_matrix, plot_ROC
-from scripts.utils import logger, profile_memory
+from source.utils import logger, profile_memory
 from config.config import models_dict
 from tqdm import tqdm
 

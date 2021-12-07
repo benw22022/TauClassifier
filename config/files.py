@@ -8,8 +8,8 @@ TODO: Need a better way to split the data into train/test/val - just selecting r
 """
 
 from pathlib import Path
-from scripts.utils import logger
-from scripts.utils import FileHandler
+from source.utils import logger
+from source.utils import FileHandler
 from config.config import ntuple_dir
 
 gammatautau_files = FileHandler("Gammatautau", str(Path(f"{ntuple_dir}/*Gammatautau*/*.root")), class_label=1)

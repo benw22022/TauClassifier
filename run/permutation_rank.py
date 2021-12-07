@@ -9,10 +9,10 @@ compared to the base line the more important that variable is
 import ray
 import pandas as pd
 from config.files import testing_files, ntuple_dir
-from scripts.DataGenerator import DataGenerator
-from scripts.utils import logger
+from source.DataGenerator import DataGenerator
+from source.utils import logger
 from config.config import config_dict, get_cuts, models_dict
-from scripts.preprocessing import Reweighter
+from source.preprocessing import Reweighter
 from config.variables import variable_handler
 
 

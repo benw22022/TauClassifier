@@ -13,7 +13,7 @@ import uproot
 import ray
 import gc
 import numba as nb
-from scripts.utils import logger, profile_memory
+from source.utils import logger, profile_memory
 from config.config import models_dict
 
 
