@@ -34,7 +34,7 @@ def train(args):
     logger.set_log_level(args.log_level)
 
     # Initialize ray
-    ray.init(include_dashboard=True)
+    ray.init(include_dashboard=False)
 
     # If we're doing a learning rate scan save the models to tmp dir
     if args.run_mode == 'scan':
@@ -53,7 +53,7 @@ def train(args):
         modification_time = time.strftime('%Y-%m-%d_%H.%M.%S', time.localtime(time_since_modification))
         backup_dir = os.path.join(f"{os.path.dirname(old_weights[0])}", "backup",  modification_time)
         try:
-            os.mkdir(backup_dir)
+            os.makedirs(backup_dir)
         except FileExistsError:
             pass
         for file in old_weights:
@@ -86,12 +86,12 @@ def train(args):
     # Configure callbacks
     early_stopping = tf.keras.callbacks.EarlyStopping(
         monitor="val_loss", min_delta=0.0001,
-        patience=5, verbose=0, restore_best_weights=True)
+        patience=10, verbose=0, restore_best_weights=True)
 
     model_checkpoint = ParallelModelCheckpoint(model, path=os.path.join(args.weights_save_dir, 'weights-{epoch:02d}.h5'),
                                                monitor="val_loss", save_best_only=True, save_weights_only=True)
 
-    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.9, patience=6, min_lr=4e-6)
+    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.75, patience=3, min_lr=4e-6)
 
     callbacks = [early_stopping, model_checkpoint, reduce_lr]
 

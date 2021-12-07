@@ -22,7 +22,6 @@ import glob
 import numpy as np
 import tracemalloc
 import getpass
-from tabulate import tabulate
 import sys
 tracemalloc.start()
 

@@ -7,6 +7,7 @@ Writes out y_pred array for each NTuple into a .npz
 
 import ray
 import numpy as np
+import sys
 from config.config import get_cuts, config_dict
 from scripts.utils import logger
 from config.variables import variable_handler
@@ -14,6 +15,8 @@ from config.files import gammatautau_files, jz_files, testing_files, ntuple_dir,
 from scripts.DataLoader import DataLoader
 from scripts.preprocessing import Reweighter
 import glob
+from ray.util import inspect_serializability
+
 
 def split_list(alist, wanted_parts=1):
     """
@@ -34,7 +37,7 @@ def evaluate(args):
                  -ncores: Number of files to process in parallel
     """
     # Initialize Ray
-    ray.init()
+    # ray.init()
 
     # Load model
     model_config = config_dict
@@ -43,7 +46,7 @@ def evaluate(args):
     assert model_weights != "", logger.log("\nYou must specify a path to the model weights", 'ERROR')
 
     # Get files
-    files = glob.glob("../NTuples/*/*.root")#np.array([handler.file_list for handler in all_files]).flatten()
+    files = glob.glob("../NTuples/*/*.root")
     nbatches = 250
     
     # Split files into groups to speed things up, will process args.ncores files in parallel
@@ -60,10 +63,15 @@ def evaluate(args):
                 flabel = "JZ1" 
                 if "26443658" in file:
                     flabel = "Gammatautau"
-                dl = DataLoader.remote(file, [file], 1, nbatches, variable_handler, cuts=get_cuts(args.prong)[flabel], 
+                dl = DataLoader(file, [file], 1, nbatches, variable_handler, cuts=get_cuts(args.prong)[flabel], 
                                     reweighter=reweighter, no_gpu=True)
                 dataloaders.append(dl)
+                # inspect_serializability(dl)
         # Save predictions for each file in parallel
-        ray.get([dl.predict.remote(args.model, model_config, model_weights, save_predictions=True) for dl in dataloaders])
+        
         for dl in dataloaders:
-            ray.kill(dl)
+            dl.update_ntuples(args.model, model_config, model_weights)
+        # [dl.update_ntuples(args.model, model_config, model_weights) for dl in dataloaders]
+        # # ray.get([dl.predict(args.model, model_config, model_weights) for dl in dataloaders])
+        # for dl in dataloaders:
+        #     ray.kill(dl)

@@ -66,8 +66,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         # Organise a list of all variables
         self._variable_handler = variable_handler
         self._variables_list = []
-        # for _, variable_list in variables_dict.items():
-        #     self._variables_list += variable_list
 
         # Initialize ray actors from FileHandlers, variables_dict and cuts
         for file_handler in self._file_handlers:
@@ -130,7 +128,18 @@ class DataGenerator(tf.keras.utils.Sequence):
         jet_array = np.concatenate([result[0][4] for result in batch])
         label_array = np.concatenate([result[1] for result in batch])
         weight_array = np.concatenate([result[2] for result in batch])
-        
+
+        for i, variable in enumerate(self._variable_handler.get("TauTracks")):
+            track_array[:, i] = variable.standardise(track_array[:, i])
+        for i, variable in enumerate(self._variable_handler.get("ConvTrack")):
+            conv_track_array[:, i] = variable.standardise(conv_track_array[:, i])
+        for i, variable in enumerate(self._variable_handler.get("NeutralPFO")):
+            neutral_pfo_array[:, i] = variable.standardise(neutral_pfo_array[:, i])
+        for i, variable in enumerate(self._variable_handler.get("ShotPFO")):
+            shot_pfo_array[:, i] = variable.standardise(shot_pfo_array[:, i])
+        for i, variable in enumerate(self._variable_handler.get("TauJets")):
+            jet_array[:, i] = variable.standardise(jet_array[:, i])
+
         if shuffle_var is not None:
             if shuffle_var[0] == "TauJets":
                 np.random.shuffle(jet_array[:, shuffle_var[1]])
@@ -247,7 +256,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 # Special saveas for ranking
                 var_name = shuffle_var
                 if isinstance(shuffle_var, tuple):
-                    var_name = self._variables_dict[shuffle_var[0]][shuffle_var[1]]
+                    var_name = self._variable_handler.get(shuffle_var[0])[shuffle_var[1]].name
                 roc_savefile = os.path.join("plots", "permutation_ranking", f"{var_name}_shuffled_ROC.png")
                 title = f"{var_name} - {title}"
             true_jets = y_true[:, 0]
@@ -263,7 +272,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 # Special saveas for ranking
                 var_name = shuffle_var
                 if isinstance(shuffle_var, tuple):
-                    var_name = self._variables_dict[shuffle_var[0]][shuffle_var[1]]
+                    var_name = self._variable_handler.get(shuffle_var[0])[shuffle_var[1]].name
                 cm_savefile = os.path.join("plots", "permutation_ranking", f"{var_name}_shuffled_confusion_matrix.png")
                 title = f"{var_name} - {title}"
             plot_confusion_matrix(y_pred, y_true, prong=self.prong, weights=weights, saveas=cm_savefile, title=title)

@@ -6,7 +6,7 @@ batch and computes the network loss. The larger the difference in loss
 compared to the base line the more important that variable is
 """
 
-import os
+import ray
 import pandas as pd
 from config.files import testing_files, ntuple_dir
 from scripts.DataGenerator import DataGenerator
@@ -38,15 +38,15 @@ class Ranker:
         logger.log("Begining permutation variable ranking...")
 
 
-    def rank(self, var_handler, var_type):
-        for idx, variable in enumerate(var_handler.get(var_type)):
-            _, _, _, loss, acc = testing_batch_generator.predict(shuffle_var=(var_type, idx), make_confusion_matrix=True)
+    def rank(self, var_type):
+        for idx, variable in enumerate(self.var_handler.get(var_type)):
+            _, _, _, loss, acc = self.batch_generator.predict(shuffle_var=(var_type, idx), make_confusion_matrix=True)
             delta_loss = loss -  self.baseline_loss # If delta loss is positive then variable is important to the NN
             delta_acc = acc - self.baseline_acc
             self.results_dict["Variable"].append(variable.name)        
             self.results_dict["Loss"].append(delta_loss)
             self.results_dict["Accuracy"].append(delta_acc)
-            logger.log(f"{variable:<} -- loss difference = {delta_loss:<}   accuracy difference = {delta_acc:<}")
+            logger.log(f"{variable.name:<} -- loss difference = {delta_loss:<}   accuracy difference = {delta_acc:<}")
         
     def finish(self, saveas="Permutation_Ranking.csv"):
         # Create pandas DataFrame of the results and sort by loss difference
@@ -63,13 +63,15 @@ def permutation_rank(args):
     :param args: Arguements from tauclassifier.py - easier to just parse this rather than the indiviual arguments
     """
     
+    ray.init()
+
     variable_ranker = Ranker(args, variable_handler)
-    Ranker.rank(self, "TauJets")
-    Ranker.rank(self, "TauTracks")
-    Ranker.rank(self, "NeutralPFO")
-    Ranker.rank(self, "ShotPFO")
-    Ranker.rank(self, "TauTracks")
-    Ranker.finish()
+    # variable_ranker.rank("TauJets")
+    # variable_ranker.rank("TauTracks")
+    # variable_ranker.rank("NeutralPFO")
+    # variable_ranker.rank("ShotPFO")
+    variable_ranker.rank("ConvTrack")
+    variable_ranker.finish()
 
-
+    ray.shutdown()
     

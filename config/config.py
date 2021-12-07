@@ -60,7 +60,7 @@ Cuts to apply to data
 """""""""""""""""""""""""""""""""""""""
 
 def get_cuts(prong=None, decay_mode=None):
-	common_cuts = "(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0) & (TauJets.ptRatioEflowApprox < 5) & (TauJets.etOverPtLeadTrk < 30)"
+	common_cuts = "(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0)"
 	prong_cut = ""
 	dm_cut = ""
 	

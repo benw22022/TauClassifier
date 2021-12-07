@@ -117,7 +117,7 @@ class DataLoader:
                                 step_size=self.specific_batch_size):
             self._num_real_batches += 1
 
-        logger.log(f"Found {len(files)} with files {self._num_events} events for {data_type}", 'INFO')
+        logger.log(f"Found {len(files)} file(s) with {self._num_events} events for {data_type}", 'INFO')
         logger.log(f"Found these files: {files}", 'DEBUG')
         logger.log(f"Number of batches in {self.label} {self.data_type()} = {self._num_real_batches}", 'DEBUG')
         logger.log(f"DataLoader for {data_type} initialized", "DEBUG")
@@ -155,7 +155,7 @@ class DataLoader:
             ak_arr = batch[variable.name]
             ak_arr = ak.pad_none(ak_arr, max_items, clip=True, axis=1)
             arr = ak.to_numpy(abs(ak_arr)).filled(dummy_val)
-            arr = variable.standardise(arr, dummy_val=dummy_val)
+            # arr = variable.standardise(arr, dummy_val=dummy_val)
             if variable.name == shuffle_var:
                 np.random.shuffle(arr)            
             np_arrays[:, i] = arr
@@ -177,7 +177,7 @@ class DataLoader:
         for i, variable in enumerate(variables):
             ak_arr = batch[variable.name]
             arr = ak.to_numpy(abs(ak_arr))
-            arr = variable.standardise(arr)
+            # arr = variable.standardise(arr)
             if variable.name == shuffle_var:
                 np.random.shuffle(arr)
             np_arrays[:, i] = arr
@@ -262,16 +262,22 @@ class DataLoader:
 
         # Set generator to use just a single file. Used when writing predictions to NTuples
         if file is not None:
-            self._set_generator_to_single_file(files=file)
+            self._set_generator_to_single_file(file)
 
         # Model needs to be initialized on each actor separately - cannot share model between multiple processes
+        logger.log(f"model = {model}")
+        logger.log(f"model config = {model_config}")
         model = models_dict[model](model_config)
         model.load_weights(model_weights)
 
         # Allocate arrays for y_pred, y_true and weights
-        y_pred = np.ones((self.num_events(), self._nclasses)) * -999  # multiply by -999 so mistakes are obvious
-        y_true = np.ones((self.num_events(), self._nclasses)) * -999
-        weights = np.ones((self.num_events())) * -999
+        # y_pred = np.ones((self.num_events(), self._nclasses)) * -999  # multiply by -999 so mistakes are obvious
+        # y_true = np.ones((self.num_events(), self._nclasses)) * -999
+        # weights = np.ones((self.num_events())) * -999
+        y_pred = np.empty((0, self._nclasses))
+        y_true = np.empty((0, self._nclasses))
+        weights = np.ones((0))
+
         nevents = 0
 
         # Iterate through the DataLoader
@@ -279,10 +285,12 @@ class DataLoader:
         for i in range(0, self._num_real_batches):
             batch, truth_labels, batch_weights = self.get_batch()
             nevents += len(truth_labels)
-        
+
+            logger.log(f"{len(batch[0]):=} ")
+            logger.log(f"{position:=}: {position + len(batch[1]):=}")
             # Fill arrays
             y_pred[position: position + len(batch[1])] = model.predict(batch)
-            y_pred[position: position + len(batch[1])] = truth_labels
+            y_true[position: position + len(batch[1])] = truth_labels
             weights[position: position + len(batch[1])] = batch_weights
 
             # Move to the next position
@@ -313,17 +321,19 @@ class DataLoader:
         """
 
         for file in self.files:
-            y_pred, _, weights = self.predict(self, model, model_config, model_weights, file=file)
-            with uproot.update(self.file[0]) as ntuple:
-                logger.log(f"Writing predictions for {file} to NTuple")
-                ntuple['tree'] = ({"TauClassifier_jetScore": y_pred[:, 0],
-                                        "TauClassifier_1p0nScore": y_pred[:, 1],
-                                        "TauClassifier_1p1nScore": y_pred[:, 2],
-                                        "TauClassifier_1pxnScore": y_pred[:, 3],
-                                        "TauClassifier_3p0nScore": y_pred[:, 4],
-                                        "TauClassifier_3pxnScore": y_pred[:, 5],
-                                        "TauClassifier_weights": weights})
-    
+            logger.log(f"!!!! {file}")
+            y_pred, _, weights = self.predict(model, model_config, model_weights, file)
+            logger.log(y_pred)
+            # with uproot.update(self.file[0]) as ntuple:
+            #     logger.log(f"Writing predictions for {file} to NTuple")
+            #     ntuple['tree'] = ({"TauClassifier_jetScore": y_pred[:, 0],
+            #                         "TauClassifier_1p0nScore": y_pred[:, 1],
+            #                         "TauClassifier_1p1nScore": y_pred[:, 2],
+            #                         "TauClassifier_1pxnScore": y_pred[:, 3],
+            #                         "TauClassifier_3p0nScore": y_pred[:, 4],
+            #                         "TauClassifier_3pxnScore": y_pred[:, 5],
+            #                         "TauClassifier_Score": y_pred,
+            #                         "TauClassifier_weights": weights})
+
     def get_memory_profile(self):
         return profile_memory(self)
-            

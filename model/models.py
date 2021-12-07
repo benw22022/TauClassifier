@@ -51,10 +51,13 @@ class Sum(Layer):
 # Functional models
 # =================
 
-def ModelDSNN(para, mask_value=-1, normalizers=None, bn=True):
-
+def ModelDSNN(para, mask_value=-1, normalizers=None, bn=False):
+    """
+    TODO: doctring
+    
+    """
     initializer = tf.keras.initializers.HeNormal()
-    activation_func = 'elu'
+    activation_func = 'swish'
 
     # Branch 1
     x_1 = Input(shape=para["shapes"]["TauTrack"], ragged=True)
@@ -139,7 +142,13 @@ def ModelDSNN(para, mask_value=-1, normalizers=None, bn=True):
     return Model(inputs=[x_1, x_2, x_3, x_4, x_5], outputs=y)
 
 def SetTransformer(para, mask_value=-4.0,):
-
+    """
+    SetTransformer implementation in TensorFlow by https://github.com/arrigonialberto86/set_transformer
+    Based on this paper https://arxiv.org/abs/1810.00825
+    Only had limited time to play with this
+    Couldn't really get this to work and I've not had the time and resources to properly understand it
+    If you're reading this perhaps give it a go?
+    """
     initializer = tf.keras.initializers.HeNormal()
     activation_func = 'elu'
     out_dim = 25
@@ -189,29 +198,3 @@ def SetTransformer(para, mask_value=-4.0,):
 
     return Model(inputs=[x_1, x_2, x_3, x_4, x_5], outputs=y)
     #return Model(inputs=[x_5], outputs=y)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# class ModelBuilder:
-#
-#     def __init__(self, model_func, *args, **kwargs):
-#         self._args = args
-#         self._kwargs = kwargs
-#         self._model_func = model_func
-#         self.model = None
-#
-#     def build(self):
-#         self.model = self._model_func(*self._args, **self._kwargs)
-#         return self.model

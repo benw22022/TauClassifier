@@ -78,14 +78,14 @@ def plot_variables():
     plotter_3p0n = Plotter(tau_files[0], "3p0n", cuts=get_cuts(decay_mode=3)["Gammatautau"], colour='cyan')
     plotter_3pXn = Plotter(tau_files[0], "3pXn", cuts=get_cuts(decay_mode=4)["Gammatautau"], colour='magenta')
 
-    dm_plotters = (plotter_1p0n, plotter_1p1n, plotter_1pXn, plotter_3p0n, plotter_3pXn)
+    all_plotters = (jet_plotter, plotter_1p0n, plotter_1p1n, plotter_1pXn, plotter_3p0n, plotter_3pXn)
 
     os.system("rm plots/variables/*.png")
 
-    logger.log(f"Plotting {len(variable_handler)} histograms comparing taus and jets")
-    for variable in tqdm(variable_handler):
-        plot_variable((tau_plotter, jet_plotter), variable)
-
-    # logger.log(f"Plotting {len(variable_handler)}  histograms comparing tau decay modes")
+    # logger.log(f"Plotting {len(variable_handler)} histograms comparing taus and jets")
     # for variable in tqdm(variable_handler):
-        # plot_variable(dm_plotters, variable)
+    #     plot_variable((tau_plotter, jet_plotter), variable)
+
+    logger.log(f"Plotting {len(variable_handler)}  histograms comparing tau decay modes")
+    for variable in tqdm(variable_handler):
+        plot_variable(all_plotters, variable)
