@@ -5,12 +5,13 @@ The file that contains all the configurations and selection criteria
 TODO: This should really be done using YAML - user shouldn't need to edit .py files unnecessarily
 """
 
+import os
 import tensorflow as tf
 from config.variables import variable_handler
 from model.models import ModelDSNN, SetTransformer
 
 # Directory pointing to the NTuples to train/test on
-ntuple_dir = "../NTuples"
+ntuple_dir = "NTuples"
 
 # Bowen's DSNN config dictionary
 config_dict = {"shapes":

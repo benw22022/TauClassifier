@@ -60,7 +60,6 @@ def main():
     parser.add_argument("-tf_log_level", help="Set Tensorflow logging level", type=str, choices=tf_log_levels, default='2')
     parser.add_argument("-weights_save_dir", help="Set the directory to save network weights to when training", type=str, default="network_weights")
     parser.add_argument("-function", help="Scratch function to run")
-    parser.add_argument("-condor", help='Run on ht condor batch system', type=bool, default=False)
     parser.add_argument("-load", help="Load last saved network predictions", type=bool, default=False)
     args = parser.parse_args()
 
@@ -78,12 +77,8 @@ def main():
             logger.log("Cannot access GPU", 'WARNING')
             logger.log("If your machine does not have a GPU then you can ignore this message", 'WARNING')
             logger.log("Otherwise please check tensorflow version or CUDA installation", 'WARNING')
-        # If training on ht condor batch system
-        if args.condor:
-            run_training_on_batch_system(prong=args.prong, model=args.model, log_level=args.log_level, tf_log_level=args.tf_log_level)
-            sys.exit(0)
-
-        # If training on local machine
+        
+        
         train(args)
 
     # If testing

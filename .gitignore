@@ -6,6 +6,7 @@
 *.h5
 *.tfr
 *.csv
+*.root
 
 # Ignore any plots
 *.png
@@ -39,3 +40,5 @@ __pycache__
 *.swp
 *.so
 *.o
+.vscode
+
