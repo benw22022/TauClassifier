@@ -118,30 +118,6 @@ class Logger:
 # Initialize logger as global variable
 logger = Logger()
 
-class TermLogger:
-    """
-    Class for logging stdout to a log file
-    """
-    def __init__(self):
-        self.terminal = sys.stdout
-        time_now = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
-        with open(os.path.join("logs", f"{time_now}.log"), "w") as file:
-            file.write(f"Log file automatically generated on {time_now}\n")
-        self.log = open(os.path.join("logs", f"{time_now}.log"), "a")
-   
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(f"{message}")  
-
-    def flush(self):
-        # this flush method is needed for python 3 compatibility.
-        # this handles the flush command by doing nothing.
-        # you might want to specify some extra behavior here.
-        pass 
-
-sys.stdout = TermLogger()
-
-
 class FileHandler:
     """
     A class to handle files
@@ -335,9 +311,6 @@ def profile_memory(obj, level='DEBUG'):
     for key in human_readable_mem_dict:
         human_readable_mem_dict[key] = bytes_to_human(human_readable_mem_dict[key]) 
 
-    # logger.log(f"Memory profile for {obj}:", level=level)
-    # logger.log(f"{human_readable_mem_dict}")
-    # print(tabulate(human_readable_mem_dict, headers='keys'))
     logger.log(f"Total memory consumed by {obj}: {total_memory / 1e9} GB", level=level)
 
     return human_readable_mem_dict
@@ -365,50 +338,3 @@ def make_run_card(args):
 
         file.write("\n\n")
         file.write("Model config is: ")
-
-        
-        
-
-def run_training_on_batch_system(prong=None, log_level=None, model='DSNN', tf_log_level='2'):
-    """
-    Script to run training on ht condor batch system on lxplus 
-    Word of warning I found this to be very slow and job would time out before finishing - I found that increasing the 
-    runtime of the job meant that it never got started
-    """
-    #  Check that user has changed the submit file to their email if they plan on using the batch system
-    if getpass.getuser() != "bewilson":
-        with open("batch/htc_training.submit", "r") as submit_file:
-            for line in submit_file:
-                assert "benjamin.james.wilson@cern.ch" not in line, "In batch/htc_generation.submit please change the notify_user field to your email!"
-
-    # Make a new directory to run in and copy code into it
-    current_dir = os.getcwd()
-    now = datetime.now()
-    parent_dir = Path(current_dir).parent.absolute()
-    new_dir = os.path.join(parent_dir, "training_" + now.strftime("%Y-%m-%d_%H.%M.%S"))
-    os.mkdir(new_dir)
-    logger.log(f"Created new directory to run in {new_dir} ")
-    os.system(f"cp batch/htc_training.submit {new_dir}")
-    os.system("rsync -ar --progress --exclude=.git --exclude=.idea --exclude=*pycache* {} {}".format(current_dir, new_dir))
-
-    # Write a script that will run on the batch system (There is probably a easier way to do this but I can't figure it out)
-    script = f"""
-#!/bin/bash 
-# Activate the conda enviroment
-eval "$(conda shell.bash hook)"
-conda activate tauid
-echo "Conda Enviroment: " $CONDA_DEFAULT_ENV
-
-# Move to folder
-cd {new_dir}/TauClassifier
-
-# Run the training 
-python3 tauclassifier.py train -prong={prong} -log_level={log_level} -model={model} -tf_log_levl={tf_log_level} | tee training.log
-"""
-    with open(f"{new_dir}/train_on_batch.sh", 'w') as file:
-        file.write(script)        
-
-    # Move to new directory and run 
-    os.chdir(new_dir)
-    os.system("condor_submit -batch-name TauClassifierTraining htc_training.submit ")
-    return 0
