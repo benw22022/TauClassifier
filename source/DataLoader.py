@@ -98,7 +98,7 @@ class DataLoader:
             self._nclasses = 3  # [3p0n, 3pxn, jets]
 
         # Work out how many events there in the sample by loading up a small array
-        test_arr = uproot.concatenate(self.files, filter_name="TauJets." + self.dummy_var, cut=self.cut, library='np')
+        test_arr = uproot.concatenate(self.files, filter_name="TauJets_" + self.dummy_var, cut=self.cut, library='np')
         self._num_events = len(test_arr["TauJets." + self.dummy_var])
 
         # Set the DataLoader's batch size
@@ -113,7 +113,7 @@ class DataLoader:
 
         # Work out the number of batches there are in the generator
         self._num_real_batches = 0
-        for _ in uproot.iterate(self.files, filter_name="TauJets." + self.dummy_var, cut=self.cut,
+        for _ in uproot.iterate(self.files, filter_name="TauJets_" + self.dummy_var, cut=self.cut,
                                 step_size=self.specific_batch_size):
             self._num_real_batches += 1
 
@@ -205,13 +205,13 @@ class DataLoader:
         if self.class_label == 0:
             labels_np_array[:, 0] = 1
         else:
-            truth_decay_mode_np_array = ak.to_numpy(batch["TauJets.truthDecayMode"]).astype(np.int64)
+            truth_decay_mode_np_array = ak.to_numpy(batch["TauJets_truthDecayMode"]).astype(np.int64)
             labels_np_array = labeler(truth_decay_mode_np_array, labels_np_array, prong=self._prong)
 
         # Apply pT re-weighting
         weight_np_array = np.ones(len(labels_np_array))
         if self.class_label == 0:
-            weight_np_array = self._reweighter.reweight(ak.to_numpy(batch["TauJets.ptJetSeed"]).astype("float32"))
+            weight_np_array = self._reweighter.reweight(ak.to_numpy(batch["TauJets_ptJetSeed"]).astype("float32"))
 
         result = ((track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays),
                   labels_np_array, weight_np_array)

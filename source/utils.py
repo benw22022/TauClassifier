@@ -254,8 +254,8 @@ def get_number_of_events(fh_list):
     njets = n1p0n = n1p1n = n1pXn = n3p0n = n3p1n = 0
 
     for fh in tqdm(fh_list):
-        data = uproot.concatenate(fh.file_list, filter_name="TauJets.truthDecayMode", library='np')
-        data = data["TauJets.truthDecayMode"]
+        data = uproot.concatenate(fh.file_list, filter_name="TauJets_truthDecayMode", library='np')
+        data = data["TauJets_truthDecayMode"]
         if fh.label == "Gammatautau":
             n1p0n += np.count_nonzero(data == 0)
             n1p1n += np.count_nonzero(data == 1)

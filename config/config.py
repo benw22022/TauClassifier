@@ -61,17 +61,17 @@ Cuts to apply to data
 """""""""""""""""""""""""""""""""""""""
 
 def get_cuts(prong=None, decay_mode=None):
-	common_cuts = "(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0)"
+	common_cuts = "(TauJets_ptJetSeed > 15000.0) & (TauJets_ptJetSeed < 10000000.0)"
 	prong_cut = ""
 	dm_cut = ""
 	
 	if prong == 1:
-		prong_cut = " & (TauJets.truthProng == 1)"
+		prong_cut = " & (TauJets_truthProng == 1)"
 	if prong == 3:
-		prong_cut = "& (TauJets.truthProng == 3)"
+		prong_cut = "& (TauJets_truthProng == 3)"
 	
 	if decay_mode is not None:
-		dm_cut = f"& (TauJets.truthDecayMode == {decay_mode})"
+		dm_cut = f"& (TauJets_truthDecayMode == {decay_mode})"
 
 	cuts_dict = {"Gammatautau": common_cuts + prong_cut + dm_cut,
 				"JZ1": common_cuts,
