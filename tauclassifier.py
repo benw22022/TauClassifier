@@ -20,7 +20,7 @@ from run.test import test
 from run.lr_scan import lr_scan
 from run.plot_previous_results import plot_previous
 from run.plot_variables import plot_variables
-from scripts.utils import logger, get_best_weights, none_or_int, run_training_on_batch_system
+from source.utils import logger, get_best_weights, none_or_int, run_training_on_batch_system
 from config.config import models_dict
 
 # This is so that all our plot use the AGG backend - this will disable GUI plotting for saving straight to file
