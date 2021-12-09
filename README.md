@@ -11,7 +11,7 @@ python3 tauclassifier.py train    Train neural network
 python3 tauclassifier.py test     Plot confusion matrix and ROC for test data
 
 Additional run modes that are less polished / work in progress:
-rank			Do permutation variable ranking
+rank			                Do permutation variable ranking
 plot_variables            Plot input variables (needs improvement)
 plot_previous	            Plots current tauID RNN ROC and decay mode classifier confusion matrix
 scan                      Do a learning rate scan (still experimental)
