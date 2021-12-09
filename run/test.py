@@ -19,7 +19,7 @@ def test(args):
 	"""
 
 	# Initialize ray
-	ray.init()
+	ray.init(include_dashboard=False)
 
     # Initialize objects
 	reweighter = Reweighter(ntuple_dir, prong=args.prong)
