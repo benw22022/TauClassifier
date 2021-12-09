@@ -6,13 +6,16 @@ A work in progress - apologies for any confusing bits!
 Documentation is unfortunatly still lacking as I work out the best way to implement features 
 and fix bugs
 
-Code is run from the main steering script called tauclassifier.py
-Several running modes are supported, mainly:
-1. train: Runs the training of the neural network
-2. evaluate: Evalutes the predictions for all NTuples and stores the results to a npz file
-3. test: Plots confusion matrix and ROC curve for the testing data
-4. rank: Performs permutation variable ranking and saves the results to csv
-5. scan: Performs a learning rate scan
+Main commands:
+python3 tauclassifier.py train    Train neural network
+python3 tauclassifier.py test     Plot confusion matrix and ROC for test data
+
+Additional run modes that are less polished / work in progress:
+rank			                Do permutation variable ranking
+plot_variables            Plot input variables (needs improvement)
+plot_previous	            Plots current tauID RNN ROC and decay mode classifier confusion matrix
+scan                      Do a learning rate scan (still experimental)
+evaluate                  Decorate NTuples with network scores (coming soon)
 
 This code uses the Uproot library to load batches of data directly from Root NTuples rather than generating intermediary files such as HDF5
 The Ray libray is used to read in multiple file streams in parallel to improve data loading times
