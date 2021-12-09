@@ -215,10 +215,9 @@ class DataLoader:
 
         result = ((track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays),
                   labels_np_array, weight_np_array)
-        try:
-            return result
-        finally:
-            del result
+        
+        gc.collect()
+        return result
 
     def reset_dataloader(self):
         """

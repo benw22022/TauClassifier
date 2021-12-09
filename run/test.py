@@ -4,6 +4,7 @@ ___________________________________________________________
 Plot confusion matrix and ROC curve using testing dataset
 """
 
+import ray
 from config.files import testing_files, ntuple_dir
 from config.variables import variable_handler
 from config.config import config_dict, get_cuts
@@ -17,6 +18,9 @@ def test(args):
 	:param args: Args parsed by tauclassifier.py
 	"""
 
+	# Initialize ray
+	ray.init()
+
     # Initialize objects
 	reweighter = Reweighter(ntuple_dir, prong=args.prong)
 	cuts = get_cuts(args.prong)
@@ -28,3 +32,6 @@ def test(args):
 	_, _, _, baseline_loss, baseline_acc = testing_batch_generator.predict(make_confusion_matrix=True, make_roc=True)
 
 	logger.log(f"Testing Loss = {baseline_loss}		Testing Accuracy = {baseline_acc}")
+
+	# Shutdown Ray
+	ray.shutdown()
