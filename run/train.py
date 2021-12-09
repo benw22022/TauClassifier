@@ -68,7 +68,7 @@ def train(args):
 
     cuts = get_cuts(args.prong)
 
-    training_batch_generator = DataGenerator(training_files, variable_handler, nbatches=100, cuts=cuts,
+    training_batch_generator = DataGenerator(training_files, variable_handler, nbatches=500, cuts=cuts,
                                              reweighter=reweighter, prong=args.prong, label="Training Generator")
 
     validation_batch_generator = DataGenerator(validation_files, variable_handler, nbatches=50, cuts=cuts,
