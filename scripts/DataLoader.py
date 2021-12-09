@@ -108,8 +108,12 @@ class DataLoader:
             self.specific_batch_size = batch_size
 
         # Setup the iterator
-        self._batches_generator = uproot.iterate(self.files, filter_name=self._variable_handler.list(), cut=self.cut,
-                                                 step_size=self.specific_batch_size)
+        # self._batches_generator = uproot.iterate(self.files, filter_name=self._variable_handler.list(), cut=self.cut,
+        #                                          step_size=self.specific_batch_size)
+        cache = uproot.LRUArrayCache("1 GB")
+        self.lazy_array = uproot.lazy(self.files, filter_name=self._variable_handler.list(), cut=self.cut,
+                                                 step_size=250, cache=cache)
+        self.current_position = 0
 
         # Work out the number of batches there are in the generator
         self._num_real_batches = 0
@@ -128,12 +132,13 @@ class DataLoader:
         then restart it
         :return: batch - a dict of arrays yielded by uproot.iterate()
         """
-        try:
-            batch = next(self._batches_generator)
-        except StopIteration:
-            self._batches_generator = uproot.iterate(self.files, filter_name=self._variable_handler.list(), cut=self.cut,
-                                                     step_size=self.specific_batch_size)
-            return self.next_batch()
+        
+        if self.current_position + self.specific_batch_size < len(self.lazy_array)
+            batch = self.lazy_array[self.current_position: self.current_position + self.specific_batch_size]
+            self.current_position += self.specific_batch_size
+        else:
+            batch = self.lazy_array[self.current_position:]
+            self.current_position = 0
         self._current_index += 1
         return batch    
 
@@ -226,8 +231,7 @@ class DataLoader:
         :return:
         """
         self._current_index = 0
-        self._batches_generator = uproot.iterate(self.files, filter_name=self._variable_handler.list(), cut=self.cut,
-                                                 library='ak', step_size=self.specific_batch_size)        
+        self.current_position= 0
         gc.collect()
 
     def _set_generator_to_single_file(self, file, cut=None):
