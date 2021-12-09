@@ -99,7 +99,7 @@ class DataLoader:
 
         # Work out how many events there in the sample by loading up a small array
         test_arr = uproot.concatenate(self.files, filter_name="TauJets_" + self.dummy_var, cut=self.cut, library='np')
-        self._num_events = len(test_arr["TauJets." + self.dummy_var])
+        self._num_events = len(test_arr["TauJets_" + self.dummy_var])
 
         # Set the DataLoader's batch size
         if batch_size is None:

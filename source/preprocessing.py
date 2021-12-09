@@ -6,19 +6,16 @@ This is where the data pre-processing will go
 
 import os
 import uproot
-import numpy as np
 import glob
-from sklearn.preprocessing import StandardScaler
-import numba as nb
+import numpy as np
 import matplotlib.pyplot as plt
-from tensorflow.keras.layers.experimental import preprocessing
-
+from config.config import get_cuts
 
 class Reweighter:
     """
     This class computes the pT re-weighting coefficients by making histograms of TauJets.pt for both jets and taus. 
     The re-weighting coefficient is the ratio of the tau / jet histograms
-    TODO: Make it so that the directories and cuts are not hardcoded
+    TODO: Should probably have an abstract base clase for this type of object
     """
 
     def __init__(self, ntuple_dir, prong=None):
@@ -27,11 +24,10 @@ class Reweighter:
 
         assert len(tau_files) != 0 and len(jet_files) != 0, "The Reweighter found no files! Please check file path to NTuples"
 
-        jet_cuts = "(TauJets_ptJetSeed > 15000.0) & (TauJets_ptJetSeed < 10000000.0)"
-        tau_cuts = jet_cuts
-        if prong is not None:
-            tau_cuts = f"(TauJets_truthProng == {prong}) & " + jet_cuts 
-
+        cuts = get_cuts(prong=prong)
+        jet_cuts = cuts["JZ1"]
+        tau_cuts = cuts["Gammatautau"]
+    
         variable = "TauJets_ptJetSeed"
         tau_data = uproot.concatenate(tau_files, filter_name=variable, cut=tau_cuts, library='np')
         jet_data = uproot.concatenate(jet_files, filter_name=variable, cut=jet_cuts, library='np')
@@ -42,7 +38,7 @@ class Reweighter:
         # Binning
         xmax = max([np.amax(tau_pt), np.amax(jet_pt)])
         xmin = min([np.amin(tau_pt), np.amin(jet_pt)])
-        bin_edges = np.linspace(xmin, xmax, 1000)
+        bin_edges = np.linspace(xmin, xmax, 100)
 
         """
         Need to use the bin centres as weights rather than the bin edges! Otherwise you get imperfect pT re-weighting!
@@ -71,7 +67,9 @@ class Reweighter:
         """
         # Get an array of weights from an array of pTs
         if strides is None:
-            return self.coeff[np.digitize(jet_pt, self.bin_edges)].astype(np.float32)
+            coeff_idx = np.digitize(jet_pt, self.bin_edges)
+            coeff_idx = np.where(coeff_idx < len(self.bin_edges), coeff_idx, len(self.bin_edges) - 2)
+            return self.coeff[coeff_idx].astype(np.float32)
         else:
             arr_length = np.sum(strides)  # The total number of objects e.g. Tracks, PFO, etc...
             weights = self.coeff[np.digitize(jet_pt, self.bin_edges)].astype(np.float32)
