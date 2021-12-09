@@ -35,9 +35,9 @@ config_dict = {"shapes":
 					"TauJets": 3,
 					},
 			   "n_hiddens":
-				   {"TauTrack": [20, 20, 20],
-					"ConvTrack": [20, 20, 20],
-					"ShotPFO": [20, 20, 20],
+				   {"TauTrack": [60, 40, 40],
+					"ConvTrack": [60, 40, 40],
+					"ShotPFO": [60, 40, 40],
 					"NeutralPFO": [60, 40, 40],
 					"TauJets": [20, 20, 20],
 					},

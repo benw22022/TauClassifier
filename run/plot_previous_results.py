@@ -2,16 +2,18 @@
 Script to plot results from current TauID and Decay Mode Classifier
 """
 
-import uproot
-from tqdm import tqdm
-import numpy as np
-from plotting.plotting_functions import plot_ROC, plot_confusion_matrix
-import glob
+
 import os
-from config.config import get_cuts
+import glob
+import uproot
+import numpy as np
+from tqdm import tqdm
 from scripts.utils import logger
 from scripts.preprocessing import Reweighter
 from config.files import ntuple_dir
+from config.config import get_cuts
+from plotting.plotting_functions import plot_ROC, plot_confusion_matrix
+
 
 def plot_bowens_confusion_matrix(tau_arr):
 

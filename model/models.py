@@ -125,6 +125,8 @@ def ModelDSNN(para, mask_value=-1, normalizers=None, bn=False):
     if normalizers is not None:
         b_5 = normalizers["TauJets"](b_5)
     b_5 = Dense(30, activation=activation_func, kernel_initializer=initializer)(b_5)
+    b_5 = Dense(15, activation=activation_func, kernel_initializer=initializer)(b_5)
+    b_5 = Dense(10, activation=activation_func, kernel_initializer=initializer)(b_5)
     if bn:
         b_5 = BatchNormalization()(b_5)
 
