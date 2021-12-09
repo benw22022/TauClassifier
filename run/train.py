@@ -5,7 +5,6 @@ Script to run the neural network training
 """
 
 import os
-import ray
 import glob
 import time
 import shutil
@@ -31,9 +30,6 @@ def train(args):
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level # Sets Tensorflow Logging Level
     os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'       # Allow tensorflow to use more GPU VRAM
     logger.set_log_level(args.log_level)
-
-    # Initialize ray
-    ray.init(include_dashboard=False)
 
     # If we're doing a learning rate scan save the models to tmp dir
     if args.run_mode == 'scan':
@@ -168,8 +164,5 @@ def train(args):
     best_val_acc = history.history["val_categorical_accuracy"][best_val_loss_epoch]
 
     logger.log(f"Best Epoch: {best_val_loss_epoch} -- Val Loss = {best_val_loss} -- Val Acc = {best_val_acc}")
-
-    # Shut down Ray - will raise an execption if ray.init() is called twice otherwise
-    ray.shutdown()
 
     return best_val_loss, best_val_acc
