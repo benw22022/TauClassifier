@@ -57,7 +57,7 @@ def main():
     parser.add_argument("-lr_range", help="Learning rate array to scan through usage: -lr_range <start> <stop> <step>", type=float, nargs=3, default=[1e-4, 1e-2, 10])
     parser.add_argument("-ncores", help="number of CPU cores to use when evaluating network predictions", type=int, default=8)
     parser.add_argument("-log_level", help="Sets log level", type=str, default='INFO', choices=log_levels)
-    parser.add_argument("-tf_log_level", help="Set Tensorflow logging level", type=str, choices=tf_log_levels, default='2')
+    parser.add_argument("-tf_log_level", help="Set Tensorflow logging level", type=str, choices=tf_log_levels, default='1')
     parser.add_argument("-weights_save_dir", help="Set the directory to save network weights to when training", type=str, default="network_weights")
     parser.add_argument("-function", help="Scratch function to run")
     parser.add_argument("-load", help="Load last saved network predictions", type=bool, default=False)
@@ -67,18 +67,17 @@ def main():
     logger.set_log_level(args.log_level)
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level
 
+    # Check if a gpu is available:
+    num_gpus_available = len(tf.config.list_physical_devices('GPU'))
+    logger.log(f"Num GPUs Available: {num_gpus_available}")
+    if num_gpus_available == 0:
+        logger.log("Cannot access GPU", 'WARNING')
+        logger.log("If your machine does not have a GPU then you can ignore this message", 'WARNING')
+        logger.log("Otherwise please check tensorflow version or CUDA installation", 'WARNING')
+    
+
     # If training
     if args.run_mode == 'train':
-        
-        # Check if a gpu is available for training:
-        num_gpus_available = len(tf.config.list_physical_devices('GPU'))
-        logger.log(f"Num GPUs Available: {num_gpus_available}")
-        if num_gpus_available == 0:
-            logger.log("Cannot access GPU", 'WARNING')
-            logger.log("If your machine does not have a GPU then you can ignore this message", 'WARNING')
-            logger.log("Otherwise please check tensorflow version or CUDA installation", 'WARNING')
-        
-        
         train(args)
 
     # If testing

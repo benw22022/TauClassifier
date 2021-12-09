@@ -10,7 +10,6 @@ import os.path
 import awkward as ak
 import numpy as np
 import uproot
-import ray
 import gc
 import numba as nb
 from source.utils import logger, profile_memory
@@ -47,7 +46,7 @@ def labeler(truth_decay_mode_np_array, labels_np_array, prong=None):
     return labels_np_array
 
 
-@ray.remote
+
 class DataLoader:
 
     def __init__(self, data_type, files, class_label, nbatches, variable_handler, dummy_var="truthProng", cuts=None,

@@ -49,7 +49,6 @@ def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas="ROC.png"):
 	plt.yscale("log")
 	plt.savefig(saveas)
 	plt.title(title, loc='right', fontsize=5)
-	plt.show()
 
 
 # @nb.njit()
@@ -144,7 +143,6 @@ def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None,
 		plt.savefig(os.path.join("plots", "confusion_matrix.png"))
 	else:
 		plt.savefig(saveas)
-	plt.show()
 	plt.clf()
 	plt.close(fig)
 	
