@@ -21,6 +21,7 @@ plots/*
 batch/*training_*/*
 *tmp*
 *temp*
+NTuples
 scratch/*
 experimental*
 

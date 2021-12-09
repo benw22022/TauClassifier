@@ -66,10 +66,10 @@ def permutation_rank(args):
     ray.init()
 
     variable_ranker = Ranker(args, variable_handler)
-    # variable_ranker.rank("TauJets")
-    # variable_ranker.rank("TauTracks")
-    # variable_ranker.rank("NeutralPFO")
-    # variable_ranker.rank("ShotPFO")
+    variable_ranker.rank("TauJets")
+    variable_ranker.rank("TauTracks")
+    variable_ranker.rank("NeutralPFO")
+    variable_ranker.rank("ShotPFO")
     variable_ranker.rank("ConvTrack")
     variable_ranker.finish()
 

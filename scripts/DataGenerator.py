@@ -8,7 +8,6 @@ TODO: Make this generalisable to different problems
 
 import os
 import gc
-import ray  
 import numpy as np
 import tensorflow as tf
 from scripts.DataLoader import DataLoader
@@ -20,7 +19,7 @@ from tqdm import tqdm
 
 class DataGenerator(tf.keras.utils.Sequence):
 
-    def __init__(self, file_handler_list, variable_handler, nbatches=1000, cuts=None, label="DataGenerator", reweighter=None,
+    def __init__(self, file_handler_list, variable_handler, batch_size=32, cuts=None, label="DataGenerator", reweighter=None,
                 prong=None, no_gpu=False, _benchmark=False):
         """
         Class constructor for DataGenerator. Inherits from keras.utils.Sequence. When passed to model.fit(...) loads a
@@ -75,7 +74,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 dl_label = file_handler.label + "_" + self.label
                 file_list = file_handler.file_list
                 class_label = file_handler.class_label
-                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
+                dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
                                                     label=label, prong=prong, reweighter=reweighter)
                 self.data_loaders.append(dl)
 
@@ -83,19 +82,19 @@ class DataGenerator(tf.keras.utils.Sequence):
                 dl_label = file_handler.label + "_" + self.label
                 file_list = file_handler.file_list
                 class_label = file_handler.class_label
-                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
+                dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
                 self.data_loaders.append(dl)
 
         # Get number of events in each dataset
         self._total_num_events = 0
         num_batches_list = []
         for data_loader in self.data_loaders:
-            self._total_num_events = self._total_num_events + ray.get(data_loader.num_events.remote())
-            num_batches_list.append(ray.get(data_loader.number_of_batches.remote()))
+            self._total_num_events = self._total_num_events + data_loader.num_events
+            num_batches_list.append(data_loader.number_of_batches())
         logger.log(f"{self.label} - Found {self._total_num_events} events total", "INFO")
 
         # Work out how many batches to split the data into
-        self._num_batches = min(num_batches_list)
+        self._num_batches = self._total_num_events / batch_size #min(num_batches_list)
 
         # Work out number of classes
         self._nclasses = 6
@@ -119,7 +118,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         logger.timer_start()
 
-        batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
+        batch = [dl.get_batch() for dl in self.data_loaders]
 
         track_array = np.concatenate([result[0][0] for result in batch])
         neutral_pfo_array = np.concatenate([result[0][1] for result in batch])
@@ -339,7 +338,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         """
         self._current_index = 0
         for data_loader in self.data_loaders:
-            data_loader.reset_dataloader.remote()
+            data_loader.reset_dataloaderself.num_events()
 
     def on_epoch_end(self):
         """
@@ -364,7 +363,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             raise ValueError
     
     def profile_dataloader_memory(self):
-        mem_profiles = ray.get([dl.get_memory_profile.remote() for dl in self.data_loaders])
+        mem_profiles = [dl.get_memory_profile() for dl in self.data_loaders]
         logger.log("DataLoader memory profiles", 'DEBUG')
         for mem_dict in mem_profiles:
             for key, value in mem_dict.items():

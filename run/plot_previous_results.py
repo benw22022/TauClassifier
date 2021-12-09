@@ -20,17 +20,17 @@ def plot_bowens_confusion_matrix(tau_arr):
     y_true = []
     y_pred = []
 
-    for i, truth_dm in enumerate(tqdm(tau_arr["TauJets.truthDecayMode"])):
+    for i, truth_dm in enumerate(tqdm(tau_arr["TauJets_truthDecayMode"])):
         tmp_arr = [0, 0, 0, 0, 0, 0]
         tmp_arr[int(truth_dm)+1] = 1
         y_true.append(tmp_arr)
         tmp_arr = [0, 0, 0, 0, 0, 0]
         tmp_arr[0] = 0
-        tmp_arr[1] = tau_arr["TauJets.is1p0n"][i]
-        tmp_arr[2] = tau_arr["TauJets.is1p1n"][i]
-        tmp_arr[3] = tau_arr["TauJets.is1pxn"][i]
-        tmp_arr[4] = tau_arr["TauJets.is3p0n"][i]
-        tmp_arr[5] = tau_arr["TauJets.is3pxn"][i]
+        tmp_arr[1] = tau_arr["TauJets_is1p0n"][i]
+        tmp_arr[2] = tau_arr["TauJets_is1p1n"][i]
+        tmp_arr[3] = tau_arr["TauJets_is1pxn"][i]
+        tmp_arr[4] = tau_arr["TauJets_is3p0n"][i]
+        tmp_arr[5] = tau_arr["TauJets_is3pxn"][i]
         y_pred.append(tmp_arr)
 
     y_pred = np.array(y_pred, dtype='float32')
@@ -49,12 +49,12 @@ def plot_juans_ROC(tau_arr, jet_arr):
     y_pred = []
     weights = []
 
-    for rnn_pred, jet_pt in tqdm(zip(tau_arr["TauJets.RNNJetScoreSigTrans"], tau_arr["TauJets.ptJetSeed"]), total=len(tau_arr["TauJets.isRNNJetIDLoose"])):
+    for rnn_pred, jet_pt in tqdm(zip(tau_arr["TauJets_RNNJetScoreSigTrans"], tau_arr["TauJets_ptJetSeed"]), total=len(tau_arr["TauJets_isRNNJetIDLoose"])):
         y_true.append(1)
         y_pred.append(rnn_pred)
         # weights.append(reweighter.reweight(np.array([jet_pt])))
 
-    for rnn_pred, jet_pt in tqdm(zip(jet_arr["TauJets.RNNJetScoreSigTrans"], jet_arr["TauJets.ptJetSeed"]), total=len(jet_arr["TauJets.isRNNJetIDLoose"])):
+    for rnn_pred, jet_pt in tqdm(zip(jet_arr["TauJets_RNNJetScoreSigTrans"], jet_arr["TauJets_ptJetSeed"]), total=len(jet_arr["TauJets_isRNNJetIDLoose"])):
         y_true.append(0)
         y_pred.append(rnn_pred)
         # weights.append(reweighter.reweight(np.array([jet_pt])))
@@ -67,8 +67,8 @@ def plot_previous():
     tau_files = glob.glob(os.path.join("../NTuples/*Gammatautau*/*.root"))
 
     # Compute confusion matrix
-    dm_vars = ["TauJets.truthDecayMode", "TauJets.is1p0n", "TauJets.is1p1n", "TauJets.is1pxn", "TauJets.is3p0n", "TauJets.is3pxn"]
-    id_vars = ["TauJets.isRNNJetIDLoose", "TauJets.RNNJetScoreSigTrans", "TauJets.ptJetSeed"]
+    dm_vars = ["TauJets_truthDecayMode", "TauJets_is1p0n", "TauJets_is1p1n", "TauJets_is1pxn", "TauJets_is3p0n", "TauJets_is3pxn"]
+    id_vars = ["TauJets_isRNNJetIDLoose", "TauJets_RNNJetScoreSigTrans", "TauJets_ptJetSeed"]
     tau_arr = uproot.concatenate(tau_files, cut=get_cuts(), library='np', filter_name=dm_vars+id_vars)
     jet_arr = uproot.concatenate(JZ_files, cut=get_cuts(), library='np', filter_name=id_vars)
 

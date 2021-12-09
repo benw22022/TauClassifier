@@ -118,28 +118,28 @@ class Logger:
 # Initialize logger as global variable
 logger = Logger()
 
-class TermLogger:
-    """
-    Class for logging stdout to a log file
-    """
-    def __init__(self):
-        self.terminal = sys.stdout
-        time_now = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
-        with open(os.path.join("logs", f"{time_now}.log"), "w") as file:
-            file.write(f"Log file automatically generated on {time_now}\n")
-        self.log = open(os.path.join("logs", f"{time_now}.log"), "a")
+# class TermLogger:
+#     """
+#     Class for logging stdout to a log file
+#     """
+#     def __init__(self):
+#         self.terminal = sys.stdout
+#         time_now = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
+#         with open(os.path.join("logs", f"{time_now}.log"), "w") as file:
+#             file.write(f"Log file automatically generated on {time_now}\n")
+#         self.log = open(os.path.join("logs", f"{time_now}.log"), "a")
    
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(f"{message}")  
+#     def write(self, message):
+#         self.terminal.write(message)
+#         self.log.write(f"{message}")  
 
-    def flush(self):
-        # this flush method is needed for python 3 compatibility.
-        # this handles the flush command by doing nothing.
-        # you might want to specify some extra behavior here.
-        pass 
+#     def flush(self):
+#         # this flush method is needed for python 3 compatibility.
+#         # this handles the flush command by doing nothing.
+#         # you might want to specify some extra behavior here.
+#         pass 
 
-sys.stdout = TermLogger()
+# sys.stdout = TermLogger()
 
 
 class FileHandler:
@@ -278,8 +278,8 @@ def get_number_of_events(fh_list):
     njets = n1p0n = n1p1n = n1pXn = n3p0n = n3p1n = 0
 
     for fh in tqdm(fh_list):
-        data = uproot.concatenate(fh.file_list, filter_name="TauJets.truthDecayMode", library='np')
-        data = data["TauJets.truthDecayMode"]
+        data = uproot.concatenate(fh.file_list, filter_name="TauJets_truthDecayMode", library='np')
+        data = data["TauJets_truthDecayMode"]
         if fh.label == "Gammatautau":
             n1p0n += np.count_nonzero(data == 0)
             n1p1n += np.count_nonzero(data == 1)

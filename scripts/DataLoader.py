@@ -10,7 +10,6 @@ import os.path
 import awkward as ak
 import numpy as np
 import uproot
-import ray
 import gc
 import numba as nb
 from scripts.utils import logger, profile_memory
@@ -47,7 +46,6 @@ def labeler(truth_decay_mode_np_array, labels_np_array, prong=None):
     return labels_np_array
 
 
-@ray.remote
 class DataLoader:
 
     def __init__(self, data_type, files, class_label, nbatches, variable_handler, dummy_var="truthProng", cuts=None,
@@ -67,7 +65,7 @@ class DataLoader:
         :param dummy_var: A branch that can be easily loaded for computing the number of events in a sample - don't use
         a nested variable (e.g. TauTracks.pt) as this will be slow and may cause an OOM error
         :param cuts: A string detailing the cuts to be applied to the data, passable by uproot
-        e.g.(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0)
+        e.g.(TauJets_ptJetSeed > 15000.0) & (TauJets_ptJetSeed < 10000000.0)
         :param batch_size: The number of events to load per batch (overrides nbatches opt.)
         :param num_classes: Number of prongs
         :param reweighter: An instance of a reweighting class 
@@ -98,12 +96,12 @@ class DataLoader:
             self._nclasses = 3  # [3p0n, 3pxn, jets]
 
         # Work out how many events there in the sample by loading up a small array
-        test_arr = uproot.concatenate(self.files, filter_name="TauJets." + self.dummy_var, cut=self.cut, library='np')
-        self._num_events = len(test_arr["TauJets." + self.dummy_var])
+        test_arr = uproot.concatenate(self.files, filter_name="TauJets_" + self.dummy_var, cut=self.cut, library='np')
+        self.num_events = len(test_arr["TauJets_" + self.dummy_var])
 
         # Set the DataLoader's batch size
         if batch_size is None:
-            self.specific_batch_size = math.ceil(self._num_events / nbatches)
+            self.specific_batch_size = math.ceil(self.num_events / nbatches)
         else:
             self.specific_batch_size = batch_size
 
@@ -117,11 +115,11 @@ class DataLoader:
 
         # Work out the number of batches there are in the generator
         self._num_real_batches = 0
-        for _ in uproot.iterate(self.files, filter_name="TauJets." + self.dummy_var, cut=self.cut,
+        for _ in uproot.iterate(self.files, filter_name="TauJets_" + self.dummy_var, cut=self.cut,
                                 step_size=self.specific_batch_size):
             self._num_real_batches += 1
 
-        logger.log(f"Found {len(files)} file(s) with {self._num_events} events for {data_type}", 'INFO')
+        logger.log(f"Found {len(files)} file(s) with {self.num_events} events for {data_type}", 'INFO')
         logger.log(f"Found these files: {files}", 'DEBUG')
         logger.log(f"Number of batches in {self.label} {self.data_type()} = {self._num_real_batches}", 'DEBUG')
         logger.log(f"DataLoader for {data_type} initialized", "DEBUG")
@@ -133,7 +131,7 @@ class DataLoader:
         :return: batch - a dict of arrays yielded by uproot.iterate()
         """
         
-        if self.current_position + self.specific_batch_size < len(self.lazy_array)
+        if self.current_position + self.specific_batch_size < len(self.lazy_array):
             batch = self.lazy_array[self.current_position: self.current_position + self.specific_batch_size]
             self.current_position += self.specific_batch_size
         else:
@@ -210,13 +208,13 @@ class DataLoader:
         if self.class_label == 0:
             labels_np_array[:, 0] = 1
         else:
-            truth_decay_mode_np_array = ak.to_numpy(batch["TauJets.truthDecayMode"]).astype(np.int64)
+            truth_decay_mode_np_array = ak.to_numpy(batch["TauJets_truthDecayMode"]).astype(np.int64)
             labels_np_array = labeler(truth_decay_mode_np_array, labels_np_array, prong=self._prong)
 
         # Apply pT re-weighting
         weight_np_array = np.ones(len(labels_np_array))
         if self.class_label == 0:
-            weight_np_array = self._reweighter.reweight(ak.to_numpy(batch["TauJets.ptJetSeed"]).astype("float32"))
+            weight_np_array = self._reweighter.reweight(ak.to_numpy(batch["TauJets_ptJetSeed"]).astype("float32"))
 
         result = ((track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays),
                   labels_np_array, weight_np_array)
@@ -246,7 +244,7 @@ class DataLoader:
                                                  library='ak', step_size=self.specific_batch_size)
 
     def num_events(self):
-        return self._num_events
+        return self.num_events
 
     def data_type(self):
         return self._data_type

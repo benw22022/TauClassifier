@@ -5,7 +5,7 @@ Script to run the neural network training
 """
 
 import os
-import ray
+# import ray
 import glob
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -34,7 +34,7 @@ def train(args):
     logger.set_log_level(args.log_level)
 
     # Initialize ray
-    ray.init(include_dashboard=False)
+    # ray.init(include_dashboard=False, local_mode=True)
 
     # If we're doing a learning rate scan save the models to tmp dir
     if args.run_mode == 'scan':
@@ -69,10 +69,10 @@ def train(args):
 
     cuts = get_cuts(args.prong)
 
-    training_batch_generator = DataGenerator(training_files, variable_handler, nbatches=100, cuts=cuts,
+    training_batch_generator = DataGenerator(training_files, variable_handler, batch_size=args.batch_size, cuts=cuts,
                                              reweighter=reweighter, prong=args.prong, label="Training Generator")
 
-    validation_batch_generator = DataGenerator(validation_files, variable_handler, nbatches=50, cuts=cuts,
+    validation_batch_generator = DataGenerator(validation_files, variable_handler, batch_size=5000, cuts=cuts,
                                                reweighter=reweighter, prong=args.prong, label="Validation Generator")
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -138,7 +138,7 @@ def train(args):
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     history = model.fit(training_batch_generator, epochs=200, callbacks=callbacks, class_weight=class_weight,
                         validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
-                        steps_per_epoch=len(training_batch_generator))
+                        steps_per_epoch=len(training_batch_generator), max_queue_size=16, workers=16, use_multiprocessing=True)
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Make Plots 
@@ -170,6 +170,6 @@ def train(args):
     logger.log(f"Best Epoch: {best_val_loss_epoch} -- Val Loss = {best_val_loss} -- Val Acc = {best_val_acc}")
 
     # Shut down Ray - will raise an execption if ray.init() is called twice otherwise
-    ray.shutdown()
+    # ray.shutdown()
 
     return best_val_loss, best_val_acc

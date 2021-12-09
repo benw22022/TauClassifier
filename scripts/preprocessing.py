@@ -16,7 +16,7 @@ from tensorflow.keras.layers.experimental import preprocessing
 
 class Reweighter:
     """
-    This class computes the pT re-weighting coefficients by making histograms of TauJets.pt for both jets and taus. 
+    This class computes the pT re-weighting coefficients by making histograms of TauJets_pt for both jets and taus. 
     The re-weighting coefficient is the ratio of the tau / jet histograms
     TODO: Make it so that the directories and cuts are not hardcoded
     """
@@ -27,12 +27,12 @@ class Reweighter:
 
         assert len(tau_files) != 0 and len(jet_files) != 0, "The Reweighter found no files! Please check file path to NTuples"
 
-        jet_cuts = "(TauJets.ptJetSeed > 15000.0) & (TauJets.ptJetSeed < 10000000.0)"
+        jet_cuts = "(TauJets_ptJetSeed > 15000.0) & (TauJets_ptJetSeed < 10000000.0)"
         tau_cuts = jet_cuts
         if prong is not None:
-            tau_cuts = f"(TauJets.truthProng == {prong}) & " + jet_cuts 
+            tau_cuts = f"(TauJets_truthProng == {prong}) & " + jet_cuts 
 
-        variable = "TauJets.ptJetSeed"
+        variable = "TauJets_ptJetSeed"
         tau_data = uproot.concatenate(tau_files, filter_name=variable, cut=tau_cuts, library='np')
         jet_data = uproot.concatenate(jet_files, filter_name=variable, cut=jet_cuts, library='np')
 
@@ -63,7 +63,7 @@ class Reweighter:
         """
         Get an array of weights from an array of jet pTs. One weight is asigned per jet. For plotting re-weighted
         histograms of  nested data e.g. TauTracks.pT etc... use the strides option.
-        :param jet_pt: Array of TauJets.pt
+        :param jet_pt: Array of TauJets_pt
         :param strides: An array containing the multiplicity of the object for each jet. E.g. [4, 5, 10, 0 ...] for a
         set of jets where; the 1st jet has 4 tracks, the second 5, the third 10, the fourth 0 ... you get the idea
         (I Hope!). This way we can go from per jet to per object weights.
@@ -210,13 +210,13 @@ limits_dict = {"TauTracks.dEta": PreProcTransform("TauTracks.dEta"),
               "NeutralPFO.secondEtaWRTClusterPosition_EM1": PreProcTransform("NeutralPFO.secondEtaWRTClusterPosition_EM1"),
               "NeutralPFO.secondEtaWRTClusterPosition_EM2": PreProcTransform("NeutralPFO.secondEtaWRTClusterPosition_EM2"),
 
-              "TauJets.centFrac": PreProcTransform("TauJets.centFrac"),
-              "TauJets.etOverPtLeadTrk": PreProcTransform("TauJets.etOverPtLeadTrk", take_abs=True, apply_log=True),
-              "TauJets.dRmax": PreProcTransform("TauJets.dRmax"),
-              "TauJets.SumPtTrkFrac": PreProcTransform("TauJets.SumPtTrkFrac"),
-              "TauJets.ptRatioEflowApprox": PreProcTransform("TauJets.ptRatioEflowApprox", take_abs=True, apply_log=True),
-              "TauJets.mEflowApprox": PreProcTransform("TauJets.mEflowApprox", max_val=1e7, apply_log=True),
-              "TauJets.ptJetSeed": PreProcTransform("TauJets.ptJetSeed", max_val=1e7, apply_log=True),
-              "TauJets.etaJetSeed": PreProcTransform("TauJets.etaJetSeed"),
-              "TauJets.phiJetSeed": PreProcTransform("TauJets.phiJetSeed"),
+              "TauJets_centFrac": PreProcTransform("TauJets_centFrac"),
+              "TauJets_etOverPtLeadTrk": PreProcTransform("TauJets_etOverPtLeadTrk", take_abs=True, apply_log=True),
+              "TauJets_dRmax": PreProcTransform("TauJets_dRmax"),
+              "TauJets_SumPtTrkFrac": PreProcTransform("TauJets_SumPtTrkFrac"),
+              "TauJets_ptRatioEflowApprox": PreProcTransform("TauJets_ptRatioEflowApprox", take_abs=True, apply_log=True),
+              "TauJets_mEflowApprox": PreProcTransform("TauJets_mEflowApprox", max_val=1e7, apply_log=True),
+              "TauJets_ptJetSeed": PreProcTransform("TauJets_ptJetSeed", max_val=1e7, apply_log=True),
+              "TauJets_etaJetSeed": PreProcTransform("TauJets_etaJetSeed"),
+              "TauJets_phiJetSeed": PreProcTransform("TauJets_phiJetSeed"),
             }

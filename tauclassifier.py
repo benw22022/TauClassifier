@@ -55,6 +55,7 @@ def main():
     type=str, default="DSNN")
     parser.add_argument("-lr", help="Learning rate of Adam optimiser", type=float, default=1e-3)
     parser.add_argument("-lr_range", help="Learning rate array to scan through usage: -lr_range <start> <stop> <step>", type=float, nargs=3, default=[1e-4, 1e-2, 10])
+    parser.add_argument("-batch_size", help="Training batch size", type=int, default=32)
     parser.add_argument("-ncores", help="number of CPU cores to use when evaluating network predictions", type=int, default=8)
     parser.add_argument("-log_level", help="Sets log level", type=str, default='INFO', choices=log_levels)
     parser.add_argument("-tf_log_level", help="Set Tensorflow logging level", type=str, choices=tf_log_levels, default='2')
