@@ -66,6 +66,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         self._variable_handler = variable_handler
         self._variables_list = []
 
+        nbatches = 1000
+
         # Initialize ray actors from FileHandlers, variables_dict and cuts
         for file_handler in self._file_handlers:
             if cuts is not None and file_handler.label in cuts:
@@ -94,7 +96,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         logger.log(f"{self.label} - Found {self._total_num_events} events total", "INFO")
 
         # Work out how many batches to split the data into
-        self._num_batches = self._total_num_events / batch_size #min(num_batches_list)
+        self._num_batches = self._total_num_events / batch_size#min(num_batches_list)
 
         # Work out number of classes
         self._nclasses = 6
@@ -162,6 +164,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         finally:
             # A (probably vain) attempt to free memory (The finally block allows you to run something after function returns)
             del batch
+            tf.keras.backend.clear_session()
             del track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array, label_array, weight_array
             gc.collect()
 
@@ -293,7 +296,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         run into memory access violations when Keras oversteps bounds of array)
         :return: The number of batches in an epoch
         """
-        return self._num_batches
+        return int(self._num_batches)
 
     def __getitem__(self, idx):
         """
@@ -337,8 +340,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         :return:
         """
         self._current_index = 0
-        for data_loader in self.data_loaders:
-            data_loader.reset_dataloaderself.num_events()
+        # for data_loader in self.data_loaders:
+        #     data_loader.reset_dataloader()
 
     def on_epoch_end(self):
         """

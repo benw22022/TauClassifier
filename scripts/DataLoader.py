@@ -101,7 +101,7 @@ class DataLoader:
 
         # Set the DataLoader's batch size
         if batch_size is None:
-            self.specific_batch_size = math.ceil(self.num_events / nbatches)
+            self.specific_batch_size = 4 # math.ceil(self.num_events / nbatches)
         else:
             self.specific_batch_size = batch_size
 
@@ -229,7 +229,7 @@ class DataLoader:
         :return:
         """
         self._current_index = 0
-        self.current_position= 0
+        # self.current_position= 0
         gc.collect()
 
     def _set_generator_to_single_file(self, file, cut=None):

@@ -138,7 +138,7 @@ def train(args):
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     history = model.fit(training_batch_generator, epochs=200, callbacks=callbacks, class_weight=class_weight,
                         validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
-                        steps_per_epoch=len(training_batch_generator), max_queue_size=16, workers=16, use_multiprocessing=True)
+                        steps_per_epoch=500, max_queue_size=16, workers=16, use_multiprocessing=True)
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Make Plots 
