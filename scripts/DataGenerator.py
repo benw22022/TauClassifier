@@ -9,6 +9,7 @@ TODO: Make this generalisable to different problems
 import os
 import gc
 import ray  
+import math
 import numpy as np
 import tensorflow as tf
 from scripts.DataLoader import DataLoader
@@ -20,7 +21,7 @@ from tqdm import tqdm
 
 class DataGenerator(tf.keras.utils.Sequence):
 
-    def __init__(self, file_handler_list, variable_handler, nbatches=1000, cuts=None, label="DataGenerator", reweighter=None,
+    def __init__(self, file_handler_list, variable_handler, batch_size=32, nbatches=500, cuts=None, label="DataGenerator", reweighter=None,
                 prong=None, no_gpu=False, _benchmark=False):
         """
         Class constructor for DataGenerator. Inherits from keras.utils.Sequence. When passed to model.fit(...) loads a
@@ -62,6 +63,11 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.model = None
         self.prong = prong
         self._weights = ""
+        self.batch_size = batch_size
+        self.batch_position = 0
+        self.batch = (([], [], [], [], []), [], [])
+        self.next_batch = (([], [], [], [], []), [], [])
+        self.first_batch = True
 
         # Organise a list of all variables
         self._variable_handler = variable_handler
@@ -69,21 +75,21 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         # Initialize ray actors from FileHandlers, variables_dict and cuts
         for file_handler in self._file_handlers:
+            dl_label = f"{file_handler.label}_{self.label}"
+            file_list = file_handler.file_list
+            class_label = file_handler.class_label
             if cuts is not None and file_handler.label in cuts:
                 logger.log(f"Cuts applied to {file_handler.label}: {self.cuts[file_handler.label]}")
 
-                dl_label = file_handler.label + "_" + self.label
-                file_list = file_handler.file_list
-                class_label = file_handler.class_label
                 dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
                                                     label=label, prong=prong, reweighter=reweighter)
+                # dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
+                #                                     label=label, prong=prong, reweighter=reweighter)
                 self.data_loaders.append(dl)
 
             else:
-                dl_label = file_handler.label + "_" + self.label
-                file_list = file_handler.file_list
-                class_label = file_handler.class_label
                 dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
+                # dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
                 self.data_loaders.append(dl)
 
         # Get number of events in each dataset
@@ -92,6 +98,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         for data_loader in self.data_loaders:
             self._total_num_events = self._total_num_events + ray.get(data_loader.num_events.remote())
             num_batches_list.append(ray.get(data_loader.number_of_batches.remote()))
+            # self._total_num_events = self._total_num_events + data_loader.num_events()
+            # num_batches_list.append(data_loader.number_of_batches())
         logger.log(f"{self.label} - Found {self._total_num_events} events total", "INFO")
 
         # Work out how many batches to split the data into
@@ -119,52 +127,69 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         logger.timer_start()
 
-        batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
+        if self.batch_position == 0 or self.batch_position > len(self.batch[1]):
+            self.batch_position = 0
+            # logger.log(f"{self.batch_position} == 0 or {self.batch_position} > {len(self.batch[1])}")
+            if self.first_batch:
+                self.first_batch = False
+                batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
+                self.next_batch = [dl.get_batch.remote() for dl in self.data_loaders]
+            else:
+                batch = ray.get(self.next_batch)
+                self.next_batch = [dl.get_batch.remote() for dl in self.data_loaders]
+            # self.next_batch = [dl.get_batch.remote() for dl in self.data_loaders]
+            # logger.log("Loaded new batch")
+            # batch = [dl.get_batch() for dl in self.data_loaders]
 
-        track_array = np.concatenate([result[0][0] for result in batch])
-        neutral_pfo_array = np.concatenate([result[0][1] for result in batch])
-        shot_pfo_array = np.concatenate([result[0][2] for result in batch])
-        conv_track_array = np.concatenate([result[0][3] for result in batch])
-        jet_array = np.concatenate([result[0][4] for result in batch])
-        label_array = np.concatenate([result[1] for result in batch])
-        weight_array = np.concatenate([result[2] for result in batch])
+            track_array = np.concatenate([result[0][0] for result in batch]).astype("float32")
+            neutral_pfo_array = np.concatenate([result[0][1] for result in batch]).astype("float32")
+            shot_pfo_array = np.concatenate([result[0][2] for result in batch]).astype("float32")
+            conv_track_array = np.concatenate([result[0][3] for result in batch]).astype("float32")
+            jet_array = np.concatenate([result[0][4] for result in batch]).astype("float32")
+            label_array = np.concatenate([result[1] for result in batch]).astype("int32")
+            weight_array = np.concatenate([result[2] for result in batch]).astype("float32")
 
-        for i, variable in enumerate(self._variable_handler.get("TauTracks")):
-            track_array[:, i] = variable.standardise(track_array[:, i])
-        for i, variable in enumerate(self._variable_handler.get("ConvTrack")):
-            conv_track_array[:, i] = variable.standardise(conv_track_array[:, i])
-        for i, variable in enumerate(self._variable_handler.get("NeutralPFO")):
-            neutral_pfo_array[:, i] = variable.standardise(neutral_pfo_array[:, i])
-        for i, variable in enumerate(self._variable_handler.get("ShotPFO")):
-            shot_pfo_array[:, i] = variable.standardise(shot_pfo_array[:, i])
-        for i, variable in enumerate(self._variable_handler.get("TauJets")):
-            jet_array[:, i] = variable.standardise(jet_array[:, i])
+            for i, variable in enumerate(self._variable_handler.get("TauTracks")):
+                track_array[:, i] = variable.standardise(track_array[:, i])
+            for i, variable in enumerate(self._variable_handler.get("ConvTrack")):
+                conv_track_array[:, i] = variable.standardise(conv_track_array[:, i])
+            for i, variable in enumerate(self._variable_handler.get("NeutralPFO")):
+                neutral_pfo_array[:, i] = variable.standardise(neutral_pfo_array[:, i])
+            for i, variable in enumerate(self._variable_handler.get("ShotPFO")):
+                shot_pfo_array[:, i] = variable.standardise(shot_pfo_array[:, i])
+            for i, variable in enumerate(self._variable_handler.get("TauJets")):
+                jet_array[:, i] = variable.standardise(jet_array[:, i])
 
-        if shuffle_var is not None:
-            if shuffle_var[0] == "TauJets":
-                np.random.shuffle(jet_array[:, shuffle_var[1]])
-            if shuffle_var[0] == "TauTracks":
-                np.random.shuffle(track_array[:, shuffle_var[1]])
-            if shuffle_var[0] == "ConvTrack":
-                np.random.shuffle(conv_track_array[:, shuffle_var[1]])
-            if shuffle_var[0] == "ShotPFO":
-                np.random.shuffle(shot_pfo_array[:, shuffle_var[1]])
-            if shuffle_var[0] == "NeutralPFO":
-                np.random.shuffle(neutral_pfo_array[:, shuffle_var[1]])
+            if shuffle_var is not None:
+                if shuffle_var[0] == "TauJets":
+                    np.random.shuffle(jet_array[:, shuffle_var[1]])
+                if shuffle_var[0] == "TauTracks":
+                    np.random.shuffle(track_array[:, shuffle_var[1]])
+                if shuffle_var[0] == "ConvTrack":
+                    np.random.shuffle(conv_track_array[:, shuffle_var[1]])
+                if shuffle_var[0] == "ShotPFO":
+                    np.random.shuffle(shot_pfo_array[:, shuffle_var[1]])
+                if shuffle_var[0] == "NeutralPFO":
+                    np.random.shuffle(neutral_pfo_array[:, shuffle_var[1]])
 
-        load_time = logger.log_time(f"{self.label}: Processed batch {self._current_index}/{self.__len__()} - {len(label_array)} events", "DEBUG")
+            load_time = logger.log_time(f"{self.label}: Processed batch {self._current_index}/{self.__len__()} - {len(label_array)} events", "DEBUG")
+            self.batch = (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
+            
+            # return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
 
-        if self.__benchmark:
-            return ((track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array),\
-                    label_array, self._current_index, load_time
 
         try:
-            return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
+            return ((self.batch[0][0][self.batch_position: self.batch_position + self.batch_size],
+                    self.batch[0][1][self.batch_position: self.batch_position + self.batch_size],
+                    self.batch[0][2][self.batch_position: self.batch_position + self.batch_size],
+                    self.batch[0][3][self.batch_position: self.batch_position + self.batch_size],
+                    self.batch[0][4][self.batch_position: self.batch_position + self.batch_size]),
+                    self.batch[1][self.batch_position: self.batch_position + self.batch_size],
+                    self.batch[2][self.batch_position: self.batch_position + self.batch_size])
         finally:
-            # A (probably vain) attempt to free memory (The finally block allows you to run something after function returns)
-            del batch
-            del track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array, label_array, weight_array
-            gc.collect()
+            self.batch_position += self.batch_size  
+            # logger.log(f"self.batch_position = {self.batch_position:}")
+
 
     def load_model(self, model, model_config, model_weights):
         """
@@ -201,7 +226,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         # Initialise loss and accuracy classes
         cce_loss = tf.keras.losses.CategoricalCrossentropy()
-        acc_metric = tf.keras.metrics.Accuracy() # TODO Yes I know the Acc is broken - need to fix it
+        acc_metric = tf.keras.metrics.Accuracy() # TODO Yes I know the Acc is broken - need to fix it!
 
         # Allocate arrays for y_pred, y_true and weights - multiply by -999 so mistakes are obvious
         y_pred = np.ones((self._total_num_events, self._nclasses), dtype='float32') * -999  
@@ -294,7 +319,9 @@ class DataGenerator(tf.keras.utils.Sequence):
         run into memory access violations when Keras oversteps bounds of array)
         :return: The number of batches in an epoch
         """
-        return self._num_batches
+
+        return math.floor(self._total_num_events / self.batch_size)
+        # return self._num_batches
 
     def __getitem__(self, idx):
         """

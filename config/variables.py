@@ -36,7 +36,8 @@ class Variable:
 
         if self.lognorm:
             data_arr = np.ma.log10(data_arr)
-            data_arr = (data_arr - np.amin(data_arr)) / (np.amax(data_arr) - np.amin(data_arr))
+            # data_arr = (data_arr - np.amin(data_arr)) / (np.amax(data_arr) - np.amin(data_arr))
+            data_arr = (data_arr - 0) / (math.log10(self.max_val) - 0)
             data_arr = data_arr.filled(dummy_val)
 
         return data_arr

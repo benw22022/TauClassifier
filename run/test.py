@@ -21,7 +21,7 @@ def test(args):
 	reweighter = Reweighter(ntuple_dir, prong=args.prong)
 	cuts = get_cuts(args.prong)
 
-	testing_batch_generator = DataGenerator(testing_files, variable_handler, nbatches=50, cuts=cuts,
+	testing_batch_generator = DataGenerator(testing_files, variable_handler, nbatches=50, batch_size=10000, cuts=cuts,
 												reweighter=reweighter, prong=args.prong, label="Testing Generator")
 
 	testing_batch_generator.load_model(args.model, config_dict, args.weights)

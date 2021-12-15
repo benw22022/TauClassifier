@@ -22,6 +22,7 @@ from run.plot_previous_results import plot_previous
 from run.plot_variables import plot_variables
 from scripts.utils import logger, get_best_weights, none_or_int, run_training_on_batch_system
 from config.config import models_dict
+# from experimental.tau_classifier_dataset.tau_classifier_dataset_test import run_test
 
 # This is so that all our plot use the AGG backend - this will disable GUI plotting for saving straight to file
 # Should help avoid issues when working via ssh (I ran into ioctl issues)
@@ -34,7 +35,7 @@ def main():
     # Available options
 
     # 'train' - train model | 'evaluate' =  make npz files of predictions for test data | 'plot' - make performance plots
-    mode_list = ["train", "evaluate", "test", "rank", "scan", "plot_previous", "plot_variables"]  
+    mode_list = ["train", "evaluate", "test", "rank", "scan", "plot_previous", "plot_variables", "experiment"]  
 
     # Prong options: 1 - (p10n, 1p1n, 1pxn, jets) | 3 - (3p0n, 3pxn, jets) | None - (p10n, 1p1n, 1pxn, 3p0n, 3pxn, jets)
     prong_list = [1, 3, None]                                           
@@ -124,6 +125,9 @@ def main():
 
     if args.run_mode == 'plot_variables':
         plot_variables()  
+
+    # if args.run_mode == "experiment":
+    #     run_test()
     
     sys.exit(0)
         
