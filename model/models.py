@@ -53,14 +53,13 @@ class Sum(Layer):
 
 def ModelDSNN(para, mask_value=-1, normalizers=None, bn=False):
     """
-    TODO: doctring
-    
+    TODO: docstring
     """
     initializer = tf.keras.initializers.HeNormal()
     activation_func = 'swish'
 
     # Branch 1
-    x_1 = Input(shape=para["shapes"]["TauTrack"], ragged=True)
+    x_1 = Input(shape=para["shapes"]["TauTrack"])
     b_1 = Masking(mask_value=mask_value)(x_1)
     if normalizers is not None:
         b_1 = normalizers["TauTrack"](b_1)
@@ -75,7 +74,7 @@ def ModelDSNN(para, mask_value=-1, normalizers=None, bn=False):
         b_1 = BatchNormalization()(b_1)
 
     # Branch 2
-    x_2 = Input(shape=para["shapes"]["NeutralPFO"], ragged=True)
+    x_2 = Input(shape=para["shapes"]["NeutralPFO"])
     b_2 = Masking(mask_value=mask_value)(x_2)
     if normalizers is not None:
         b_2 = normalizers["NeutralPFO"](b_2)
@@ -90,7 +89,7 @@ def ModelDSNN(para, mask_value=-1, normalizers=None, bn=False):
        b_2 = BatchNormalization()(b_2)
 
     # Branch 3
-    x_3 = Input(shape=para["shapes"]["ShotPFO"], ragged=True)
+    x_3 = Input(shape=para["shapes"]["ShotPFO"])
     b_3 = Masking(mask_value=mask_value)(x_3)
     if normalizers is not None:
         b_3 = normalizers["ShotPFO"](b_3)
@@ -105,7 +104,7 @@ def ModelDSNN(para, mask_value=-1, normalizers=None, bn=False):
         b_3 = BatchNormalization()(b_3)
 
     # Branch 4
-    x_4 = Input(shape=para["shapes"]["ConvTrack"], ragged=True)
+    x_4 = Input(shape=para["shapes"]["ConvTrack"])
     b_4 = Masking(mask_value=mask_value)(x_4)
     if normalizers is not None:
         b_4 = normalizers["ConvTrack"](b_4)

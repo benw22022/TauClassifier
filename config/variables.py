@@ -26,6 +26,7 @@ class Variable:
     max_val: float = None
     min_val: float = None
     lognorm: bool = False
+    norm: bool = False
 
     def standardise(self, data_arr, dummy_val=-1):
         
@@ -39,6 +40,9 @@ class Variable:
             # data_arr = (data_arr - np.amin(data_arr)) / (np.amax(data_arr) - np.amin(data_arr))
             data_arr = (data_arr - 0) / (math.log10(self.max_val) - 0)
             data_arr = data_arr.filled(dummy_val)
+        
+        if self.norm:
+            data_arr = (data_arr - 0) / (math.log10(self.max_val) - 0)
 
         return data_arr
 
@@ -89,25 +93,25 @@ class VariableHandler:
 
 variable_handler = VariableHandler([])
 
-variable_handler.add_variable(Variable("TauTracks", "TauTracks.nInnermostPixelHits", min_val=0, max_val=3, lognorm=True))
-variable_handler.add_variable(Variable("TauTracks", "TauTracks.nPixelHits", min_val=0, max_val=11, lognorm=True))
-variable_handler.add_variable(Variable("TauTracks", "TauTracks.nSCTHits", min_val=0, max_val=21, lognorm=True))
+variable_handler.add_variable(Variable("TauTracks", "TauTracks.nInnermostPixelHits", min_val=0, max_val=3, norm=True))
+variable_handler.add_variable(Variable("TauTracks", "TauTracks.nPixelHits", min_val=0, max_val=11, norm=True))
+variable_handler.add_variable(Variable("TauTracks", "TauTracks.nSCTHits", min_val=0, max_val=21, norm=True))
 variable_handler.add_variable(Variable("TauTracks", "TauTracks.chargedScoreRNN", min_val=0, max_val=1))
 variable_handler.add_variable(Variable("TauTracks", "TauTracks.isolationScoreRNN", min_val=0, max_val=1))
 variable_handler.add_variable(Variable("TauTracks", "TauTracks.conversionScoreRNN", min_val=0, max_val=1))
 variable_handler.add_variable(Variable("TauTracks", "TauTracks.pt", min_val=0, max_val=0.25e7, lognorm=True))
-variable_handler.add_variable(Variable("TauTracks", "TauTracks.dphiECal", min_val=0, max_val=1, lognorm=True))
-variable_handler.add_variable(Variable("TauTracks", "TauTracks.detaECal", min_val=0, max_val=1, lognorm=True))
+variable_handler.add_variable(Variable("TauTracks", "TauTracks.dphiECal", min_val=0, max_val=1))
+variable_handler.add_variable(Variable("TauTracks", "TauTracks.detaECal", min_val=0, max_val=1))
 variable_handler.add_variable(Variable("TauTracks", "TauTracks.jetpt", min_val=0, max_val=3e7, lognorm=True))
 variable_handler.add_variable(Variable("TauTracks", "TauTracks.d0TJVA", min_val=0, max_val=100, lognorm=True))
 variable_handler.add_variable(Variable("TauTracks", "TauTracks.d0SigTJVA", min_val=0, max_val=250, lognorm=True))
 variable_handler.add_variable(Variable("TauTracks", "TauTracks.z0sinthetaTJVA", min_val=0, max_val=150, lognorm=True))
 variable_handler.add_variable(Variable("TauTracks", "TauTracks.z0sinthetaSigTJVA", min_val=0, max_val=2000, lognorm=True))
 
-variable_handler.add_variable(Variable("ConvTrack", "ConvTrack.dphiECal", min_val=0, max_val=1, lognorm=True))
-variable_handler.add_variable(Variable("ConvTrack", "ConvTrack.dphi", min_val=0, max_val=1, lognorm=True))
-variable_handler.add_variable(Variable("ConvTrack", "ConvTrack.detaECal", min_val=0, max_val=1, lognorm=True))
-variable_handler.add_variable(Variable("ConvTrack", "ConvTrack.deta", min_val=0, max_val=1, lognorm=True))
+variable_handler.add_variable(Variable("ConvTrack", "ConvTrack.dphiECal", min_val=0, max_val=1))
+variable_handler.add_variable(Variable("ConvTrack", "ConvTrack.dphi", min_val=0, max_val=1))
+variable_handler.add_variable(Variable("ConvTrack", "ConvTrack.detaECal", min_val=0, max_val=1))
+variable_handler.add_variable(Variable("ConvTrack", "ConvTrack.deta", min_val=0, max_val=1,))
 variable_handler.add_variable(Variable("ConvTrack", "ConvTrack.pt", min_val=0, max_val=5e7, lognorm=True))
 variable_handler.add_variable(Variable("ConvTrack", "ConvTrack.jetpt", min_val=0, max_val=3e7, lognorm=True))
 variable_handler.add_variable(Variable("ConvTrack", "ConvTrack.d0TJVA", min_val=0, max_val=100, lognorm=True))
@@ -115,22 +119,22 @@ variable_handler.add_variable(Variable("ConvTrack", "ConvTrack.d0SigTJVA", min_v
 variable_handler.add_variable(Variable("ConvTrack", "ConvTrack.z0sinthetaTJVA", min_val=0, max_val=100, lognorm=True))
 variable_handler.add_variable(Variable("ConvTrack", "ConvTrack.z0sinthetaSigTJVA", min_val=0, max_val=100, lognorm=True))
 
-variable_handler.add_variable(Variable("ShotPFO", "ShotPFO.dphiECal", min_val=0, max_val=1, lognorm=True))
-variable_handler.add_variable(Variable("ShotPFO", "ShotPFO.dphi", min_val=0, max_val=1, lognorm=True))
-variable_handler.add_variable(Variable("ShotPFO", "ShotPFO.detaECal", min_val=0, max_val=1, lognorm=True))
-variable_handler.add_variable(Variable("ShotPFO", "ShotPFO.deta", min_val=0, max_val=1, lognorm=True))
+variable_handler.add_variable(Variable("ShotPFO", "ShotPFO.dphiECal", min_val=0, max_val=1))
+variable_handler.add_variable(Variable("ShotPFO", "ShotPFO.dphi", min_val=0, max_val=1))
+variable_handler.add_variable(Variable("ShotPFO", "ShotPFO.detaECal", min_val=0, max_val=1))
+variable_handler.add_variable(Variable("ShotPFO", "ShotPFO.deta", min_val=0, max_val=1))
 variable_handler.add_variable(Variable("ShotPFO", "ShotPFO.pt", min_val=0,  max_val=50000, lognorm=True))
 variable_handler.add_variable(Variable("ShotPFO", "ShotPFO.jetpt", min_val=0, max_val=3e7, lognorm=True))
 
-variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.dphiECal", min_val=0, max_val=1, lognorm=True))
-variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.dphi", min_val=0, max_val=1, lognorm=True))
-variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.detaECal", min_val=0, max_val=1, lognorm=True))
-variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.deta", min_val=0, max_val=1, lognorm=True))
+variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.dphiECal", min_val=0, max_val=1))
+variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.dphi", min_val=0, max_val=1))
+variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.detaECal", min_val=0, max_val=1))
+variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.deta", min_val=0, max_val=1))
 variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.pt", min_val=0, max_val=0.5e7, lognorm=True))
 variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.jetpt", min_val=0, max_val=3e7, lognorm=True))
-variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.FIRST_ETA", min_val=0, max_val=4, lognorm=True))
+variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.FIRST_ETA", min_val=0, max_val=4, norm=True))
 variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.SECOND_R", min_val=0, max_val=50000, lognorm=True))
-variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.DELTA_THETA", min_val=0, max_val=1, lognorm=True))
+variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.DELTA_THETA", min_val=0, max_val=1))
 variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.CENTER_LAMBDA", min_val=0, max_val=1300, lognorm=True))
 variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.LONGITUDINAL", min_val=0, max_val=1))
 variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.SECOND_ENG_DENS", min_val=0, max_val=10, lognorm=True))
@@ -145,15 +149,15 @@ variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.firstEtaWRTClus
 variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.secondEtaWRTClusterPosition_EM1", min_val=0, max_val=0.01, lognorm=True))
 variable_handler.add_variable(Variable("NeutralPFO", "NeutralPFO.secondEtaWRTClusterPosition_EM2", min_val=0, max_val=0.01, lognorm=True))
 
-variable_handler.add_variable(Variable("TauJets", "TauJets.centFrac", min_val=0, max_val=1.5, lognorm=True))
+variable_handler.add_variable(Variable("TauJets", "TauJets.centFrac", min_val=0, max_val=1.5, norm=True))
 variable_handler.add_variable(Variable("TauJets", "TauJets.etOverPtLeadTrk", min_val=0, max_val=30, lognorm=True))
 variable_handler.add_variable(Variable("TauJets", "TauJets.dRmax", min_val=0, max_val=1))
 variable_handler.add_variable(Variable("TauJets", "TauJets.SumPtTrkFrac", min_val=0, max_val=1))
-variable_handler.add_variable(Variable("TauJets", "TauJets.ptRatioEflowApprox", min_val=0, max_val=5, lognorm=True))
+variable_handler.add_variable(Variable("TauJets", "TauJets.ptRatioEflowApprox", min_val=0, max_val=5, norm=True))
 variable_handler.add_variable(Variable("TauJets", "TauJets.mEflowApprox", min_val=0, max_val=0.3e7, lognorm=True))
 variable_handler.add_variable(Variable("TauJets", "TauJets.ptJetSeed", min_val=0, max_val=3.5e7, lognorm=True))
-variable_handler.add_variable(Variable("TauJets", "TauJets.etaJetSeed", min_val=0, max_val=3, lognorm=True))
-variable_handler.add_variable(Variable("TauJets", "TauJets.phiJetSeed", min_val=0, max_val=3.2, lognorm=True))
+variable_handler.add_variable(Variable("TauJets", "TauJets.etaJetSeed", min_val=0, max_val=3, norm=True))
+variable_handler.add_variable(Variable("TauJets", "TauJets.phiJetSeed", min_val=0, max_val=3.2, norm=True))
 
 variable_handler.add_variable(Variable("DecayMode", "TauJets.truthDecayMode"))
 variable_handler.add_variable(Variable("Prong", "TauJets.truthProng"))

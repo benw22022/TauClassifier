@@ -14,10 +14,10 @@ ntuple_dir = "../NTuples"
 
 # Bowen's DSNN config dictionary
 config_dict = {"shapes":
-				   {"TauTrack": (len(variable_handler.get("TauTracks")),) + (5,),
-					"NeutralPFO": (len(variable_handler.get("NeutralPFO")),) + (5,),
-					"ShotPFO": (len(variable_handler.get("ShotPFO")),) + (5,),
-					"ConvTrack": (len(variable_handler.get("ConvTrack")),) + (5,),
+				   {"TauTrack": (len(variable_handler.get("TauTracks")),) + (3,),
+					"NeutralPFO": (len(variable_handler.get("NeutralPFO")),) + (6,),
+					"ShotPFO": (len(variable_handler.get("ShotPFO")),) + (8,),
+					"ConvTrack": (len(variable_handler.get("ConvTrack")),) + (4,),
 					"TauJets": (len(variable_handler.get("TauJets")),),
 					},
 			   "n_tdd":
