@@ -54,11 +54,11 @@ def main():
     parser.add_argument("-weights", help="File path to network weights to test", type=str, default=best_weights)
     parser.add_argument("-model", help="Model to use: models are defined in model/models.py and registered in config/config.py in the models dictionary", choices=model_list, 
     type=str, default="DSNN")
-    parser.add_argument("-lr", help="Learning rate of Adam optimiser", type=float, default=1e-3)
+    parser.add_argument("-lr", help="Learning rate of Adam optimiser", type=float, default=1e-5)
     parser.add_argument("-lr_range", help="Learning rate array to scan through usage: -lr_range <start> <stop> <step>", type=float, nargs=3, default=[1e-4, 1e-2, 10])
     parser.add_argument("-ncores", help="number of CPU cores to use when evaluating network predictions", type=int, default=8)
     parser.add_argument("-log_level", help="Sets log level", type=str, default='INFO', choices=log_levels)
-    parser.add_argument("-tf_log_level", help="Set Tensorflow logging level", type=str, choices=tf_log_levels, default='2')
+    parser.add_argument("-tf_log_level", help="Set Tensorflow logging level", type=str, choices=tf_log_levels, default='1')
     parser.add_argument("-weights_save_dir", help="Set the directory to save network weights to when training", type=str, default="network_weights")
     parser.add_argument("-function", help="Scratch function to run")
     parser.add_argument("-condor", help='Run on ht condor batch system', type=bool, default=False)
@@ -67,7 +67,7 @@ def main():
 
     # Set logging level
     logger.set_log_level(args.log_level)
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level
+    # os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level
 
     # If training
     if args.run_mode == 'train':
