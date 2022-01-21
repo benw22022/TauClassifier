@@ -101,10 +101,10 @@ def train(args):
                             write_graph=True,
                             write_images=True,
                             update_freq="epoch",
-                            profile_batch = '500,520'
+                            #profile_batch = '500,520'
                         )
 
-    callbacks = [early_stopping, model_checkpoint, reduce_lr, tensorboard_callback]
+    callbacks = [early_stopping, model_checkpoint, reduce_lr]#, tensorboard_callback]
 
     # Compile and summarise model
     model.summary()

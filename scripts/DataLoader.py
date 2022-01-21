@@ -194,10 +194,10 @@ class DataLoader:
         """
         batch = self.next_batch()
 
-        track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=5, shuffle_var=shuffle_var)
-        conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=5, shuffle_var=shuffle_var)
-        shot_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ShotPFO", max_items=5, shuffle_var=shuffle_var)
-        neutral_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "NeutralPFO", max_items=5, shuffle_var=shuffle_var)
+        track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=3, shuffle_var=shuffle_var)
+        neutral_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "NeutralPFO", max_items=6, shuffle_var=shuffle_var)
+        shot_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ShotPFO", max_items=8, shuffle_var=shuffle_var)
+        conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=4, shuffle_var=shuffle_var)
         jet_np_arrays = self.reshape_arrays(batch, "TauJets", shuffle_var=shuffle_var)
 
         # Compute labels
