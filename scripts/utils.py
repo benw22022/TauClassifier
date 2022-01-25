@@ -191,6 +191,9 @@ class FileHandler:
         for file in self.file_list:
             ret_str += f"\n{file}"
         return ret_str
+    
+    def __call__(self, message):
+        self.log(message)
 
 
 def find_anomalous_entries(array, thresh, logger, arr_name=""):

@@ -29,6 +29,7 @@ def train(args):
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     # Set log levels
+    ray.init(include_dashboard=False)
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level # Sets Tensorflow Logging Level
     os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'       # Allow tensorflow to use more GPU VRAM
     logger.set_log_level(args.log_level)
@@ -71,10 +72,10 @@ def train(args):
 
     cuts = get_cuts(args.prong)
     
-    training_batch_generator = DataGenerator(training_files, variable_handler, batch_size=1024, nbatches=100, cuts=cuts,
+    training_batch_generator = DataGenerator(training_files, variable_handler, batch_size=2048, nbatches=500, cuts=cuts,
                                              reweighter=reweighter, prong=args.prong, label="Training Generator")
 
-    validation_batch_generator = DataGenerator(validation_files, variable_handler, batch_size=10000,cuts=cuts,
+    validation_batch_generator = DataGenerator(validation_files, variable_handler, nbatches=100,cuts=cuts,
                                                reweighter=reweighter, prong=args.prong, label="Validation Generator")
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -101,10 +102,10 @@ def train(args):
                             write_graph=True,
                             write_images=True,
                             update_freq="epoch",
-                            #profile_batch = '500,520'
+                            profile_batch = '0, 1000'
                         )
 
-    callbacks = [early_stopping, model_checkpoint, reduce_lr]#, tensorboard_callback]
+    callbacks = [early_stopping, model_checkpoint, reduce_lr, tensorboard_callback]
 
     # Compile and summarise model
     model.summary()
@@ -149,7 +150,7 @@ def train(args):
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     history = model.fit(training_batch_generator, epochs=200, callbacks=callbacks, class_weight=class_weight,
                         validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
-                        steps_per_epoch=len(training_batch_generator), workers=2, use_multiprocessing=True)
+                        steps_per_epoch=len(training_batch_generator))
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Make Plots 

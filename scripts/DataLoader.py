@@ -128,9 +128,11 @@ class DataLoader:
         then restart it
         :return: batch - a dict of arrays yielded by uproot.iterate()
         """
+        logger.log("DataLoader next_batch called", "DEBUG")
         try:
             batch = next(self._batches_generator)
         except StopIteration:
+            logger.log(f"Stop iteration raised by DataLoader {self.data_type}", "DEBUG")
             self._batches_generator = uproot.iterate(self.files, filter_name=self._variable_handler.list(), cut=self.cut,
                                                      step_size=self.specific_batch_size)
             return self.next_batch()
@@ -192,7 +194,9 @@ class DataLoader:
         array so that they are all of a specific length
         :param shuffle_var (optional, default=None): A variable to shuffle (for permutation ranking)
         """
+        logger.log("DataLoader Loading next batch", "DEBUG")
         batch = self.next_batch()
+        logger.log("DataLoader Loaded next batch", "DEBUG")
 
         track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=3, shuffle_var=shuffle_var)
         neutral_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "NeutralPFO", max_items=6, shuffle_var=shuffle_var)
@@ -215,10 +219,10 @@ class DataLoader:
 
         result = ((track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays),
                   labels_np_array, weight_np_array)
-        try:
-            return result
-        finally:
-            del result
+
+        logger.log("DataLoader returning result", "DEBUG")
+        return result
+     
 
     def reset_dataloader(self):
         """

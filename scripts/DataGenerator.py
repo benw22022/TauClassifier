@@ -129,17 +129,9 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         if self.batch_position == 0 or self.batch_position > len(self.batch[1]):
             self.batch_position = 0
-            # logger.log(f"{self.batch_position} == 0 or {self.batch_position} > {len(self.batch[1])}")
-            if self.first_batch:
-                self.first_batch = False
-                batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
-                self.next_batch = [dl.get_batch.remote() for dl in self.data_loaders]
-            else:
-                batch = ray.get(self.next_batch)
-                self.next_batch = [dl.get_batch.remote() for dl in self.data_loaders]
-            # self.next_batch = [dl.get_batch.remote() for dl in self.data_loaders]
-            # logger.log("Loaded new batch")
-            # batch = [dl.get_batch() for dl in self.data_loaders]
+            logger.log("Loading batch", "DEBUG")
+            batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
+            logger.log("Loaded batch", "DEBUG")
 
             track_array = np.concatenate([result[0][0] for result in batch]).astype("float32")
             neutral_pfo_array = np.concatenate([result[0][1] for result in batch]).astype("float32")
@@ -177,18 +169,15 @@ class DataGenerator(tf.keras.utils.Sequence):
             
             # return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
 
+        self.batch_position += self.batch_size  
 
-        try:
-            return ((self.batch[0][0][self.batch_position: self.batch_position + self.batch_size],
-                    self.batch[0][1][self.batch_position: self.batch_position + self.batch_size],
-                    self.batch[0][2][self.batch_position: self.batch_position + self.batch_size],
-                    self.batch[0][3][self.batch_position: self.batch_position + self.batch_size],
-                    self.batch[0][4][self.batch_position: self.batch_position + self.batch_size]),
-                    self.batch[1][self.batch_position: self.batch_position + self.batch_size],
-                    self.batch[2][self.batch_position: self.batch_position + self.batch_size])
-        finally:
-            self.batch_position += self.batch_size  
-            # logger.log(f"self.batch_position = {self.batch_position:}")
+        return ((self.batch[0][0][self.batch_position: self.batch_position + self.batch_size],
+                self.batch[0][1][self.batch_position: self.batch_position + self.batch_size],
+                self.batch[0][2][self.batch_position: self.batch_position + self.batch_size],
+                self.batch[0][3][self.batch_position: self.batch_position + self.batch_size],
+                self.batch[0][4][self.batch_position: self.batch_position + self.batch_size]),
+                self.batch[1][self.batch_position: self.batch_position + self.batch_size],
+                self.batch[2][self.batch_position: self.batch_position + self.batch_size])
 
 
     def load_model(self, model, model_config, model_weights):
