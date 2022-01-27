@@ -139,7 +139,7 @@ class TermLogger:
         # you might want to specify some extra behavior here.
         pass 
 
-sys.stdout = TermLogger()
+# sys.stdout = TermLogger()
 
 
 class FileHandler:

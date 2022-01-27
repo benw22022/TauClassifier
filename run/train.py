@@ -5,20 +5,47 @@ Script to run the neural network training
 """
 
 import os
-import ray
+# import ray
 import glob
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 import time
-from config.variables import variable_handler
-from scripts.DataGenerator import DataGenerator
+# from config.variables import variable_handler
+# from scripts.DataGenerator import DataGenerator
 from config.files import training_files, validation_files, ntuple_dir
 from model.callbacks import ParallelModelCheckpoint
 from scripts.utils import logger, get_number_of_events
 from config.config import config_dict, get_cuts, models_dict
-from scripts.preprocessing import Reweighter
+# from scripts.preprocessing import Reweighter
 import shutil
+import tqdm
+
+
+def concat_datasets(datasets):
+    dataset = datasets[0]
+    for i in tqdm.tqdm(range(1, len(datasets))):
+        dataset = dataset.concatenate(datasets[i])
+    return dataset
+
+
+def build_dataset(filepath, batch_size=32):
+    dataset_list = glob.glob(filepath)
+    datasets = [tf.data.experimental.load(file) for file in dataset_list]
+
+    # data1, data2 = split_list(datasets)
+    # data1 = concat_datasets(data1)
+    # data2 = concat_datasets(data2)
+    
+    # datasets = [data1, data2]
+
+    # dataset = dataset.interleave(datasets, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    # dataset = tf.data.Dataset.from_tensor_slices(datasets).interleave(lambda x: x, num_parallel_calls=tf.data.AUTOTUNE, deterministic=False)
+    dataset = concat_datasets(datasets)
+    dataset = dataset.batch(batch_size)
+    dataset = dataset.prefetch(tf.data.AUTOTUNE)
+
+    return dataset
 
 
 
@@ -29,11 +56,11 @@ def train(args):
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     # Set log levels
-    ray.init(include_dashboard=False)
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level # Sets Tensorflow Logging Level
-    os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'       # Allow tensorflow to use more GPU VRAM
-    logger.set_log_level(args.log_level)
-    tf.debugging.experimental.enable_dump_debug_info("tb_logs", tensor_debug_mode="FULL_HEALTH", circular_buffer_size=-1)
+    # ray.init(include_dashboard=True)
+    # os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level # Sets Tensorflow Logging Level
+    # os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'       # Allow tensorflow to use more GPU VRAM
+    # logger.set_log_level(args.log_level)
+    # tf.debugging.experimental.enable_dump_debug_info("tb_logs", tensor_debug_mode="FULL_HEALTH", circular_buffer_size=-1)
 
 
     # Initialize ray
@@ -68,15 +95,18 @@ def train(args):
     Initialize Generators
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-    reweighter = Reweighter(ntuple_dir, prong=args.prong)
+    # reweighter = Reweighter(ntuple_dir, prong=args.prong)
 
-    cuts = get_cuts(args.prong)
+    # cuts = get_cuts(args.prong)
     
-    training_batch_generator = DataGenerator(training_files, variable_handler, batch_size=2048, nbatches=500, cuts=cuts,
-                                             reweighter=reweighter, prong=args.prong, label="Training Generator")
+    # training_batch_generator = DataGenerator(training_files, variable_handler, batch_size=5000, nbatches=100, cuts=cuts,
+    #                                          reweighter=reweighter, prong=args.prong, label="Training Generator")
 
-    validation_batch_generator = DataGenerator(validation_files, variable_handler, nbatches=100,cuts=cuts,
-                                               reweighter=reweighter, prong=args.prong, label="Validation Generator")
+    # validation_batch_generator = DataGenerator(validation_files, variable_handler, nbatches=100,cuts=cuts,
+    #                                            reweighter=reweighter, prong=args.prong, label="Validation Generator")
+
+    train_dataset = build_dataset("data/train_data/*.dat", batch_size=32)
+    val_dataset = build_dataset("data/val_data/*.dat", batch_size=32)
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Model
@@ -132,7 +162,7 @@ def train(args):
                     5: weight_for_3p1n,
                     }
 
-    # # Assign output layer bias
+    # Assign output layer bias
     model.layers[-1].bias.assign([np.log(njets / (total)),
                                   np.log(n1p0n / (total)),
                                   np.log(n1p1n / (total)),
@@ -142,15 +172,18 @@ def train(args):
                                   ])
 
 
-    opt = tf.keras.optimizers.Adam(learning_rate=args.lr) # default lr = 1e-3
+    opt = tf.keras.optimizers.Adam(learning_rate=1e-3)#args.lr) # default lr = 1e-3
     model.compile(optimizer=opt, loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()])
     
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
      Train Model
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    history = model.fit(training_batch_generator, epochs=200, callbacks=callbacks, class_weight=class_weight,
-                        validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
-                        steps_per_epoch=len(training_batch_generator))
+    # history = model.fit(training_batch_generator, epochs=200, callbacks=callbacks, class_weight=class_weight,
+    #                     validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
+    #                     steps_per_epoch=len(training_batch_generator))
+    history = model.fit(train_dataset, epochs=200, class_weight=class_weight, callbacks=callbacks,
+                        validation_data=val_dataset, validation_freq=1, verbose=1)
+
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Make Plots 

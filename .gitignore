@@ -6,6 +6,10 @@
 *.h5
 *.tfr
 *.csv
+*.dat*
+*.snapshot
+*.pb
+*.metadata
 
 # Ignore any plots
 *.png
@@ -15,7 +19,6 @@
 # Ignore directories
 venv*
 *.idea
-data/*
 plots/*
 *training
 batch/*training_*/*
@@ -32,7 +35,6 @@ tb_logs/*
 *.out
 *_stdout*
 *_stderr*
-
 
 
 # Other 

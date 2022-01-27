@@ -8,7 +8,7 @@ TODO: Make this generalisable to different problems
 
 import os
 import gc
-import ray  
+# import ray  
 import math
 import numpy as np
 import tensorflow as tf
@@ -81,25 +81,25 @@ class DataGenerator(tf.keras.utils.Sequence):
             if cuts is not None and file_handler.label in cuts:
                 logger.log(f"Cuts applied to {file_handler.label}: {self.cuts[file_handler.label]}")
 
-                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
-                                                    label=label, prong=prong, reweighter=reweighter)
-                # dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
+                # dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
                 #                                     label=label, prong=prong, reweighter=reweighter)
+                dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
+                                                    label=label, prong=prong, reweighter=reweighter)
                 self.data_loaders.append(dl)
 
             else:
-                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
-                # dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
+                # dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
+                dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
                 self.data_loaders.append(dl)
 
         # Get number of events in each dataset
         self._total_num_events = 0
         num_batches_list = []
         for data_loader in self.data_loaders:
-            self._total_num_events = self._total_num_events + ray.get(data_loader.num_events.remote())
-            num_batches_list.append(ray.get(data_loader.number_of_batches.remote()))
-            # self._total_num_events = self._total_num_events + data_loader.num_events()
-            # num_batches_list.append(data_loader.number_of_batches())
+            # self._total_num_events = self._total_num_events + ray.get(data_loader.num_events.remote())
+            # num_batches_list.append(ray.get(data_loader.number_of_batches.remote()))
+            self._total_num_events = self._total_num_events + data_loader.num_events()
+            num_batches_list.append(data_loader.number_of_batches())
         logger.log(f"{self.label} - Found {self._total_num_events} events total", "INFO")
 
         # Work out how many batches to split the data into
@@ -130,7 +130,9 @@ class DataGenerator(tf.keras.utils.Sequence):
         if self.batch_position == 0 or self.batch_position > len(self.batch[1]):
             self.batch_position = 0
             logger.log("Loading batch", "DEBUG")
-            batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
+            # batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
+            batch = [dl.get_batch() for dl in self.data_loaders]
+
             logger.log("Loaded batch", "DEBUG")
 
             track_array = np.concatenate([result[0][0] for result in batch]).astype("float32")
@@ -169,16 +171,18 @@ class DataGenerator(tf.keras.utils.Sequence):
             
             # return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
 
-        self.batch_position += self.batch_size  
+        try:
+            return ((self.batch[0][0][self.batch_position: self.batch_position + self.batch_size],
+                    self.batch[0][1][self.batch_position: self.batch_position + self.batch_size],
+                    self.batch[0][2][self.batch_position: self.batch_position + self.batch_size],
+                    self.batch[0][3][self.batch_position: self.batch_position + self.batch_size],
+                    self.batch[0][4][self.batch_position: self.batch_position + self.batch_size]),
+                    self.batch[1][self.batch_position: self.batch_position + self.batch_size],
+                    self.batch[2][self.batch_position: self.batch_position + self.batch_size])
+        finally:
+            self.batch_position += self.batch_size  
 
-        return ((self.batch[0][0][self.batch_position: self.batch_position + self.batch_size],
-                self.batch[0][1][self.batch_position: self.batch_position + self.batch_size],
-                self.batch[0][2][self.batch_position: self.batch_position + self.batch_size],
-                self.batch[0][3][self.batch_position: self.batch_position + self.batch_size],
-                self.batch[0][4][self.batch_position: self.batch_position + self.batch_size]),
-                self.batch[1][self.batch_position: self.batch_position + self.batch_size],
-                self.batch[2][self.batch_position: self.batch_position + self.batch_size])
-
+            
 
     def load_model(self, model, model_config, model_weights):
         """
@@ -355,7 +359,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         """
         self._current_index = 0
         for data_loader in self.data_loaders:
-            data_loader.reset_dataloader.remote()
+            data_loader.reset_dataloader()#.remote()
 
     def on_epoch_end(self):
         """
@@ -380,8 +384,15 @@ class DataGenerator(tf.keras.utils.Sequence):
             raise ValueError
     
     def profile_dataloader_memory(self):
-        mem_profiles = ray.get([dl.get_memory_profile.remote() for dl in self.data_loaders])
-        logger.log("DataLoader memory profiles", 'DEBUG')
-        for mem_dict in mem_profiles:
-            for key, value in mem_dict.items():
-                logger.log(f"{key}      {value}", 'DEBUG')
+        pass
+        # mem_profiles = ray.get([dl.get_memory_profile.remote() for dl in self.data_loaders])
+        # logger.log("DataLoader memory profiles", 'DEBUG')
+        # for mem_dict in mem_profiles:
+        #     for key, value in mem_dict.items():
+        #         logger.log(f"{key}      {value}", 'DEBUG')
+    
+    def __next__(self):
+        if self._current_index < self.__len__():
+            yield self.__getitem__[0]
+        else:
+            raise StopIteration
