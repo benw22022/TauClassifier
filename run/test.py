@@ -7,7 +7,7 @@ Plot confusion matrix and ROC curve using testing dataset
 import enum
 import os
 
-from scripts.utils import logger
+from source.utils import logger
 from config.config import config_dict, models_dict
 from run.train import build_dataset
 import tensorflow as tf

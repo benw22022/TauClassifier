@@ -9,7 +9,7 @@ Best lr will have the minimum val loss
 
 import numpy as np
 from run.train import train
-from scripts.utils import logger
+from source.utils import logger
 import shutil
 import os
 import glob

@@ -14,12 +14,12 @@ import numpy as np
 import time
 import datetime
 # from config.variables import variable_handler
-# from scripts.DataGenerator import DataGenerator
+# from source.DataGenerator import DataGenerator
 from config.files import training_files, validation_files, ntuple_dir
 from model.callbacks import ParallelModelCheckpoint
-from scripts.utils import logger, get_number_of_events
+from source.utils import logger, get_number_of_events
 from config.config import config_dict, get_cuts, models_dict
-# from scripts.preprocessing import Reweighter
+# from source.preprocessing import Reweighter
 import shutil
 import tqdm
 

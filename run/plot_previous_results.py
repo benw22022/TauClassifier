@@ -8,8 +8,8 @@ import glob
 import uproot
 import numpy as np
 from tqdm import tqdm
-from scripts.utils import logger
-from scripts.preprocessing import Reweighter
+from source.utils import logger
+from source.preprocessing import Reweighter
 from config.files import ntuple_dir
 from config.config import get_cuts
 from plotting.plotting_functions import plot_ROC, plot_confusion_matrix

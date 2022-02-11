@@ -9,11 +9,11 @@ import ray
 import numpy as np
 import sys
 from config.config import get_cuts, config_dict
-from scripts.utils import logger
+from source.utils import logger
 from config.variables import variable_handler
 from config.files import gammatautau_files, jz_files, testing_files, ntuple_dir, all_files
-from scripts.DataLoader import DataLoader
-from scripts.preprocessing import Reweighter
+from source.DataLoader import DataLoader
+from source.preprocessing import Reweighter
 import glob
 from ray.util import inspect_serializability
 
