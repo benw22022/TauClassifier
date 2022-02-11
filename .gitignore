@@ -27,6 +27,7 @@ batch/*training_*/*
 scratch/*
 experimental*
 tb_logs/*
+logs/*
 
 # Ignore logs
 *.log

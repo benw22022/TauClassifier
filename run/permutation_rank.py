@@ -14,6 +14,7 @@ from scripts.utils import logger
 from config.config import config_dict, get_cuts, models_dict
 from scripts.preprocessing import Reweighter
 from config.variables import variable_handler
+from run.test import test
 
 
 class Ranker:
@@ -63,15 +64,19 @@ def permutation_rank(args):
     :param args: Arguements from tauclassifier.py - easier to just parse this rather than the indiviual arguments
     """
     
-    ray.init()
+    test(args, shuffle_index=(0, 1))
 
-    variable_ranker = Ranker(args, variable_handler)
-    variable_ranker.rank("TauJets")
-    variable_ranker.rank("TauTracks")
-    variable_ranker.rank("NeutralPFO")
-    variable_ranker.rank("ShotPFO")
-    variable_ranker.rank("ConvTrack")
-    variable_ranker.finish()
 
-    ray.shutdown()
+
+    # ray.init()
+
+    # variable_ranker = Ranker(args, variable_handler)
+    # variable_ranker.rank("TauJets")
+    # variable_ranker.rank("TauTracks")
+    # variable_ranker.rank("NeutralPFO")
+    # variable_ranker.rank("ShotPFO")
+    # variable_ranker.rank("ConvTrack")
+    # variable_ranker.finish()
+
+    # ray.shutdown()
     

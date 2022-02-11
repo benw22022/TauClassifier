@@ -16,7 +16,6 @@ import numba as nb
 from scripts.utils import logger, profile_memory
 from config.config import models_dict
 
-
 @nb.njit()
 def labeler(truth_decay_mode_np_array, labels_np_array, prong=None):
     """

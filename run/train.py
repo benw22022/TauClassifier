@@ -1,4 +1,5 @@
 """
+
 Training Script
 ________________________________________________
 Script to run the neural network training
@@ -11,6 +12,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 import time
+import datetime
 # from config.variables import variable_handler
 # from scripts.DataGenerator import DataGenerator
 from config.files import training_files, validation_files, ntuple_dir
@@ -23,6 +25,13 @@ import tqdm
 
 
 def concat_datasets(datasets):
+    """
+    Join a list of tensorflow dataset objects into a single tf.data.Dataset
+    args:
+        datasets: List[tf.data.Dataset]
+    returns:
+        dataset: List[tf.data.Dataset]
+    """
     dataset = datasets[0]
     for i in tqdm.tqdm(range(1, len(datasets))):
         dataset = dataset.concatenate(datasets[i])
@@ -30,17 +39,20 @@ def concat_datasets(datasets):
 
 
 def build_dataset(filepath, batch_size=32):
+    """
+    Loads and builds a tf.data.Dataset from a number of datasets saved using 
+    tf.data.experimental.save. Note: The dataset must of been orginally saved using this method
+    Prefetching optimiztion is also applied to the dataset 
+    args:
+        filepath: str
+            A file pattern that can be globbed to give a list of saved datasets
+        batch_size: int
+            The batch size of the data
+    returns:
+        dataset: tf.data.Dataset
+    """
     dataset_list = glob.glob(filepath)
     datasets = [tf.data.experimental.load(file) for file in dataset_list]
-
-    # data1, data2 = split_list(datasets)
-    # data1 = concat_datasets(data1)
-    # data2 = concat_datasets(data2)
-    
-    # datasets = [data1, data2]
-
-    # dataset = dataset.interleave(datasets, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    # dataset = tf.data.Dataset.from_tensor_slices(datasets).interleave(lambda x: x, num_parallel_calls=tf.data.AUTOTUNE, deterministic=False)
     dataset = concat_datasets(datasets)
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
@@ -56,15 +68,9 @@ def train(args):
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     # Set log levels
-    # ray.init(include_dashboard=True)
-    # os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level # Sets Tensorflow Logging Level
-    # os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'       # Allow tensorflow to use more GPU VRAM
-    # logger.set_log_level(args.log_level)
-    # tf.debugging.experimental.enable_dump_debug_info("tb_logs", tensor_debug_mode="FULL_HEALTH", circular_buffer_size=-1)
-
-
-    # Initialize ray
-    # ray.init(include_dashboard=False)
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level # Sets Tensorflow Logging Level
+    os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'       # Allow tensorflow to use more GPU VRAM
+    logger.set_log_level(args.log_level)
 
     # If we're doing a learning rate scan save the models to tmp dir
     if args.run_mode == 'scan':
@@ -92,60 +98,49 @@ def train(args):
 
         
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    Initialize Generators
+    Create Datasets
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-    # reweighter = Reweighter(ntuple_dir, prong=args.prong)
-
-    # cuts = get_cuts(args.prong)
-    
-    # training_batch_generator = DataGenerator(training_files, variable_handler, batch_size=5000, nbatches=100, cuts=cuts,
-    #                                          reweighter=reweighter, prong=args.prong, label="Training Generator")
-
-    # validation_batch_generator = DataGenerator(validation_files, variable_handler, nbatches=100,cuts=cuts,
-    #                                            reweighter=reweighter, prong=args.prong, label="Validation Generator")
-
-    train_dataset = build_dataset("data/train_data/*.dat", batch_size=32)
-    val_dataset = build_dataset("data/val_data/*.dat", batch_size=32)
+    train_dataset = build_dataset("data/train_data/*.dat", batch_size=args.batch_size)
+    val_dataset = build_dataset("data/val_data/*.dat", batch_size=10000)
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Model
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     # Configure model
+    logger.log(f"Creating model: {args.model}")
     model_config = config_dict
     model = models_dict[args.model](model_config)
 
     # Configure callbacks
     early_stopping = tf.keras.callbacks.EarlyStopping(
         monitor="val_loss", min_delta=0.0001,
-        patience=10, verbose=0, restore_best_weights=True)
+        patience=20, verbose=0, restore_best_weights=True)
 
     model_checkpoint = ParallelModelCheckpoint(model, path=os.path.join(args.weights_save_dir, 'weights-{epoch:02d}.h5'),
                                                monitor="val_loss", save_best_only=True, save_weights_only=True)
 
-    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.75, patience=3, min_lr=4e-6)
-
+    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.75, patience=3, min_lr=1e-9)
+    
+    log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
-                            log_dir="tb_logs",
+                            log_dir=log_dir,
                             histogram_freq=1,
                             write_graph=True,
                             write_images=True,
-                            update_freq="epoch",
-                            profile_batch = '0, 1000'
-                        )
+                            update_freq="epoch")
 
     callbacks = [early_stopping, model_checkpoint, reduce_lr, tensorboard_callback]
 
     # Compile and summarise model
     model.summary()
 
-    # Compute class weights
+    # Following steps in: https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
+    # Compute class weights 
     logger.log("Computing class weights", 'INFO')
     njets, n1p0n, n1p1n,  n1pxn, n3p0n, n3pxn = get_number_of_events(training_files)
     total = njets + n1p0n + n1p1n + n1pxn + n3p0n + n3pxn
-    n1prong = n1p0n + n1p1n + n1pxn
-    n3prong = n3p0n + n3pxn 
 
     weight_for_jets = (1 / njets) * (total / 2.0)
     weight_for_1p0n = (1 / n1p0n) * (total / 2.0)
@@ -172,49 +167,44 @@ def train(args):
                                   ])
 
 
-    opt = tf.keras.optimizers.Adam(learning_rate=1e-3)#args.lr) # default lr = 1e-3
+    opt = tf.keras.optimizers.Adam(learning_rate=args.lr)
     model.compile(optimizer=opt, loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()])
     
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-     Train Model
+    Train Model
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    # history = model.fit(training_batch_generator, epochs=200, callbacks=callbacks, class_weight=class_weight,
-    #                     validation_data=validation_batch_generator, validation_freq=1, verbose=1, shuffle=True,
-    #                     steps_per_epoch=len(training_batch_generator))
+    
     history = model.fit(train_dataset, epochs=200, class_weight=class_weight, callbacks=callbacks,
                         validation_data=val_dataset, validation_freq=1, verbose=1)
-
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Make Plots 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     # Loss History
-    plt.plot(history.history['loss'], label='train')
-    plt.plot(history.history['val_loss'], label='val')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.legend()
+    fig, ax = plt.subplots()
+    ax.plot(history.history['loss'], label='train')
+    ax.plot(history.history['val_loss'], label='val')
+    ax.set_xlabel('Epochs')
+    ax.set_ylabel('Loss')
+    ax.legend()
     plt.savefig(os.path.join("plots", "loss_history.png"))
-    plt.show()
+    
 
     # Accuracy history
-    plt.plot(history.history['categorical_accuracy'], label='train')
-    plt.plot(history.history['val_categorical_accuracy'], label='val')
-    plt.xlabel('Epochs')
-    plt.ylabel('Categorical Accuracy')
-    plt.legend()
+    fig, ax = plt.subplots()
+    ax.plot(history.history['categorical_accuracy'], label='train')
+    ax.plot(history.history['val_categorical_accuracy'], label='val')
+    ax.set_xlabel('Epochs')
+    ax.set_ylabel('Categorical Accuracy')
+    ax.legend()
     plt.savefig(os.path.join("plots", "accuracy_history.png"))
-    plt.show()
 
     # Return best validation loss and accuracy
     best_val_loss_epoch = np.argmin(history.history["val_loss"])
     best_val_loss = history.history["val_loss"][best_val_loss_epoch]
     best_val_acc = history.history["val_categorical_accuracy"][best_val_loss_epoch]
 
-    logger.log(f"Best Epoch: {best_val_loss_epoch} -- Val Loss = {best_val_loss} -- Val Acc = {best_val_acc}")
-
-    # Shut down Ray - will raise an execption if ray.init() is called twice otherwise
-    # ray.shutdown()
+    logger.log(f"Best Epoch: {best_val_loss_epoch + 1} -- Val Loss = {best_val_loss} -- Val Acc = {best_val_acc}")
 
     return best_val_loss, best_val_acc

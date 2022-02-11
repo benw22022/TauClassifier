@@ -35,20 +35,23 @@ def get_efficiency_and_rejection(y_true, y_pred, weights):
 	return eff, rej
 
 
-def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas="ROC.png"):
+def plot_ROC(y_true, y_pred, weights=None, title="ROC curve", saveas=None):
 
 	eff, rej = get_efficiency_and_rejection(y_true, y_pred, weights)
-
-	plt.figure(1)
-	plt.plot([0, 1], [0, 1], 'k--')
+	
+	fig, ax = plt.subplots()
+	ax.plot([0, 1], [0, 1], 'k--')
 	#plt.plot(fpr_keras, tpr_keras, label='Keras (AUC = {:.3f})'.format(auc_keras))
-	plt.plot(eff, rej)#, label='AUC (area = {:.3f})'.format(auc_keras))
-	plt.xlabel('Signal Efficiency')
-	plt.ylabel('Background Rejection')
-	plt.ylim(1e0, 1e4)
-	plt.yscale("log")
-	plt.savefig(saveas)
-	plt.title(title, loc='right', fontsize=5)
+	ax.plot(eff, rej)#, label='AUC (area = {:.3f})'.format(auc_keras))
+	ax.set_xlabel('Signal Efficiency')
+	ax.set_ylabel('Background Rejection')
+	ax.set_ylim(1e0, 1e4)
+	ax.set_yscale("log")
+	ax.set_title(title, loc='right', fontsize=5)
+	if saveas is not None:
+		plt.savefig(saveas)
+	else:
+		plt.savefig(os.path.join("plots", "ROC.png"))
 	plt.show()
 
 
@@ -91,7 +94,7 @@ def get_diag_score(conf_matrix, del_first=False):
 
 	return np.trace(conf_matrix) / conf_matrix.shape[0]
 	
-def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None, title="", no_jets=False):
+def plot_confusion_matrix(y_true, y_pred, prong=None, weights=None, saveas=None, title="", no_jets=False):
 	"""
 	Function to plot confusion matrix
 	Makes two plots:
@@ -140,6 +143,7 @@ def plot_confusion_matrix(y_pred, y_true, prong=None, weights=None, saveas=None,
 	ax2.set_ylabel("Prediction", fontsize=18)
 	ax1.set_title(f"Diagonal Score = {get_diag_score(efficiency_matrix):.2f} Efficiency: {title}", loc='right', fontsize=12)
 	ax2.set_title(f"Diagonal Score = {get_diag_score(purity_matrix):.2f} Purity: {title}", loc='right', fontsize=12)
+	fig.suptitle(title, fontsize=9)
 	if saveas is None:
 		plt.savefig(os.path.join("plots", "confusion_matrix.png"))
 	else:

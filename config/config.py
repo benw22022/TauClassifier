@@ -7,7 +7,7 @@ TODO: This should really be done using YAML - user shouldn't need to edit .py fi
 
 import tensorflow as tf
 from config.variables import variable_handler
-from model.models import ModelDSNN, SetTransformer
+import model.models
 
 # Directory pointing to the NTuples to train/test on
 ntuple_dir = "../NTuples"
@@ -21,9 +21,9 @@ config_dict = {"shapes":
 					"TauJets": (len(variable_handler.get("TauJets")),),
 					},
 			   "n_tdd":
-				   {"TauTrack": 3,
-					"ConvTrack": 3,
-					"ShotPFO": 3,
+				   {"TauTrack": 4,
+					"ConvTrack": 4,
+					"ShotPFO": 4,
 					"NeutralPFO": 4,
 					"TauJets": 3,
 					},
@@ -42,9 +42,9 @@ config_dict = {"shapes":
 					"TauJets": [20, 20, 20],
 					},
 			   "n_inputs":
-				   {"TauTrack": [20, 20, 20],
-					"ConvTrack": [20, 20, 20],
-					"ShotPFO": [20, 20, 20],
+				   {"TauTrack": [80, 80, 60, 60],
+					"ConvTrack": [80, 80, 60, 60],
+					"ShotPFO": [80, 80, 60, 60],
 					"NeutralPFO": [80, 80, 60, 60],
 					"TauJets": [20, 20, 20],
 					},
@@ -84,5 +84,6 @@ def get_cuts(prong=None, decay_mode=None):
 				}
 	return cuts_dict
 
-models_dict = {"DSNN": ModelDSNN,
-		  	   "SetTransformer": SetTransformer}
+models_dict = {"DSNN": model.models.ModelDSNN,
+		  	   "SetTransformer": model.models.SetTransformer, 
+			   "DSNN_2Step": model.models.ModelDSNN_2Step}
