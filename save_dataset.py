@@ -8,16 +8,21 @@ which are converted to tf.data.Datasets which are then saved
 import os
 import tensorflow as tf
 from config.variables import variable_handler
-from scripts.DataGenerator import DataGenerator
-from config.files import training_files, validation_files, testing_files, ntuple_dir
+from source.DataGenerator import DataGenerator
+from config.files import all_files, training_files, validation_files, testing_files, ntuple_dir
 from config.config import get_cuts
-from scripts.preprocessing import Reweighter
+from source.preprocessing import Reweighter
 import tqdm
 import matplotlib
+from multiprocessing import Process, Queue
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true' 
 matplotlib.use('Agg')
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
+
+def save(q, features_dataset, output_dir, i):        
+    q.put(tf.data.experimental.save(features_dataset, os.path.join(output_dir, f"data_{i:001d}.dat")))
 
 
 def save_dataset(file_handler_list, output_dir):
@@ -40,11 +45,20 @@ def save_dataset(file_handler_list, output_dir):
 
     for i in tqdm.tqdm(range(0, len(batch_generator))):
     
-        batch = batch_generator[i]
+        batch = batch_generator.load_batch(return_aux_vars=True)
         features_dataset = tf.data.Dataset.from_tensor_slices(batch)
         
-        tf.data.experimental.save(features_dataset, os.path.join(output_dir, f"data_{i:001d}.dat"))
+        # tf.data.experimental.save(features_dataset, os.path.join(output_dir, f"data_{i:001d}.dat"))
 
+        """
+        In order to avoid a memory leak (Tensorflow **really** does not like you doing these operations in a loop)
+        You have to spin up a seperate python process and run the function there - why? Haven't a clue!
+        Oh and you have to have os.environ["CUDA_VISIBLE_DEVICES"] = "-1" else the dataset doesn't save properly!
+        """
+        queue = Queue()
+        p = Process(target=save, args=(queue, features_dataset, output_dir, i))
+        p.start()
+        p.join()
 
 
 if __name__ == "__main__":
@@ -52,5 +66,5 @@ if __name__ == "__main__":
     save_dataset(training_files, os.path.join("data", "train_data"))
     save_dataset(testing_files, os.path.join("data", "test_data"))
     save_dataset(validation_files, os.path.join("data", "val_data"))
-    
+    # save_dataset(all_files, os.path.join("data", "all_data"))
     

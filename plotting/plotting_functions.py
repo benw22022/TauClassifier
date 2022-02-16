@@ -4,6 +4,7 @@ ________________________________________________________________________
 File to store useful plotting functions
 """
 
+from cProfile import label
 import matplotlib.pyplot as plt
 from keras.models import load_model
 from sklearn.metrics import auc, roc_auc_score
@@ -18,6 +19,7 @@ import ray
 import json
 import os
 from tensorflow.keras.layers.experimental import preprocessing
+from config.variables import variable_handler
 
 
 def get_efficiency_and_rejection(y_true, y_pred, weights):
@@ -154,3 +156,26 @@ def plot_confusion_matrix(y_true, y_pred, prong=None, weights=None, saveas=None,
 	
 	return np.trace(purity_matrix) / purity_matrix.shape[0]
 
+
+
+def plot_1_and_3_prong_ROC(data_1prong, data_3prong, title="ROC curve", saveas=None):
+
+	eff_1prong, rej_1prong = get_efficiency_and_rejection(*data_1prong)
+	eff_3prong, rej_3prong = get_efficiency_and_rejection(*data_3prong)
+
+	fig, ax = plt.subplots()
+	ax.plot([0, 1], [0, 1], 'k--')
+	#plt.plot(fpr_keras, tpr_keras, label='Keras (AUC = {:.3f})'.format(auc_keras))
+	ax.plot(eff_1prong, rej_1prong, label="1-Prong")
+	ax.plot(eff_3prong, rej_3prong, label="3-Prong")
+	ax.set_xlabel('Signal Efficiency')
+	ax.set_ylabel('Background Rejection')
+	ax.set_ylim(1e0, 1e4)
+	ax.set_yscale("log")
+	ax.legend()
+	ax.set_title(title, loc='right', fontsize=5)
+	if saveas is not None:
+		plt.savefig(saveas)
+	else:
+		plt.savefig(os.path.join("plots", "ROC_seperate_prongs.png"))
+	plt.show()

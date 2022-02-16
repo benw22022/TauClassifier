@@ -112,7 +112,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         if prong == 3:
             self.nclasses = 3
 
-    def load_batch(self, shuffle_var=None):
+    def load_batch(self, shuffle_var=None, return_aux_vars=False):
         """
         Loads a batch of data from each DataLoader and concatenates them into single arrays for training
         :param shuffle_var: For doing permutation ranking. Set up is a tad confusing:
@@ -142,6 +142,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             jet_array = np.concatenate([result[0][4] for result in batch]).astype("float32")
             label_array = np.concatenate([result[1] for result in batch]).astype("int32")
             weight_array = np.concatenate([result[2] for result in batch]).astype("float32")
+            aux_array = np.concatenate([result[3] for result in batch]).astype("float32")
 
             for i, variable in enumerate(self._variable_handler.get("TauTracks")):
                 track_array[:, i] = variable.standardise(track_array[:, i])
@@ -167,18 +168,28 @@ class DataGenerator(tf.keras.utils.Sequence):
                     np.random.shuffle(neutral_pfo_array[:, shuffle_var[1]])
 
             load_time = logger.log_time(f"{self.label}: Processed batch {self._current_index}/{self.__len__()} - {len(label_array)} events", "DEBUG")
-            self.batch = (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
+            self.batch = (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array, aux_array
             
             # return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
 
         try:
-            return ((self.batch[0][0][self.batch_position: self.batch_position + self.batch_size],
-                    self.batch[0][1][self.batch_position: self.batch_position + self.batch_size],
-                    self.batch[0][2][self.batch_position: self.batch_position + self.batch_size],
-                    self.batch[0][3][self.batch_position: self.batch_position + self.batch_size],
-                    self.batch[0][4][self.batch_position: self.batch_position + self.batch_size]),
-                    self.batch[1][self.batch_position: self.batch_position + self.batch_size],
-                    self.batch[2][self.batch_position: self.batch_position + self.batch_size])
+            if not return_aux_vars:
+                return ((self.batch[0][0][self.batch_position: self.batch_position + self.batch_size],
+                        self.batch[0][1][self.batch_position: self.batch_position + self.batch_size],
+                        self.batch[0][2][self.batch_position: self.batch_position + self.batch_size],
+                        self.batch[0][3][self.batch_position: self.batch_position + self.batch_size],
+                        self.batch[0][4][self.batch_position: self.batch_position + self.batch_size]),
+                        self.batch[1][self.batch_position: self.batch_position + self.batch_size],
+                        self.batch[2][self.batch_position: self.batch_position + self.batch_size])
+            else:
+                return ((self.batch[0][0][self.batch_position: self.batch_position + self.batch_size],
+                        self.batch[0][1][self.batch_position: self.batch_position + self.batch_size],
+                        self.batch[0][2][self.batch_position: self.batch_position + self.batch_size],
+                        self.batch[0][3][self.batch_position: self.batch_position + self.batch_size],
+                        self.batch[0][4][self.batch_position: self.batch_position + self.batch_size]),
+                        self.batch[1][self.batch_position: self.batch_position + self.batch_size],
+                        self.batch[2][self.batch_position: self.batch_position + self.batch_size],
+                        self.batch[3][self.batch_position: self.batch_position + self.batch_size])
         finally:
             self.batch_position += self.batch_size  
 

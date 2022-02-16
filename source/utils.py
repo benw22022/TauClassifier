@@ -82,9 +82,10 @@ class Logger:
             if log_mem:
                 current, peak = tracemalloc.get_traced_memory()
                 message = f"Current memory usage is {current / 10 ** 6}MB; Peak was {peak / 10 ** 6}MB"
-                log_message += f" - {message}"
+            log_message += f" - {message}"
 
             print(log_message)
+            # pass
 
     def set_log_level(self, level):
         self._log_level = LogLevels[level]

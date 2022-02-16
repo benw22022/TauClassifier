@@ -149,19 +149,10 @@ class DataLoader:
         :return np_arrays: a rectilinear numpy array of shape:
                 (num events in batch, number of variables belonging to variable type, max_items)
         """
-        variables = self._variable_handler.get(variable_type)
-        np_arrays = np.zeros((ak.num(batch[variables[0].name], axis=0), len(variables), max_items))
-        dummy_val = -1
-        for i, variable in enumerate(variables):
-            ak_arr = batch[variable.name]
-            ak_arr = ak.pad_none(ak_arr, max_items, clip=True, axis=1)
-            arr = ak.to_numpy(abs(ak_arr)).filled(dummy_val)
-            # arr = variable.standardise(arr, dummy_val=dummy_val)
-            if variable.name == shuffle_var:
-                np.random.shuffle(arr)            
-            np_arrays[:, i] = arr
-        np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float32")
-        return np_arrays
+        variables = self._variable_handler.get(variable_type, names_only=True)
+        array = ak.unzip(batch[variables])
+        array = np.stack([ak.to_numpy(ak.pad_none(arr, max_items, clip=True)) for arr in array], axis=1)    
+        return array
 
     def reshape_arrays(self, batch, variable_type, shuffle_var=None):
         """
@@ -172,18 +163,10 @@ class DataLoader:
         :return: a rectilinear numpy array of shape:
                 (num events in batch, number of variables belonging to variable type)
         """
-        variables = self._variable_handler.get(variable_type)
-        np_arrays = np.zeros((ak.num(batch[variables[0].name], axis=0), len(variables)))
-
-        for i, variable in enumerate(variables):
-            ak_arr = batch[variable.name]
-            arr = ak.to_numpy(abs(ak_arr))
-            # arr = variable.standardise(arr)
-            if variable.name == shuffle_var:
-                np.random.shuffle(arr)
-            np_arrays[:, i] = arr
-        np_arrays = np.nan_to_num(np_arrays, posinf=0, neginf=0, copy=False).astype("float32")
-        return np_arrays
+        variables = self._variable_handler.get(variable_type, names_only=True)
+        array = ak.unzip(batch[variables])
+        array = np.stack([ak.to_numpy(arr) for arr in array], axis=1)
+        return array
 
     def get_batch(self, shuffle_var=None):
         """
@@ -202,6 +185,7 @@ class DataLoader:
         shot_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ShotPFO", max_items=8, shuffle_var=shuffle_var)
         conv_track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "ConvTrack", max_items=4, shuffle_var=shuffle_var)
         jet_np_arrays = self.reshape_arrays(batch, "TauJets", shuffle_var=shuffle_var)
+        aux_np_arrays = self.reshape_arrays(batch, "AUX")
 
         # Compute labels
         labels_np_array = np.zeros((len(batch), self._nclasses))
@@ -217,7 +201,7 @@ class DataLoader:
             weight_np_array = self._reweighter.reweight(ak.to_numpy(batch["TauJets.ptJetSeed"]).astype("float32"))
 
         result = ((track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays),
-                  labels_np_array, weight_np_array)
+                  labels_np_array, weight_np_array, aux_np_arrays)
 
         logger.log("DataLoader returning result", "DEBUG")
         return result

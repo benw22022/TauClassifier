@@ -27,6 +27,9 @@ class Variable:
     min_val: float = None
     lognorm: bool = False
     norm: bool = False
+    mean: float = None
+    std: float = None
+    rescale_mean: bool = False
 
     def standardise(self, data_arr, dummy_val=-1):
         
@@ -35,14 +38,17 @@ class Variable:
         if self.max_val is not None:
             data_arr = np.where(data_arr <= self.max_val, data_arr, dummy_val)
 
-        if self.lognorm:
+        elif self.lognorm:
             data_arr = np.ma.log10(data_arr)
             # data_arr = (data_arr - np.amin(data_arr)) / (np.amax(data_arr) - np.amin(data_arr))
             data_arr = (data_arr - 0) / (math.log10(self.max_val) - 0)
             data_arr = data_arr.filled(dummy_val)
         
-        if self.norm:
+        elif self.norm:
             data_arr = (data_arr - 0) / (math.log10(self.max_val) - 0)
+
+        elif self.rescale_mean:
+            data_arr = (data_arr - self.mean) / self.std
 
         return data_arr
 
@@ -71,7 +77,7 @@ class VariableHandler:
         """
         self.variables.append(variable)
 
-    def get(self, var_type):
+    def get(self, var_type, names_only=False):
         """
         Returns a list of all variables sharing the same type 
         args:
@@ -79,7 +85,8 @@ class VariableHandler:
         returns:
             (list): A list of Variables sharing the same var_type
         """
-
+        if names_only:
+            return [variable.name for variable in self.variables if variable.type == var_type]
         return [variable for variable in self.variables if variable.type == var_type]
 
     def list(self):
@@ -90,6 +97,14 @@ class VariableHandler:
 
     def __getitem__(self, idx):
         return self.variables[idx]
+    
+    def get_index(self, var_type, var_name):
+        """
+        Get index of variable of a specific type
+        """
+        vars_of_type = self.get(var_type, names_only=True)
+        # print(vars_of_type)
+        return vars_of_type.index(var_name)
 
 variable_handler = VariableHandler([])
 
@@ -162,3 +177,11 @@ variable_handler.add_variable(Variable("TauJets", "TauJets.phiJetSeed", min_val=
 variable_handler.add_variable(Variable("DecayMode", "TauJets.truthDecayMode"))
 variable_handler.add_variable(Variable("Prong", "TauJets.truthProng"))
 variable_handler.add_variable(Variable("Weight", "TauJets.ptJetSeed"))
+
+variable_handler.add_variable(Variable("AUX", "TauJets.truthProng"))
+variable_handler.add_variable(Variable("AUX", "TauJets.truthDecayMode"))
+variable_handler.add_variable(Variable("AUX", "TauJets.mu"))
+variable_handler.add_variable(Variable("AUX", "TauJets.ptJetSeed"))
+variable_handler.add_variable(Variable("AUX", "TauJets.etaJetSeed"))
+variable_handler.add_variable(Variable("AUX", "TauJets.phiJetSeed"))
+variable_handler.add_variable(Variable("AUX", "TauJets.RNNJetScoreSigTrans"))

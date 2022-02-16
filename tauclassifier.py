@@ -20,7 +20,7 @@ from run.test import test
 from run.lr_scan import lr_scan
 from run.plot_previous_results import plot_previous
 from run.plot_variables import plot_variables
-from scripts.utils import logger, get_best_weights, none_or_int, run_training_on_batch_system
+from source.utils import logger, get_best_weights, none_or_int, run_training_on_batch_system
 from config.config import models_dict
 import matplotlib
 
@@ -30,7 +30,7 @@ def main():
     # Available options
 
     # 'train' - train model | 'evaluate' =  make npz files of predictions for test data | 'plot' - make performance plots
-    mode_list = ["train", "evaluate", "test", "rank", "scan", "plot_previous", "plot_variables", "experiment"]  
+    mode_list = ["train", "evaluate", "test", "rank", "scan", "plot_previous", "plot_variables"]  
 
     # Prong options: 1 - (p10n, 1p1n, 1pxn, jets) | 3 - (3p0n, 3pxn, jets) | None - (p10n, 1p1n, 1pxn, 3p0n, 3pxn, jets)
     prong_list = [1, 3, None]                                           
@@ -60,11 +60,13 @@ def main():
     parser.add_argument("-condor", help='Run on ht condor batch system', type=bool, default=False)
     parser.add_argument("-load", help="Load last saved network predictions", type=bool, default=False)
     parser.add_argument("-no_gpu", help="Disable GPU, useful if trying to run more than one thing", type=bool, default=False)
+    parser.add_argument("-mixed_precision", help="Tell tensorflow to use mixed precision float16 weights - may speed up training", type=bool, default=False)
     args = parser.parse_args()
 
     # Set up enviroment
     logger.set_log_level(args.log_level)
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     if args.no_gpu:
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     
@@ -131,9 +133,6 @@ def main():
 
     if args.run_mode == 'plot_variables':
         plot_variables()  
-
-    # if args.run_mode == "experiment":
-    #     run_test()
     
     sys.exit(0)
         

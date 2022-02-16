@@ -10,7 +10,7 @@ from config.variables import variable_handler
 import model.models
 
 # Directory pointing to the NTuples to train/test on
-ntuple_dir = "../NTuples"
+ntuple_dir = "/home/bewilson/NTuples"
 
 # Bowen's DSNN config dictionary
 config_dict = {"shapes":

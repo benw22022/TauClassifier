@@ -22,6 +22,7 @@ from config.config import config_dict, get_cuts, models_dict
 # from source.preprocessing import Reweighter
 import shutil
 import tqdm
+from sklearn.model_selection import train_test_split
 
 
 def concat_datasets(datasets):
@@ -37,8 +38,10 @@ def concat_datasets(datasets):
         dataset = dataset.concatenate(datasets[i])
     return dataset
 
+def aux_data_filter(dataset):
+    return dataset.map(lambda x, y, weights, aux: (x, y, weights))
 
-def build_dataset(filepath, batch_size=32):
+def build_dataset(dataset_list, batch_size=32, aux_data=False):
     """
     Loads and builds a tf.data.Dataset from a number of datasets saved using 
     tf.data.experimental.save. Note: The dataset must of been orginally saved using this method
@@ -51,9 +54,11 @@ def build_dataset(filepath, batch_size=32):
     returns:
         dataset: tf.data.Dataset
     """
-    dataset_list = glob.glob(filepath)
+    # dataset_list = glob.glob(filepath)
     datasets = [tf.data.experimental.load(file) for file in dataset_list]
     dataset = concat_datasets(datasets)
+    if not aux_data:
+        dataset = aux_data_filter(dataset)
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
@@ -66,11 +71,13 @@ def train(args):
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Setup enviroment
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
     # Set log levels
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level # Sets Tensorflow Logging Level
-    os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'       # Allow tensorflow to use more GPU VRAM
+    # os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'       # Allow tensorflow to use more GPU VRAM
     logger.set_log_level(args.log_level)
+    if args.mixed_precision:
+        policy = tf.keras.mixed_precision.experimental.Policy('mixed_float16')
+        tf.keras.mixed_precision.experimental.set_policy(policy) 
 
     # If we're doing a learning rate scan save the models to tmp dir
     if args.run_mode == 'scan':
@@ -100,9 +107,15 @@ def train(args):
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Create Datasets
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    data_files = glob.glob("data/all_data/*.dat")
+    train_files, _ = train_test_split(data_files, test_size=0.2, random_state=42)
+    train_files, val_files = train_test_split(train_files, test_size=0.2, random_state=42)
 
-    train_dataset = build_dataset("data/train_data/*.dat", batch_size=args.batch_size)
-    val_dataset = build_dataset("data/val_data/*.dat", batch_size=10000)
+    train_dataset = build_dataset(train_files, batch_size=args.batch_size)
+    val_dataset = build_dataset(val_files, batch_size=10000)
+
+    # train_dataset = build_dataset("data/train_data/*.dat", batch_size=args.batch_size)
+    # val_dataset = build_dataset("data/val_data/*.dat", batch_size=10000)
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Model
