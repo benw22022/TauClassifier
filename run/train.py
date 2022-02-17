@@ -107,15 +107,15 @@ def train(args):
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Create Datasets
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    data_files = glob.glob("data/all_data/*.dat")
-    train_files, _ = train_test_split(data_files, test_size=0.2, random_state=42)
-    train_files, val_files = train_test_split(train_files, test_size=0.2, random_state=42)
+    # data_files = glob.glob("data/all_data/*.dat")
+    # train_files, _ = train_test_split(data_files, test_size=0.2, random_state=42)
+    # train_files, val_files = train_test_split(train_files, test_size=0.2, random_state=42)
 
-    train_dataset = build_dataset(train_files, batch_size=args.batch_size)
-    val_dataset = build_dataset(val_files, batch_size=10000)
+    # train_dataset = build_dataset(train_files, batch_size=args.batch_size)
+    # val_dataset = build_dataset(val_files, batch_size=10000)
 
-    # train_dataset = build_dataset("data/train_data/*.dat", batch_size=args.batch_size)
-    # val_dataset = build_dataset("data/val_data/*.dat", batch_size=10000)
+    train_dataset = build_dataset("data/train_data/*.dat", batch_size=args.batch_size)
+    val_dataset = build_dataset("data/val_data/*.dat", batch_size=10000)
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Model

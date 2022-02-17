@@ -18,7 +18,7 @@ def evaluate_dataset(test_dataset, model, prong=None):
 	
 	if prong is not None:
 		index = variable_handler.get_index("AUX", "TauJets.truthProng")
-		test_dataset.unbatch().filter(lambda x, y, w, aux: aux[index] == prong).batch(50000)
+		test_dataset.unbatch().filter(lambda x, y, w, aux: aux[:, index] == prong).batch(50000)
 	
 	# Remove AUX data
 	test_dataset = test_dataset.map(lambda x, y, weights, aux: (x, y, weights))
@@ -43,16 +43,17 @@ def test(args, roc_saveas=None, matrix_saveas=None, shuffle_index=None):
 	model.load_weights(args.weights)
         
 	# test_dataset = build_dataset(os.path.join("data", "test_data", "*.dat"), batch_size=50000)
-	data_files = glob.glob("data/all_data/*.dat")
-	_, test_files = train_test_split(data_files, test_size=0.2, random_state=42)
-	test_dataset = build_dataset(test_files, aux_data=True, batch_size=50000)
+	# data_files = glob.glob("data/all_data/*.dat")
+	# _, test_files = train_test_split(data_files, test_size=0.2, random_state=42)
+	# test_dataset = build_dataset(test_files, aux_data=True, batch_size=50000)
+	test_dataset = build_dataset(glob.glob("data/test_data/*.dat"), aux_data=True, batch_size=50000)
 
 	# results = model.evaluate(test_dataset)
 	# logger.log(f"test loss = {results[0]} , test acc  = {results[1]}")
 
 	y_true, y_pred, weights = evaluate_dataset(test_dataset, model)
 	y_true_1prong, y_pred_1prong, weights_1prong = evaluate_dataset(test_dataset, model, prong=1)
-	y_true_3prong, y_pred_3prong, weights_3prong = evaluate_dataset(test_dataset, model, prong=2)
+	y_true_3prong, y_pred_3prong, weights_3prong = evaluate_dataset(test_dataset, model, prong=3)
 
 	# Baseline plots
 	plot_ROC(y_true[:, 0], y_pred[: ,0], weights=weights, title=f"ROC: {os.path.basename(args.weights)}", saveas=roc_saveas)
