@@ -9,10 +9,22 @@ from sklearn.model_selection import train_test_split
 from source.utils import logger
 from config.config import config_dict, models_dict
 from config.variables import variable_handler
+from config.files import testing_files
 from run.train import build_dataset
 import tensorflow as tf
 import numpy as np
 from plotting.plotting_functions import plot_confusion_matrix, plot_ROC, plot_1_and_3_prong_ROC
+import ROOT
+from source.DataLoader import DataLoader
+from source.DataGenerator import DataGenerator
+from source.preprocessing import Reweighter
+from config.files import ntuple_dir
+from config.config import get_cuts
+import uproot
+import tqdm
+snapshotOptions = ROOT.RDF.RSnapshotOptions()
+snapshotOptions.update = True
+import sys
 
 def evaluate_dataset(test_dataset, model, prong=None):
 	
@@ -46,8 +58,26 @@ def test(args, roc_saveas=None, matrix_saveas=None, shuffle_index=None):
 	# data_files = glob.glob("data/all_data/*.dat")
 	# _, test_files = train_test_split(data_files, test_size=0.2, random_state=42)
 	# test_dataset = build_dataset(test_files, aux_data=True, batch_size=50000)
-	test_dataset = build_dataset(glob.glob("data/test_data/*.dat"), aux_data=True, batch_size=50000)
+	# test_dataset = build_dataset(glob.glob("data/test_data/*.dat"), aux_data=True, batch_size=50000)
 
+	reweighter = Reweighter(ntuple_dir, prong=args.prong)
+	cuts = get_cuts(args.prong)
+	for fh in testing_files:
+		print(fh)
+		testing_batch_generator = DataGenerator([fh], variable_handler, batch_size=10000, cuts=cuts,
+												reweighter=reweighter, prong=args.prong, label="Testing Generator")
+		predictions = []
+		for i in tqdm.tqdm(range(0, 2)):#len(testing_batch_generator))):
+			p = model.predict(testing_batch_generator[i][0])
+			predictions.append(p)
+		
+		print(predictions)
+		predictions = np.concatenate([np.array(y) for y in predictions])	
+
+		with uproot.update(fh.file_list[0]) as file:
+			file["tree"] = {"TauClassifier_Score": predictions}
+	
+	sys.exit()
 	# results = model.evaluate(test_dataset)
 	# logger.log(f"test loss = {results[0]} , test acc  = {results[1]}")
 

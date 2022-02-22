@@ -6,23 +6,29 @@ Script to run the neural network training
 """
 
 import os
-# import ray
+import ray
 import glob
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 import time
 import datetime
-# from config.variables import variable_handler
-# from source.DataGenerator import DataGenerator
+from config.variables import variable_handler
+from source.DataGenerator import DataGenerator
 from config.files import training_files, validation_files, ntuple_dir
 from model.callbacks import ParallelModelCheckpoint
 from source.utils import logger, get_number_of_events
 from config.config import config_dict, get_cuts, models_dict
-# from source.preprocessing import Reweighter
+from source.preprocessing import Reweighter
 import shutil
 import tqdm
 from sklearn.model_selection import train_test_split
+from tensorflow.keras import backend as k
+import gc
+from tensorflow.keras.callbacks import Callback
+
+
+
 
 
 def concat_datasets(datasets):
@@ -64,6 +70,10 @@ def build_dataset(dataset_list, batch_size=32, aux_data=False):
 
     return dataset
 
+class ClearMemory(Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        gc.collect()
+        # k.clear_session()
 
 
 def train(args):
@@ -74,10 +84,13 @@ def train(args):
     # Set log levels
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level # Sets Tensorflow Logging Level
     # os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'       # Allow tensorflow to use more GPU VRAM
+    ray.init()
     logger.set_log_level(args.log_level)
     if args.mixed_precision:
         policy = tf.keras.mixed_precision.experimental.Policy('mixed_float16')
         tf.keras.mixed_precision.experimental.set_policy(policy) 
+
+    os.system("rm -r logs/*")
 
     # If we're doing a learning rate scan save the models to tmp dir
     if args.run_mode == 'scan':
@@ -114,8 +127,19 @@ def train(args):
     # train_dataset = build_dataset(train_files, batch_size=args.batch_size)
     # val_dataset = build_dataset(val_files, batch_size=10000)
 
-    train_dataset = build_dataset("data/train_data/*.dat", batch_size=args.batch_size)
-    val_dataset = build_dataset("data/val_data/*.dat", batch_size=10000)
+    # train_dataset = build_dataset("data/train_data/*.dat", batch_size=args.batch_size)
+    # val_dataset = build_dataset("data/val_data/*.dat", batch_size=10000)
+
+    reweighter = Reweighter(ntuple_dir, prong=args.prong)
+
+    cuts = get_cuts(args.prong)
+
+    training_batch_generator = DataGenerator(validation_files, variable_handler, batch_size=10000, cuts=cuts,
+                                             reweighter=reweighter, prong=args.prong, label="Training Generator")
+
+    # validation_batch_generator = DataGenerator(validation_files, variable_handler, batch_size=2048, cuts=cuts,
+    #                                            reweighter=reweighter, prong=args.prong, label="Validation Generator")
+
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Model
@@ -144,7 +168,7 @@ def train(args):
                             write_images=True,
                             update_freq="epoch")
 
-    callbacks = [early_stopping, model_checkpoint, reduce_lr, tensorboard_callback]
+    callbacks = [early_stopping, model_checkpoint, reduce_lr, tensorboard_callback, ClearMemory()]
 
     # Compile and summarise model
     model.summary()
@@ -181,14 +205,23 @@ def train(args):
 
 
     opt = tf.keras.optimizers.Adam(learning_rate=args.lr)
-    model.compile(optimizer=opt, loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()])
+    model.compile(optimizer=opt, loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()], )
     
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Train Model
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    
-    history = model.fit(train_dataset, epochs=200, class_weight=class_weight, callbacks=callbacks,
-                        validation_data=val_dataset, validation_freq=1, verbose=1)
+
+    while True:
+        for i in tqdm.tqdm(range(0, len(training_batch_generator))):
+            x = training_batch_generator[i]
+            pass
+        training_batch_generator.reset_generator()
+
+
+    # history = model.fit(training_batch_generator, epochs=200, class_weight=class_weight, callbacks=callbacks,
+    #                     # validation_data=validation_batch_generator, validation_freq=1, 
+    #                     verbose=1, steps_per_epoch=len(training_batch_generator),
+    #                     use_multiprocessing=False, workers=1)
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Make Plots 

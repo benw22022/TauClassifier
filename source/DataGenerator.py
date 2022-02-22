@@ -8,7 +8,7 @@ TODO: Make this generalisable to different problems
 
 import os
 import gc
-# import ray  
+import ray  
 import math
 import numpy as np
 import tensorflow as tf
@@ -20,6 +20,7 @@ from tqdm import tqdm
 
 
 class DataGenerator(tf.keras.utils.Sequence):
+# class DataGenerator:
 
     def __init__(self, file_handler_list, variable_handler, batch_size=32, nbatches=500, cuts=None, label="DataGenerator", reweighter=None,
                 prong=None, no_gpu=False, _benchmark=False):
@@ -81,25 +82,25 @@ class DataGenerator(tf.keras.utils.Sequence):
             if cuts is not None and file_handler.label in cuts:
                 logger.log(f"Cuts applied to {file_handler.label}: {self.cuts[file_handler.label]}")
 
-                # dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
-                #                                     label=label, prong=prong, reweighter=reweighter)
-                dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
+                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
                                                     label=label, prong=prong, reweighter=reweighter)
+                # dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
+                                                    # label=label, prong=prong, reweighter=reweighter)
                 self.data_loaders.append(dl)
 
             else:
-                # dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
-                dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
+                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
+                # dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
                 self.data_loaders.append(dl)
 
         # Get number of events in each dataset
         self._total_num_events = 0
         num_batches_list = []
         for data_loader in self.data_loaders:
-            # self._total_num_events = self._total_num_events + ray.get(data_loader.num_events.remote())
-            # num_batches_list.append(ray.get(data_loader.number_of_batches.remote()))
-            self._total_num_events = self._total_num_events + data_loader.num_events()
-            num_batches_list.append(data_loader.number_of_batches())
+            self._total_num_events = self._total_num_events + ray.get(data_loader.num_events.remote())
+            num_batches_list.append(ray.get(data_loader.number_of_batches.remote()))
+            # self._total_num_events = self._total_num_events + data_loader.num_events()
+            # num_batches_list.append(data_loader.number_of_batches())
         logger.log(f"{self.label} - Found {self._total_num_events} events total", "INFO")
 
         # Work out how many batches to split the data into
@@ -130,8 +131,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         if self.batch_position == 0 or self.batch_position > len(self.batch[1]):
             self.batch_position = 0
             logger.log("Loading batch", "DEBUG")
-            # batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
-            batch = [dl.get_batch() for dl in self.data_loaders]
+            batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
+            # batch = [dl.get_batch() for dl in self.data_loaders]
 
             logger.log("Loaded batch", "DEBUG")
 
@@ -370,7 +371,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         """
         self._current_index = 0
         for data_loader in self.data_loaders:
-            data_loader.reset_dataloader()#.remote()
+            data_loader.reset_dataloader.remote()
 
     def on_epoch_end(self):
         """
