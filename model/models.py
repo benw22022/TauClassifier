@@ -305,11 +305,11 @@ def ModelDSNN_2Step(para, mask_value=-1, normalizers=None, bn=False):
 
     # Merge
     merged2 = Concatenate()([b_12, b_22, b_32, b_42, b_52, y1])
-    merged2 = Dense(para["n_fc1"], kernel_initializer=initializer)(merged)
-    merged2 = Activation(activation_func)(merged)
+    merged2 = Dense(para["n_fc1"], kernel_initializer=initializer)(merged2)
+    merged2 = Activation(activation_func)(merged2)
     #merged = Dropout(para["dropout"])(merged)
-    merged2 = Dense(para["n_fc2"], kernel_initializer=initializer)(merged)
-    merged2 = Activation(activation_func)(merged)
+    merged2 = Dense(para["n_fc2"], kernel_initializer=initializer)(merged2)
+    merged2 = Activation(activation_func)(merged2)
 
     y2 = Dense(6, activation="softmax")(merged2)
 
