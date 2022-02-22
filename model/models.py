@@ -56,13 +56,13 @@ def ModelDSNN(para, mask_value=-1, normalizers=None, bn=True):
     TODO: docstring
     """
     initializer = tf.keras.initializers.HeNormal()
-    activation_func = 'swish'
+    activation_func = 'relu'
 
     # Branch 1
     x_1 = Input(shape=para["shapes"]["TauTrack"])
     b_1 = Masking(mask_value=mask_value)(x_1)
-    if normalizers is not None:
-        b_1 = normalizers["TauTrack"](b_1)
+    # if normalizers is not None:
+    #     b_1 = normalizers["TauTrack"](b_1)
     for x in range(para["n_tdd"]["TauTrack"]):
         b_1 = TimeDistributed(Dense(para["n_inputs"]["TauTrack"][x], kernel_initializer=initializer))(b_1)
         b_1 = Activation(activation_func)(b_1)
@@ -70,14 +70,14 @@ def ModelDSNN(para, mask_value=-1, normalizers=None, bn=True):
     for x in range(para["n_h"]["TauTrack"]):
         b_1 = Dense(para["n_hiddens"]["TauTrack"][x], kernel_initializer=initializer)(b_1)
         b_1 = Activation(activation_func)(b_1)
-    if bn:
-        b_1 = BatchNormalization()(b_1)
+    # if bn:
+    #     b_1 = BatchNormalization()(b_1)
 
     # Branch 2
     x_2 = Input(shape=para["shapes"]["NeutralPFO"])
     b_2 = Masking(mask_value=mask_value)(x_2)
-    if normalizers is not None:
-        b_2 = normalizers["NeutralPFO"](b_2)
+    # if normalizers is not None:
+    #     b_2 = normalizers["NeutralPFO"](b_2)
     for x in range(para["n_tdd"]["NeutralPFO"]):
        b_2 = TimeDistributed(Dense(para["n_inputs"]["NeutralPFO"][x], kernel_initializer=initializer))(b_2)
        b_2 = Activation(activation_func)(b_2)
@@ -85,14 +85,14 @@ def ModelDSNN(para, mask_value=-1, normalizers=None, bn=True):
     for x in range(para["n_h"]["NeutralPFO"]):
        b_2 = Dense(para["n_hiddens"]["NeutralPFO"][x], kernel_initializer=initializer)(b_2)
        b_2 = Activation(activation_func)(b_2)
-    if bn:
-       b_2 = BatchNormalization()(b_2)
+    # if bn:
+    #    b_2 = BatchNormalization()(b_2)
 
     # Branch 3
     x_3 = Input(shape=para["shapes"]["ShotPFO"])
     b_3 = Masking(mask_value=mask_value)(x_3)
-    if normalizers is not None:
-        b_3 = normalizers["ShotPFO"](b_3)
+    # if normalizers is not None:
+    #     b_3 = normalizers["ShotPFO"](b_3)
     for x in range(para["n_tdd"]["ShotPFO"]):
         b_3 = TimeDistributed(Dense(para["n_inputs"]["ShotPFO"][x], kernel_initializer=initializer))(b_3)
         b_3 = Activation(activation_func)(b_3)
@@ -100,14 +100,14 @@ def ModelDSNN(para, mask_value=-1, normalizers=None, bn=True):
     for x in range(para["n_h"]["ShotPFO"]):
         b_3 = Dense(para["n_hiddens"]["ShotPFO"][x], kernel_initializer=initializer)(b_3)
         b_3 = Activation(activation_func)(b_3)
-    if bn:
-        b_3 = BatchNormalization()(b_3)
+    # if bn:
+    #     b_3 = BatchNormalization()(b_3)
 
     # Branch 4
     x_4 = Input(shape=para["shapes"]["ConvTrack"])
     b_4 = Masking(mask_value=mask_value)(x_4)
-    if normalizers is not None:
-        b_4 = normalizers["ConvTrack"](b_4)
+    # if normalizers is not None:
+    #     b_4 = normalizers["ConvTrack"](b_4)
     for x in range(para["n_tdd"]["ConvTrack"]):
         b_4 = TimeDistributed(Dense(para["n_inputs"]["ConvTrack"][x], kernel_initializer=initializer))(b_4)
         b_4 = Activation(activation_func)(b_4)
@@ -115,19 +115,19 @@ def ModelDSNN(para, mask_value=-1, normalizers=None, bn=True):
     for x in range(para["n_h"]["ConvTrack"]):
         b_4 = Dense(para["n_hiddens"]["ConvTrack"][x], kernel_initializer=initializer)(b_4)
         b_4 = Activation(activation_func)(b_4)
-    if bn:
-        b_4 = BatchNormalization()(b_4)
+    # if bn:
+    #     b_4 = BatchNormalization()(b_4)
 
     # Branch 5
     x_5 = Input(shape=para["shapes"]["TauJets"])
     b_5 = x_5
-    if normalizers is not None:
-        b_5 = normalizers["TauJets"](b_5)
+    # if normalizers is not None:
+    #     b_5 = normalizers["TauJets"](b_5)
     b_5 = Dense(60, activation=activation_func, kernel_initializer=initializer)(b_5)
     b_5 = Dense(30, activation=activation_func, kernel_initializer=initializer)(b_5)
     b_5 = Dense(15, activation=activation_func, kernel_initializer=initializer)(b_5)
-    if bn:
-        b_5 = BatchNormalization()(b_5)
+    # if bn:
+    #     b_5 = BatchNormalization()(b_5)
 
     # Merge
     merged = Concatenate()([b_1, b_2, b_3, b_4, b_5])
@@ -305,11 +305,11 @@ def ModelDSNN_2Step(para, mask_value=-1, normalizers=None, bn=False):
 
     # Merge
     merged2 = Concatenate()([b_12, b_22, b_32, b_42, b_52, y1])
-    merged2 = Dense(para["n_fc1"], kernel_initializer=initializer)(merged)
-    merged2 = Activation(activation_func)(merged)
+    merged2 = Dense(para["n_fc1"], kernel_initializer=initializer)(merged2)
+    merged2 = Activation(activation_func)(merged2)
     #merged = Dropout(para["dropout"])(merged)
-    merged2 = Dense(para["n_fc2"], kernel_initializer=initializer)(merged)
-    merged2 = Activation(activation_func)(merged)
+    merged2 = Dense(para["n_fc2"], kernel_initializer=initializer)(merged2)
+    merged2 = Activation(activation_func)(merged2)
 
     y2 = Dense(6, activation="softmax")(merged2)
 
