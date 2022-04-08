@@ -24,8 +24,7 @@ jz8_files = FileHandler("JZ8", str(Path(f"{ntuple_dir}/*JZ8*/*.root")), class_la
 jz_files = FileHandler("JZ", str(Path(f"{ntuple_dir}/*JZ*/*.root")), class_label=0)
 
 
-training_files = [gammatautau_files[:-2], jz1_files[:-2], jz2_files[:-2], jz3_files[:-2], jz4_files[:-2], jz5_files[:-2],
-                  jz6_files[:-2], jz7_files[:-2], jz8_files[:-2]]
+training_files = [gammatautau_files[:-2], jz_files[:-2]]
 
 validation_files = [gammatautau_files[-2:-1], jz1_files[-2:-1], jz2_files[-2:-1], jz3_files[-2:-1], jz4_files[-2:-1],
                     jz5_files[-2:-1], jz6_files[-2:-1], jz7_files[-2:-1], jz8_files[-2:-1]]

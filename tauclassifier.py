@@ -13,7 +13,6 @@ import os
 import sys
 import argparse
 import tensorflow as tf
-tf.compat.v1.disable_eager_execution()
 from run.train import train
 from run.evaluate import evaluate
 from run.permutation_rank import permutation_rank

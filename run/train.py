@@ -84,7 +84,7 @@ def train(args):
     # Set log levels
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = args.tf_log_level # Sets Tensorflow Logging Level
     # os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'       # Allow tensorflow to use more GPU VRAM
-    ray.init()
+    # ray.init()
     logger.set_log_level(args.log_level)
     if args.mixed_precision:
         policy = tf.keras.mixed_precision.experimental.Policy('mixed_float16')
@@ -134,7 +134,7 @@ def train(args):
 
     cuts = get_cuts(args.prong)
 
-    training_batch_generator = DataGenerator(validation_files, variable_handler, batch_size=10000, cuts=cuts,
+    training_batch_generator = DataGenerator(training_files, variable_handler, batch_size=256, cuts=cuts,
                                              reweighter=reweighter, prong=args.prong, label="Training Generator")
 
     # validation_batch_generator = DataGenerator(validation_files, variable_handler, batch_size=2048, cuts=cuts,

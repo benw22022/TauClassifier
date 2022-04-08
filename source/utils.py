@@ -23,7 +23,7 @@ import numpy as np
 import tracemalloc
 import getpass
 import sys
-tracemalloc.start()
+tracemalloc.start(25)
 
 
 @total_ordering

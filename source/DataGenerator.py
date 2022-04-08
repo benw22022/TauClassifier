@@ -17,10 +17,10 @@ from plotting.plotting_functions import plot_confusion_matrix, plot_ROC
 from source.utils import logger, profile_memory
 from config.config import models_dict
 from tqdm import tqdm
-
+import tracemalloc
+import psutil
 
 class DataGenerator(tf.keras.utils.Sequence):
-# class DataGenerator:
 
     def __init__(self, file_handler_list, variable_handler, batch_size=32, nbatches=500, cuts=None, label="DataGenerator", reweighter=None,
                 prong=None, no_gpu=False, _benchmark=False):
@@ -57,6 +57,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         self._file_handlers = file_handler_list
         self.label = label
         self.data_loaders = []
+        self.nbatches = nbatches
+        self.variable_handler = variable_handler
         self.cuts = cuts
         self._current_index = 0
         self._epochs = 0
@@ -69,29 +71,13 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.batch = (([], [], [], [], []), [], [])
         self.next_batch = (([], [], [], [], []), [], [])
         self.first_batch = True
+        self.reweighter = reweighter
 
         # Organise a list of all variables
         self._variable_handler = variable_handler
         self._variables_list = []
 
-        # Initialize ray actors from FileHandlers, variables_dict and cuts
-        for file_handler in self._file_handlers:
-            dl_label = f"{file_handler.label}_{self.label}"
-            file_list = file_handler.file_list
-            class_label = file_handler.class_label
-            if cuts is not None and file_handler.label in cuts:
-                logger.log(f"Cuts applied to {file_handler.label}: {self.cuts[file_handler.label]}")
-
-                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
-                                                    label=label, prong=prong, reweighter=reweighter)
-                # dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
-                                                    # label=label, prong=prong, reweighter=reweighter)
-                self.data_loaders.append(dl)
-
-            else:
-                dl = DataLoader.remote(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
-                # dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
-                self.data_loaders.append(dl)
+        self.make_dataloaders()
 
         # Get number of events in each dataset
         self._total_num_events = 0
@@ -112,6 +98,26 @@ class DataGenerator(tf.keras.utils.Sequence):
             self._nclasses = 4
         if prong == 3:
             self.nclasses = 3
+    
+    def make_dataloaders(self):
+                # Initialize ray actors from FileHandlers, variables_dict and cuts
+        for file_handler in self._file_handlers:
+            dl_label = f"{file_handler.label}_{self.label}"
+            file_list = file_handler.file_list
+            class_label = file_handler.class_label
+            if self.cuts is not None and file_handler.label in self.cuts:
+                logger.log(f"Cuts applied to {file_handler.label}: {self.cuts[file_handler.label]}")
+
+                dl = DataLoader.remote(file_handler.label, file_list, class_label, self.nbatches, self.variable_handler, cuts=self.cuts[file_handler.label],
+                                                    label=self.label, prong=self.prong, reweighter=self.reweighter)
+                # dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, cuts=self.cuts[file_handler.label],
+                #                                     label=label, prong=prong, reweighter=reweighter)
+                self.data_loaders.append(dl)
+
+            else:
+                dl = DataLoader.remote(file_handler.label, file_list, class_label, self.nbatches, self.variable_handler, prong=self.prong, label=dl_label, reweighter=self.reweighter)
+                # dl = DataLoader(file_handler.label, file_list, class_label, nbatches, variable_handler, prong=prong, label=dl_label, reweighter=reweighter)
+                self.data_loaders.append(dl)
 
     def load_batch(self, shuffle_var=None, return_aux_vars=False):
         """
@@ -126,15 +132,11 @@ class DataGenerator(tf.keras.utils.Sequence):
         :return: A list of arrays to be passed to model.fit()
         """
 
-        logger.timer_start()
-
         if self.batch_position == 0 or self.batch_position > len(self.batch[1]):
             self.batch_position = 0
-            logger.log("Loading batch", "DEBUG")
+
             batch = ray.get([dl.get_batch.remote() for dl in self.data_loaders])
             # batch = [dl.get_batch() for dl in self.data_loaders]
-
-            logger.log("Loaded batch", "DEBUG")
 
             track_array = np.concatenate([result[0][0] for result in batch]).astype("float32")
             neutral_pfo_array = np.concatenate([result[0][1] for result in batch]).astype("float32")
@@ -168,10 +170,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 if shuffle_var[0] == "NeutralPFO":
                     np.random.shuffle(neutral_pfo_array[:, shuffle_var[1]])
 
-            load_time = logger.log_time(f"{self.label}: Processed batch {self._current_index}/{self.__len__()} - {len(label_array)} events", "DEBUG")
             self.batch = (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array, aux_array
-            
-            # return (track_array, neutral_pfo_array, shot_pfo_array, conv_track_array, jet_array), label_array, weight_array
 
         try:
             if not return_aux_vars:
@@ -194,14 +193,13 @@ class DataGenerator(tf.keras.utils.Sequence):
         finally:
             self.batch_position += self.batch_size  
 
-            
-
     def load_model(self, model, model_config, model_weights):
         """
         Function to set the model to be used by the DataGenerator for predictions
         Seems to me to be more efficient to store this as a class member rather than reinitialising the model
         everytime predict() is called
         Note: You should set no_gpu=True if you load models on multiple DataGenerator instances (TensorFlow is likely to complain)
+        TODO: Should really decouple this from this class
         """
         self.model = models_dict[model](model_config)
         self.model.load_weights(model_weights)
@@ -218,6 +216,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         :param shuffle_var (optional, default=""): This variable will be shuffled when generating each batch - this can be used
         for permutation variable ranking. Shuffling a more important variable will lead to a larger change in loss/accuracy
         TODO: Update documentation here
+        TODO: Should really decouple this from this class
         """
 
         # Initialise model if it hasn't been already
@@ -370,8 +369,15 @@ class DataGenerator(tf.keras.utils.Sequence):
         :return:
         """
         self._current_index = 0
-        for data_loader in self.data_loaders:
-            data_loader.reset_dataloader.remote()
+        if self.get_mem_usage() < 15:
+            for data_loader in self.data_loaders:
+                data_loader.reset_dataloader.remote()
+            else:
+                for data_loader in self.data_loaders:
+                    data_loader.terminate.remote()
+                self.make_dataloaders()
+            
+
 
     def on_epoch_end(self):
         """
@@ -408,3 +414,15 @@ class DataGenerator(tf.keras.utils.Sequence):
             yield self.__getitem__[0]
         else:
             raise StopIteration
+
+    def get_mem_usage(self, verbose=True) -> float:
+        """
+        Gets current memory usage as a percentage of total system memory
+        """
+        current_process = psutil.Process(os.getpid())
+        mem = current_process.memory_percent()
+        for child in current_process.children(recursive=True):
+            mem += child.memory_percent()
+        if verbose:
+            print(f"Memory usage = {mem:2.2f} %")
+        return mem

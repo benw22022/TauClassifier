@@ -13,10 +13,9 @@ import uproot
 import ray
 import gc
 import numba as nb
-from source.utils import logger, profile_memory
-from config.config import models_dict
+from source.utils import logger
 
-@nb.njit()
+# @nb.njit()
 def labeler(truth_decay_mode_np_array, labels_np_array, prong=None):
     """
     Function to compute decay mode labels for Gammatautau. Due to large for loop, the function is jitted for speed.
@@ -129,21 +128,21 @@ class DataLoader:
         """
         logger.log("DataLoader next_batch called", "DEBUG")
         try:
-            batch = next(self._batches_generator)
+            self._current_index += 1
+            return next(self._batches_generator)
         except StopIteration:
             logger.log(f"Stop iteration raised by DataLoader {self.data_type}", "DEBUG")
             self._batches_generator = uproot.iterate(self.files, filter_name=self._variable_handler.list(), cut=self.cut,
                                                      step_size=self.specific_batch_size)
             return self.next_batch()
-        self._current_index += 1
-        return batch    
+        
 
     def pad_and_reshape_nested_arrays(self, batch, variable_type, max_items=10, shuffle_var=None):
         """
         Function that acts on nested data to read relevant variables, pad, reshape and convert data from uproot into
         rectilinear numpy arrays
         :param batch (dict): A dict of awkward arrays from uproot
-        :param variable_type (str): Variable type to be selected e.g. Tracks, Neutral PFO, Jets etc...
+        :param varia    ble_type (str): Variable type to be selected e.g. Tracks, Neutral PFO, Jets etc...
         :param max_items (int): Maximum number of tracks/PFOs etc... to be associated to event
         :param shuffle_var (str): When permutation ranking Variable to shuffle 
         :return np_arrays: a rectilinear numpy array of shape:
@@ -176,9 +175,7 @@ class DataLoader:
         array so that they are all of a specific length
         :param shuffle_var (optional, default=None): A variable to shuffle (for permutation ranking)
         """
-        logger.log("DataLoader Loading next batch", "DEBUG")
         batch = self.next_batch()
-        logger.log("DataLoader Loaded next batch", "DEBUG")
 
         track_np_arrays = self.pad_and_reshape_nested_arrays(batch, "TauTracks", max_items=3, shuffle_var=shuffle_var)
         neutral_pfo_np_arrays = self.pad_and_reshape_nested_arrays(batch, "NeutralPFO", max_items=6, shuffle_var=shuffle_var)
@@ -200,11 +197,8 @@ class DataLoader:
         if self.class_label == 0:
             weight_np_array = self._reweighter.reweight(ak.to_numpy(batch["TauJets.ptJetSeed"]).astype("float32"))
 
-        result = ((track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays),
+        return ((track_np_arrays, neutral_pfo_np_arrays, shot_pfo_np_arrays, conv_track_np_arrays, jet_np_arrays),
                   labels_np_array, weight_np_array, aux_np_arrays)
-
-        logger.log("DataLoader returning result", "DEBUG")
-        return result
      
 
     def reset_dataloader(self):
@@ -237,90 +231,5 @@ class DataLoader:
     def number_of_batches(self):
         return self._num_real_batches
 
-    def predict(self, model, model_config, model_weights, file=None, save_predictions=False):
-        """
-        Function to generate arrays of y_pred, y_true and weights given a network weight file
-        :param model: A string of corresponding to a key in config.config.models_dict specifiying desired model
-        :param model_config: model config dictionary to use
-        :param model_weights: Path to model weights file to load
-        :param save_predictions (optional, default=False): write y_pred, y_true and weights to file
-        :param file (optional, default=None): A file path to a single NTuple
-        """
-
-        # Set generator to use just a single file. Used when writing predictions to NTuples
-        if file is not None:
-            self._set_generator_to_single_file(file)
-
-        # Model needs to be initialized on each actor separately - cannot share model between multiple processes
-        logger.log(f"model = {model}")
-        logger.log(f"model config = {model_config}")
-        model = models_dict[model](model_config)
-        model.load_weights(model_weights)
-
-        # Allocate arrays for y_pred, y_true and weights
-        # y_pred = np.ones((self.num_events(), self._nclasses)) * -999  # multiply by -999 so mistakes are obvious
-        # y_true = np.ones((self.num_events(), self._nclasses)) * -999
-        # weights = np.ones((self.num_events())) * -999
-        y_pred = np.empty((0, self._nclasses))
-        y_true = np.empty((0, self._nclasses))
-        weights = np.ones((0))
-
-        nevents = 0
-
-        # Iterate through the DataLoader
-        position = 0
-        for i in range(0, self._num_real_batches):
-            batch, truth_labels, batch_weights = self.get_batch()
-            nevents += len(truth_labels)
-
-            logger.log(f"{len(batch[0]):=} ")
-            logger.log(f"{position:=}: {position + len(batch[1]):=}")
-            # Fill arrays
-            y_pred[position: position + len(batch[1])] = model.predict(batch)
-            y_true[position: position + len(batch[1])] = truth_labels
-            weights[position: position + len(batch[1])] = batch_weights
-
-            # Move to the next position
-            position += len(batch[1])
-            logger.log(f"{self._data_type} -- predicted batch {i}/{self._num_real_batches}")
-
-        # Truncate arrays to get rid of garbage
-        y_pred = y_pred[ :nevents]
-        y_true = y_true[ :nevents]
-        weights = weights[ :nevents]
-
-        # Save the predictions, truth and weight to file
-        if save_predictions:
-            save_file = os.path.basename(str(self.files))
-            np.savez(f"network_predictions/predictions/{save_file}_predictions.npz", y_pred)
-            np.savez(f"network_predictions/truth/{save_file}_truth.npz", y_true)
-            np.savez(f"network_predictions/weights/{save_file}_weights.npz", weights)
-            logger.log(f"Saved network predictions for {self._data_type}")
-
-        # Reset DataLoader
-        self.reset_dataloader()
-
-        return y_pred, y_true, weights
-
-    def update_ntuples(self, model, model_config, model_weights):
-        """
-        Update the NTuples belonging to this DataLoader
-        """
-
-        for file in self.files:
-            logger.log(f"!!!! {file}")
-            y_pred, _, weights = self.predict(model, model_config, model_weights, file)
-            logger.log(y_pred)
-            # with uproot.update(self.file[0]) as ntuple:
-            #     logger.log(f"Writing predictions for {file} to NTuple")
-            #     ntuple['tree'] = ({"TauClassifier_jetScore": y_pred[:, 0],
-            #                         "TauClassifier_1p0nScore": y_pred[:, 1],
-            #                         "TauClassifier_1p1nScore": y_pred[:, 2],
-            #                         "TauClassifier_1pxnScore": y_pred[:, 3],
-            #                         "TauClassifier_3p0nScore": y_pred[:, 4],
-            #                         "TauClassifier_3pxnScore": y_pred[:, 5],
-            #                         "TauClassifier_Score": y_pred,
-            #                         "TauClassifier_weights": weights})
-
-    def get_memory_profile(self):
-        return profile_memory(self)
+    def terminate(self) -> None:
+        ray.actor.exit_actor()
