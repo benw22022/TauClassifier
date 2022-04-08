@@ -1,0 +1,47 @@
+# Ignore data files
+*.npz
+*.npy
+*.pkl
+*.awkd
+*.h5
+*.tfr
+*.csv
+*.dat*
+*.snapshot
+*.pb
+*.metadata
+
+# Ignore any plots
+*.png
+*.jpeg
+*.svg
+
+# Ignore directories
+venv*
+*.idea
+plots/*
+*training
+batch/*training_*/*
+*tmp*
+*temp*
+scratch/*
+experimental*
+tb_logs/*
+logs/*
+
+# Ignore logs
+*.log
+*.txt
+*.error
+*.out
+*_stdout*
+*_stderr*
+
+
+# Other 
+__pycache__
+*.xml
+*.iml
+*.swp
+*.so
+*.o

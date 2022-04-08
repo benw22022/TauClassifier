@@ -1,0 +1,122 @@
+---
+
+Dataset: Validation
+
+NTupleDir: ../../split_NTuples
+
+Gammatautau:
+	- is_tau: True
+	- Files:
+		- Gammatautau_98.root
+		- Gammatautau_119.root
+		- Gammatautau_09.root
+		- Gammatautau_140.root
+		- Gammatautau_20.root
+		- Gammatautau_133.root
+		- Gammatautau_63.root
+		- Gammatautau_56.root
+		- Gammatautau_131.root
+		- Gammatautau_88.root
+		- Gammatautau_116.root
+		- Gammatautau_04.root
+		- Gammatautau_139.root
+		- Gammatautau_141.root
+		- Gammatautau_155.root
+		- Gammatautau_93.root
+		- Gammatautau_55.root
+		- Gammatautau_78.root
+		- Gammatautau_114.root
+		- Gammatautau_13.root
+		- Gammatautau_79.root
+		- Gammatautau_111.root
+		- Gammatautau_159.root
+		- Gammatautau_67.root
+		- Gammatautau_130.root
+		- Gammatautau_105.root
+		- Gammatautau_41.root
+
+JZ1:
+	- is_tau: False
+	- Files:
+		- JZ1_02.root
+		- JZ1_157.root
+		- JZ1_74.root
+		- JZ1_20.root
+		- JZ1_09.root
+		- JZ1_126.root
+		- JZ1_123.root
+		- JZ1_93.root
+		- JZ1_49.root
+		- JZ1_33.root
+		- JZ1_159.root
+		- JZ1_39.root
+		- JZ1_18.root
+		- JZ1_28.root
+		- JZ1_137.root
+		- JZ1_60.root
+		- JZ1_47.root
+		- JZ1_100.root
+		- JZ1_85.root
+		- JZ1_106.root
+		- JZ1_87.root
+		- JZ1_31.root
+		- JZ1_10.root
+		- JZ1_22.root
+		- JZ1_54.root
+		- JZ1_122.root
+		- JZ1_45.root
+
+JZ2:
+	- is_tau: False
+	- Files:
+		- JZ2_11.root
+		- JZ2_02.root
+		- JZ2_13.root
+
+JZ3:
+	- is_tau: False
+	- Files:
+		- JZ3_19.root
+		- JZ3_08.root
+		- JZ3_22.root
+		- JZ3_24.root
+		- JZ3_11.root
+
+JZ4:
+	- is_tau: False
+	- Files:
+		- JZ4_01.root
+
+JZ5:
+	- is_tau: False
+	- Files:
+		- JZ5_19.root
+		- JZ5_20.root
+		- JZ5_26.root
+		- JZ5_10.root
+		- JZ5_27.root
+
+JZ6:
+	- is_tau: False
+	- Files:
+		- JZ6_02.root
+		- JZ6_03.root
+		- JZ6_16.root
+		- JZ6_29.root
+		- JZ6_01.root
+		- JZ6_12.root
+
+JZ7:
+	- is_tau: False
+	- Files:
+		- JZ7_03.root
+		- JZ7_05.root
+		- JZ7_14.root
+
+JZ8:
+	- is_tau: False
+	- Files:
+		- JZ8_08.root
+		- JZ8_12.root
+		- JZ8_02.root
+
