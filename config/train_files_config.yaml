@@ -1,0 +1,339 @@
+---
+
+Dataset: Train
+
+NTupleDir: ../../split_NTuples
+
+Gammatautau:
+	- is_tau: True
+	- Files:
+		- Gammatautau_148.root
+		- Gammatautau_109.root
+		- Gammatautau_36.root
+		- Gammatautau_110.root
+		- Gammatautau_72.root
+		- Gammatautau_43.root
+		- Gammatautau_66.root
+		- Gammatautau_127.root
+		- Gammatautau_112.root
+		- Gammatautau_134.root
+		- Gammatautau_30.root
+		- Gammatautau_103.root
+		- Gammatautau_83.root
+		- Gammatautau_121.root
+		- Gammatautau_64.root
+		- Gammatautau_147.root
+		- Gammatautau_152.root
+		- Gammatautau_113.root
+		- Gammatautau_153.root
+		- Gammatautau_58.root
+		- Gammatautau_92.root
+		- Gammatautau_33.root
+		- Gammatautau_115.root
+		- Gammatautau_71.root
+		- Gammatautau_37.root
+		- Gammatautau_02.root
+		- Gammatautau_01.root
+		- Gammatautau_19.root
+		- Gammatautau_39.root
+		- Gammatautau_28.root
+		- Gammatautau_96.root
+		- Gammatautau_87.root
+		- Gammatautau_101.root
+		- Gammatautau_52.root
+		- Gammatautau_146.root
+		- Gammatautau_49.root
+		- Gammatautau_104.root
+		- Gammatautau_129.root
+		- Gammatautau_137.root
+		- Gammatautau_163.root
+		- Gammatautau_14.root
+		- Gammatautau_161.root
+		- Gammatautau_34.root
+		- Gammatautau_26.root
+		- Gammatautau_128.root
+		- Gammatautau_135.root
+		- Gammatautau_85.root
+		- Gammatautau_50.root
+		- Gammatautau_100.root
+		- Gammatautau_73.root
+		- Gammatautau_136.root
+		- Gammatautau_23.root
+		- Gammatautau_118.root
+		- Gammatautau_157.root
+		- Gammatautau_47.root
+		- Gammatautau_46.root
+		- Gammatautau_156.root
+		- Gammatautau_12.root
+		- Gammatautau_18.root
+		- Gammatautau_97.root
+		- Gammatautau_70.root
+		- Gammatautau_138.root
+		- Gammatautau_144.root
+		- Gammatautau_32.root
+		- Gammatautau_24.root
+		- Gammatautau_126.root
+		- Gammatautau_122.root
+		- Gammatautau_06.root
+		- Gammatautau_90.root
+		- Gammatautau_158.root
+		- Gammatautau_95.root
+		- Gammatautau_77.root
+		- Gammatautau_123.root
+		- Gammatautau_00.root
+		- Gammatautau_07.root
+		- Gammatautau_149.root
+		- Gammatautau_74.root
+		- Gammatautau_62.root
+		- Gammatautau_27.root
+		- Gammatautau_22.root
+		- Gammatautau_40.root
+		- Gammatautau_31.root
+		- Gammatautau_29.root
+		- Gammatautau_80.root
+		- Gammatautau_44.root
+		- Gammatautau_25.root
+		- Gammatautau_57.root
+		- Gammatautau_81.root
+		- Gammatautau_102.root
+		- Gammatautau_151.root
+		- Gammatautau_61.root
+		- Gammatautau_15.root
+		- Gammatautau_45.root
+		- Gammatautau_05.root
+		- Gammatautau_124.root
+		- Gammatautau_65.root
+		- Gammatautau_08.root
+		- Gammatautau_120.root
+		- Gammatautau_150.root
+		- Gammatautau_54.root
+		- Gammatautau_10.root
+		- Gammatautau_53.root
+		- Gammatautau_162.root
+		- Gammatautau_94.root
+
+JZ1:
+	- is_tau: False
+	- Files:
+		- JZ1_138.root
+		- JZ1_154.root
+		- JZ1_41.root
+		- JZ1_69.root
+		- JZ1_151.root
+		- JZ1_25.root
+		- JZ1_145.root
+		- JZ1_71.root
+		- JZ1_67.root
+		- JZ1_08.root
+		- JZ1_29.root
+		- JZ1_143.root
+		- JZ1_12.root
+		- JZ1_43.root
+		- JZ1_26.root
+		- JZ1_112.root
+		- JZ1_62.root
+		- JZ1_141.root
+		- JZ1_132.root
+		- JZ1_160.root
+		- JZ1_156.root
+		- JZ1_92.root
+		- JZ1_134.root
+		- JZ1_113.root
+		- JZ1_82.root
+		- JZ1_144.root
+		- JZ1_153.root
+		- JZ1_84.root
+		- JZ1_78.root
+		- JZ1_63.root
+		- JZ1_50.root
+		- JZ1_94.root
+		- JZ1_77.root
+		- JZ1_13.root
+		- JZ1_61.root
+		- JZ1_116.root
+		- JZ1_00.root
+		- JZ1_149.root
+		- JZ1_23.root
+		- JZ1_58.root
+		- JZ1_130.root
+		- JZ1_95.root
+		- JZ1_17.root
+		- JZ1_19.root
+		- JZ1_129.root
+		- JZ1_135.root
+		- JZ1_34.root
+		- JZ1_136.root
+		- JZ1_27.root
+		- JZ1_125.root
+		- JZ1_98.root
+		- JZ1_99.root
+		- JZ1_37.root
+		- JZ1_90.root
+		- JZ1_158.root
+		- JZ1_88.root
+		- JZ1_30.root
+		- JZ1_73.root
+		- JZ1_38.root
+		- JZ1_48.root
+		- JZ1_79.root
+		- JZ1_131.root
+		- JZ1_57.root
+		- JZ1_91.root
+		- JZ1_16.root
+		- JZ1_162.root
+		- JZ1_105.root
+		- JZ1_102.root
+		- JZ1_36.root
+		- JZ1_139.root
+		- JZ1_163.root
+		- JZ1_103.root
+		- JZ1_115.root
+		- JZ1_75.root
+		- JZ1_24.root
+		- JZ1_07.root
+		- JZ1_148.root
+		- JZ1_04.root
+		- JZ1_111.root
+		- JZ1_83.root
+		- JZ1_127.root
+		- JZ1_118.root
+		- JZ1_146.root
+		- JZ1_142.root
+		- JZ1_64.root
+		- JZ1_35.root
+		- JZ1_101.root
+		- JZ1_155.root
+		- JZ1_140.root
+		- JZ1_80.root
+		- JZ1_11.root
+		- JZ1_114.root
+		- JZ1_03.root
+		- JZ1_119.root
+		- JZ1_72.root
+		- JZ1_161.root
+		- JZ1_66.root
+		- JZ1_44.root
+		- JZ1_109.root
+		- JZ1_89.root
+		- JZ1_42.root
+		- JZ1_68.root
+		- JZ1_124.root
+		- JZ1_65.root
+
+JZ2:
+	- is_tau: False
+	- Files:
+		- JZ2_08.root
+		- JZ2_14.root
+		- JZ2_12.root
+		- JZ2_07.root
+		- JZ2_10.root
+		- JZ2_03.root
+		- JZ2_06.root
+		- JZ2_09.root
+		- JZ2_04.root
+
+JZ3:
+	- is_tau: False
+	- Files:
+		- JZ3_20.root
+		- JZ3_26.root
+		- JZ3_03.root
+		- JZ3_01.root
+		- JZ3_16.root
+		- JZ3_10.root
+		- JZ3_07.root
+		- JZ3_21.root
+		- JZ3_18.root
+		- JZ3_15.root
+		- JZ3_25.root
+		- JZ3_14.root
+		- JZ3_17.root
+		- JZ3_02.root
+		- JZ3_23.root
+		- JZ3_09.root
+
+JZ4:
+	- is_tau: False
+	- Files:
+		- JZ4_02.root
+
+JZ5:
+	- is_tau: False
+	- Files:
+		- JZ5_23.root
+		- JZ5_21.root
+		- JZ5_24.root
+		- JZ5_31.root
+		- JZ5_04.root
+		- JZ5_13.root
+		- JZ5_25.root
+		- JZ5_12.root
+		- JZ5_02.root
+		- JZ5_05.root
+		- JZ5_01.root
+		- JZ5_08.root
+		- JZ5_11.root
+		- JZ5_15.root
+		- JZ5_14.root
+		- JZ5_16.root
+		- JZ5_07.root
+		- JZ5_17.root
+		- JZ5_22.root
+		- JZ5_00.root
+
+JZ6:
+	- is_tau: False
+	- Files:
+		- JZ6_30.root
+		- JZ6_08.root
+		- JZ6_33.root
+		- JZ6_11.root
+		- JZ6_27.root
+		- JZ6_17.root
+		- JZ6_18.root
+		- JZ6_28.root
+		- JZ6_31.root
+		- JZ6_05.root
+		- JZ6_06.root
+		- JZ6_19.root
+		- JZ6_26.root
+		- JZ6_24.root
+		- JZ6_20.root
+		- JZ6_32.root
+		- JZ6_21.root
+		- JZ6_22.root
+		- JZ6_23.root
+		- JZ6_07.root
+		- JZ6_04.root
+
+JZ7:
+	- is_tau: False
+	- Files:
+		- JZ7_17.root
+		- JZ7_10.root
+		- JZ7_02.root
+		- JZ7_00.root
+		- JZ7_13.root
+		- JZ7_12.root
+		- JZ7_16.root
+		- JZ7_06.root
+		- JZ7_01.root
+		- JZ7_15.root
+		- JZ7_09.root
+
+JZ8:
+	- is_tau: False
+	- Files:
+		- JZ8_10.root
+		- JZ8_13.root
+		- JZ8_04.root
+		- JZ8_14.root
+		- JZ8_15.root
+		- JZ8_07.root
+		- JZ8_11.root
+		- JZ8_05.root
+		- JZ8_06.root
+		- JZ8_01.root
+		- JZ8_09.root
+

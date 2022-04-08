@@ -1,0 +1,140 @@
+---
+
+Dataset: Test
+
+NTupleDir: ../../split_NTuples
+
+Gammatautau:
+	- is_tau: True
+	- Files:
+		- Gammatautau_21.root
+		- Gammatautau_125.root
+		- Gammatautau_143.root
+		- Gammatautau_142.root
+		- Gammatautau_68.root
+		- Gammatautau_03.root
+		- Gammatautau_42.root
+		- Gammatautau_69.root
+		- Gammatautau_17.root
+		- Gammatautau_154.root
+		- Gammatautau_75.root
+		- Gammatautau_48.root
+		- Gammatautau_132.root
+		- Gammatautau_60.root
+		- Gammatautau_99.root
+		- Gammatautau_108.root
+		- Gammatautau_76.root
+		- Gammatautau_59.root
+		- Gammatautau_107.root
+		- Gammatautau_145.root
+		- Gammatautau_106.root
+		- Gammatautau_86.root
+		- Gammatautau_51.root
+		- Gammatautau_84.root
+		- Gammatautau_117.root
+		- Gammatautau_91.root
+		- Gammatautau_35.root
+		- Gammatautau_160.root
+		- Gammatautau_11.root
+		- Gammatautau_38.root
+		- Gammatautau_16.root
+		- Gammatautau_89.root
+		- Gammatautau_82.root
+
+JZ1:
+	- is_tau: False
+	- Files:
+		- JZ1_76.root
+		- JZ1_152.root
+		- JZ1_147.root
+		- JZ1_53.root
+		- JZ1_117.root
+		- JZ1_59.root
+		- JZ1_40.root
+		- JZ1_14.root
+		- JZ1_128.root
+		- JZ1_56.root
+		- JZ1_01.root
+		- JZ1_32.root
+		- JZ1_15.root
+		- JZ1_104.root
+		- JZ1_46.root
+		- JZ1_86.root
+		- JZ1_97.root
+		- JZ1_81.root
+		- JZ1_51.root
+		- JZ1_52.root
+		- JZ1_150.root
+		- JZ1_110.root
+		- JZ1_55.root
+		- JZ1_121.root
+		- JZ1_120.root
+		- JZ1_05.root
+		- JZ1_108.root
+		- JZ1_06.root
+		- JZ1_21.root
+		- JZ1_107.root
+		- JZ1_96.root
+		- JZ1_133.root
+		- JZ1_70.root
+
+JZ2:
+	- is_tau: False
+	- Files:
+		- JZ2_00.root
+		- JZ2_05.root
+		- JZ2_01.root
+
+JZ3:
+	- is_tau: False
+	- Files:
+		- JZ3_00.root
+		- JZ3_04.root
+		- JZ3_05.root
+		- JZ3_06.root
+		- JZ3_12.root
+		- JZ3_13.root
+
+JZ4:
+	- is_tau: False
+	- Files:
+		- JZ4_00.root
+
+JZ5:
+	- is_tau: False
+	- Files:
+		- JZ5_30.root
+		- JZ5_03.root
+		- JZ5_29.root
+		- JZ5_28.root
+		- JZ5_06.root
+		- JZ5_18.root
+		- JZ5_09.root
+
+JZ6:
+	- is_tau: False
+	- Files:
+		- JZ6_09.root
+		- JZ6_13.root
+		- JZ6_00.root
+		- JZ6_25.root
+		- JZ6_10.root
+		- JZ6_14.root
+		- JZ6_15.root
+
+JZ7:
+	- is_tau: False
+	- Files:
+		- JZ7_04.root
+		- JZ7_07.root
+		- JZ7_08.root
+		- JZ7_11.root
+
+JZ8:
+	- is_tau: False
+	- Files:
+		- JZ8_03.root
+		- JZ8_17.root
+		- JZ8_16.root
+		- JZ8_00.root
+
