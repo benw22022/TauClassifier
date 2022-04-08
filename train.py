@@ -18,8 +18,6 @@ from model.callbacks import ParallelModelCheckpoint
 import tqdm
 from sklearn.model_selection import train_test_split
 import uproot
-# from source.ray_datagenerator import DataGenerator
-# from source.concat_generator import DataGenerator
 from source2.data_generator import DataGenerator
 
 
@@ -48,8 +46,6 @@ def train():
     jet_files = glob.glob("../split_NTuples/*JZ*/*.root")
     jet_train_files, jet_test_files = train_test_split(jet_files, test_size=0.2, random_state=42)
     jet_train_files, jet_val_files = train_test_split(jet_train_files, test_size=0.2, random_state=42)
-
-
 
     njets, n1p0n, n1p1n,  n1pxn, n3p0n, n3pxn = get_number_of_events(files)
 

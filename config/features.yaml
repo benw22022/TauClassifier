@@ -1,5 +1,6 @@
 ---
 
+ # Location of reweighting histogram and variable to use for reweighting
 reweight:
   feature: "TauJets_ptJetSeed"
   histogram_file: "config/ReWeightHist.root"
@@ -11,6 +12,7 @@ DecayMode: "TauJets_truthDecayMode"
 
 TruthProng: "TauJets_truthProng"
 
+# Training features for each input of the neural network
 branches:
   TauTracks:
     max_objects: 3

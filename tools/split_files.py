@@ -103,14 +103,14 @@ def main():
     # split_files(tau_files, "../split_NTuples/test", "Gammatautau", is_fake=False)
     # split_files(tau_files, "../split_NTuples/Gammatautau", "Gammatautau", is_fake=False)
     # Gammatautau done
-    # split_files(JZ1_files, "../split_NTuples/JZ1", "JZ1", is_fake=True)
-    # split_files(JZ2_files, "../split_NTuples/JZ2", "JZ2", is_fake=True)
-    # split_files(JZ3_files, "../split_NTuples/JZ3", "JZ3", is_fake=True)
-    # split_files(JZ4_files, "../split_NTuples/JZ4", "JZ4", is_fake=True, events_per_file=50000)
+    split_files(JZ1_files, "../split_NTuples/JZ1", "JZ1", is_fake=True)
+    split_files(JZ2_files, "../split_NTuples/JZ2", "JZ2", is_fake=True)
+    split_files(JZ3_files, "../split_NTuples/JZ3", "JZ3", is_fake=True)
+    split_files(JZ4_files, "../split_NTuples/JZ4", "JZ4", is_fake=True, events_per_file=50000)
     split_files(JZ5_files, "../split_NTuples/JZ5", "JZ5", is_fake=True)
-    # split_files(JZ6_files, "../split_NTuples/JZ6", "JZ6", is_fake=True)
-    # split_files(JZ7_files, "../split_NTuples/JZ7", "JZ7", is_fake=True)
-    # split_files(JZ8_files, "../split_NTuples/JZ8", "JZ8", is_fake=True)
+    split_files(JZ6_files, "../split_NTuples/JZ6", "JZ6", is_fake=True)
+    split_files(JZ7_files, "../split_NTuples/JZ7", "JZ7", is_fake=True)
+    split_files(JZ8_files, "../split_NTuples/JZ8", "JZ8", is_fake=True)
 
 
 if __name__ == "__main__":
