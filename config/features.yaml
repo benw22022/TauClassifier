@@ -7,10 +7,9 @@ reweight:
   histogram_name: "ReWeightHist"
 
 Label: "TauClassifier_Labels"
-
 DecayMode: "TauJets_truthDecayMode"
-
 TruthProng: "TauJets_truthProng"
+# Weights: "TauClassifier_Weight" # TODO: Add this to NTuples
 
 # Training features for each input of the neural network
 branches:
@@ -95,14 +94,16 @@ branches:
       - "TauJets_etaJetSeed_normed"
       - "TauJets_phiJetSeed_normed"
 
-  AUX:
-    max_objects: 1
-    features:
-      - "TauJets_truthProng"
-      - "TauJets_truthDecayMode"
-      - "TauJets_mu"
-      - "TauJets_ptJetSeed"
-      - "TauJets_etaJetSeed"
-      - "TauJets_phiJetSeed"
-      - "TauJets_RNNJetScoreSigTrans"
-      - "TauJets_mcEventWeight"
+# Branches for outfile: i.e. network scores and key features for perf plots
+OutFileBranches:
+  # - "TauClassifier_Labels"
+  - "TauJets_truthDecayMode"
+  - "TauJets_truthProng"
+  # - "TauClassifier_Weight"
+  - "TauJets_mu"
+  - "TauJets_ptJetSeed"
+  - "TauJets_etaJetSeed"
+  - "TauJets_phiJetSeed"
+  - "TauJets_RNNJetScoreSigTrans"
+  - "TauJets_mcEventWeight"
+
