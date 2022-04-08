@@ -46,19 +46,25 @@ def test(args, roc_saveas=None, matrix_saveas=None, shuffle_index=None):
 	# data_files = glob.glob("data/all_data/*.dat")
 	# _, test_files = train_test_split(data_files, test_size=0.2, random_state=42)
 	# test_dataset = build_dataset(test_files, aux_data=True, batch_size=50000)
-	test_dataset = build_dataset(glob.glob("data/test_data/*.dat"), aux_data=True, batch_size=50000)
+	test_dataset = build_dataset("data/test_data/*.dat", aux_data=False, batch_size=500)
 
-	# results = model.evaluate(test_dataset)
+	results = model.evaluate(test_dataset)
+	y_pred = model.predict(test_dataset)
+	y_true = np.hstack(np.array(list(test_dataset.map(lambda x, y, weights: (y)).as_numpy_iterator())))
+	weights = np.hstack(np.array(list(test_dataset.map(lambda x, y, weights: (weights)).as_numpy_iterator())))
 	# logger.log(f"test loss = {results[0]} , test acc  = {results[1]}")
 
-	y_true, y_pred, weights = evaluate_dataset(test_dataset, model)
-	y_true_1prong, y_pred_1prong, weights_1prong = evaluate_dataset(test_dataset, model, prong=1)
-	y_true_3prong, y_pred_3prong, weights_3prong = evaluate_dataset(test_dataset, model, prong=3)
+	# y_true, y_pred, weights = evaluate_dataset(test_dataset, model)
+	# y_true_1prong, y_pred_1prong, weights_1prong = evaluate_dataset(test_dataset, model, prong=1)
+	# y_true_3prong, y_pred_3prong, weights_3prong = evaluate_dataset(test_dataset, model, prong=3)
 
 	# Baseline plots
+	print(f"\n\n {y_true}")
+	print(f"\n\n {y_pred}")
+
 	plot_ROC(y_true[:, 0], y_pred[: ,0], weights=weights, title=f"ROC: {os.path.basename(args.weights)}", saveas=roc_saveas)
-	plot_1_and_3_prong_ROC((y_true_1prong[:, 0], y_pred_1prong[:, 0], weights_1prong), (y_true_3prong[:, 0], y_pred_3prong[:, 0], weights_3prong), title=f"ROC: {os.path.basename(args.weights)}") 
-	plot_confusion_matrix(y_true, y_pred, weights=weights, title=f"Confusion Matrix: {os.path.basename(args.weights)}", saveas=matrix_saveas)
+	# plot_1_and_3_prong_ROC((y_true_1prong[:, 0], y_pred_1prong[:, 0], weights_1prong), (y_true_3prong[:, 0], y_pred_3prong[:, 0], weights_3prong), title=f"ROC: {os.path.basename(args.weights)}") 
+	# plot_confusion_matrix(y_true, y_pred, weights=weights, title=f"Confusion Matrix: {os.path.basename(args.weights)}", saveas=matrix_saveas)
 	
 
 	return None #results

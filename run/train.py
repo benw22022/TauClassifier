@@ -41,7 +41,7 @@ def concat_datasets(datasets):
 def aux_data_filter(dataset):
     return dataset.map(lambda x, y, weights, aux: (x, y, weights))
 
-def build_dataset(dataset_list, batch_size=32, aux_data=False):
+def build_dataset(filepath, batch_size=32, aux_data=False):
     """
     Loads and builds a tf.data.Dataset from a number of datasets saved using 
     tf.data.experimental.save. Note: The dataset must of been orginally saved using this method
@@ -54,8 +54,14 @@ def build_dataset(dataset_list, batch_size=32, aux_data=False):
     returns:
         dataset: tf.data.Dataset
     """
-    # dataset_list = glob.glob(filepath)
-    datasets = [tf.data.experimental.load(file) for file in dataset_list]
+    dataset_list = glob.glob(filepath)
+    datasets = []
+    for file in dataset_list:
+        try:
+            datasets.append(tf.data.experimental.load(file))
+        except Exception:
+            logger.log(f"Could not load {file}", 'WARNING')
+        # datasets = [tf.data.experimental.load(file) for file in dataset_list]
     dataset = concat_datasets(datasets)
     if not aux_data:
         dataset = aux_data_filter(dataset)
@@ -115,7 +121,7 @@ def train(args):
     # val_dataset = build_dataset(val_files, batch_size=10000)
 
     train_dataset = build_dataset("data/train_data/*.dat", batch_size=args.batch_size)
-    val_dataset = build_dataset("data/val_data/*.dat", batch_size=10000)
+    val_dataset = build_dataset("data/val_data/*.dat", batch_size=1000)
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Initialize Model
