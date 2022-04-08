@@ -6,16 +6,17 @@ import uproot
 import awkward as ak
 import yaml
 import os
-from source2.dataloader import DataLoader
+from source2.dataloader import RayDataLoader
 
 
 class DataGenerator(tf.keras.utils.Sequence):
 
-    def __init__(self, tau_files: List[str], jet_files: List[str], yaml_feature_cfg: str, batch_size: int=256):
+    def __init__(self, tau_files: List[str], jet_files: List[str], yaml_feature_cfg: str, batch_size: int=256, step_size: Union[str, int]='1GB'):
 
         self.yaml_feature_config = os.path.abspath(yaml_feature_cfg)
         self.dataloaders = []
         self.batch_size = batch_size
+        self.step_size = step_size
         self.tau_files = tau_files
         self.jet_files = jet_files
 
@@ -34,8 +35,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         
         self.steps_per_epoch = self.nevents // self.batch_size
 
-        self.tau_loader = DataLoader.remote(self.tau_files, self.yaml_feature_config, self.tau_batch_size)
-        self.jet_loader = DataLoader.remote(self.jet_files, self.yaml_feature_config, self.jet_batch_size)
+        self.tau_loader = RayDataLoader.remote(self.tau_files, self.yaml_feature_config, self.tau_batch_size, step_size=self.step_size)
+        self.jet_loader = RayDataLoader.remote(self.jet_files, self.yaml_feature_config, self.jet_batch_size, step_size=self.step_size)
 
     def __getitem__(self, idx: int) -> Tuple[np.ndarray]:
         """
@@ -74,8 +75,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         """
         self.tau_loader.terminate.remote()
         self.jet_loader.terminate.remote()
-        self.tau_loader = DataLoader.remote(self.tau_files, self.yaml_feature_config, self.tau_batch_size)
-        self.jet_loader = DataLoader.remote(self.jet_files, self.yaml_feature_config, self.jet_batch_size)
+        self.tau_loader = RayDataLoader.remote(self.tau_files, self.yaml_feature_config, self.tau_batch_size, step_size=self.step_size)
+        self.jet_loader = RayDataLoader.remote(self.jet_files, self.yaml_feature_config, self.jet_batch_size, step_size=self.step_size)
     
 
     def __len__(self):
