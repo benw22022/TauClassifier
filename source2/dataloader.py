@@ -14,7 +14,6 @@ import awkward as ak
 from typing import List, Union, Tuple
 
 
-@ray.remote
 class DataLoader:
 
     def __init__(self, files: List[str], yaml_features_cfg: str, batch_size: int, step_size: Union[str, int]='5 GB') -> None:
@@ -42,7 +41,9 @@ class DataLoader:
         self.features = []
         for branch_name in self.features_config["branches"]:
             self.features.extend(self.features_config["branches"][branch_name]["features"])
+        self.features.extend(self.features_config["OutFileBranches"])
         self.features.append(self.features_config["Label"])
+        self.features.append(self.features_config["reweight"]["feature"])
 
         # Create uproot iterator and load 1st large batch of data
         self.itr = None
@@ -158,3 +159,40 @@ class DataLoader:
         weights = np.where(labels[:, 0] !=0, weights, 1)
 
         return (tracks, neutral_pfo, shot_pfo, conv_tracks, jets), labels, weights
+    
+    
+
+RayDataLoader = ray.remote(DataLoader)
+
+
+class DataWriter(DataLoader):
+    
+    def __init__(self, file: str, yaml_features_cfg: str, batch_size: int, step_size: Union[str, int] = '5 GB') -> None:
+        super().__init__((file,), yaml_features_cfg, batch_size, step_size)
+
+        """
+        Instead of loading batches of data just load the full file
+        I have the data split up into 100,000 event files to make this easier
+        Trying to iterativly fill the result tree is hard
+        """
+        self.big_batch = uproot.concatenate(file, filter_name=self.features)
+
+    def write_results(self, model, output_file) -> None:
+        """
+        Save output and key variables for perf plots to file 
+        """
+        outfile = uproot.recreate(output_file)
+
+        branch_dict = {}       
+        batch, y_true, weights = self.process_batch(self.big_batch)
+        y_pred = model.predict(batch)
+        branch_dict["TauClassifier_Scores"] = y_pred
+        branch_dict["TauClassifier_TruthScores"] = y_true
+        for branch in self.features_config["OutFileBranches"]:
+            branch_dict[branch] = self.big_batch[branch]
+
+        branch_dict["TauClassifier_Weight"] = weights
+
+        outfile["tree"] = branch_dict
+
+RayDataWriter = ray.remote(DataWriter)
