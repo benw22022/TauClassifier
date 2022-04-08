@@ -25,10 +25,8 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         x = x["TauJets_truthDecayMode"]
         y = y["TauJets_truthDecayMode"]
-        lx = len(x)
-        ly = len(y)
-        self.ntaus = lx
-        self.njets = ly
+        self.ntaus = len(x)
+        self.njets = len(y)
         self.nevents = self.ntaus + self.njets
 
         self.tau_batch_size = int((self.ntaus / self.nevents) * self.batch_size)
@@ -39,7 +37,17 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.tau_loader = DataLoader.remote(self.tau_files, self.yaml_feature_config, self.tau_batch_size)
         self.jet_loader = DataLoader.remote(self.jet_files, self.yaml_feature_config, self.jet_batch_size)
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx: int) -> Tuple[np.ndarray]:
+        """
+        Allows DataGenerator to be indexable. Not really though since the index does nothing.
+        This method is only provided to satify the requirements for tensorflow generator training.
+        This should really be treated as __next__
+        args:
+            idx: int - Does nothing, just provide it as an arguement so that code works
+        returns:
+            Tuple[np.ndarrays] - A Tuple of arrays; structure is
+            feature arrays, labels, weights
+        """
 
         # batch = (next(self.tau_loader), next(self.jet_loader) )
         batch = ray.get([self.tau_loader.next.remote(), self.jet_loader.next.remote()])
@@ -54,10 +62,21 @@ class DataGenerator(tf.keras.utils.Sequence):
         return x_batch, y_batch, weight_batch
 
     def on_epoch_end(self):
+        """
+        Just an alias for reset so that Keras knows what to do at the end of the epcoh
+        """
+        self.reset()
+        
+    def reset(self) -> None:
+        """
+        Terminate ray actors and recreate 
+        Do this to free memory accumilated by uproot.iterate
+        """
         self.tau_loader.terminate.remote()
         self.jet_loader.terminate.remote()
         self.tau_loader = DataLoader.remote(self.tau_files, self.yaml_feature_config, self.tau_batch_size)
         self.jet_loader = DataLoader.remote(self.jet_files, self.yaml_feature_config, self.jet_batch_size)
+    
 
     def __len__(self):
         return self.steps_per_epoch

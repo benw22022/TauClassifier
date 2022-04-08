@@ -144,6 +144,7 @@ class DataLoader:
             (x, y, weights) where x = (branch1, branch2, ..., branchn)
         """
 
+        # TODO: can this be done without knowing the number of branches?
         tracks = self.build_array(batch, "TauTracks")
         neutral_pfo = self.build_array(batch,"NeutralPFO")
         shot_pfo = self.build_array(batch,"ShotPFO")
@@ -152,7 +153,7 @@ class DataLoader:
 
         labels = np.asarray(batch[self.features_config["Label"]])
 
-        # Only reweight jets
+        # Only reweight jets  (weight = 1 for taus)
         weights = self.reweight_batch(batch)
         weights = np.where(labels[:, 0] !=0, weights, 1)
 
