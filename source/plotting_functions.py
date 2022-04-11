@@ -131,7 +131,7 @@ def plot_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, prong: int=Non
 						fmt=".2", vmin=0, vmax=1, ax=ax1, annot_kws={"size": 35 / np.sqrt(len(efficiency_matrix))},)
 	sns.heatmap(purity_matrix, annot=True, cmap="Oranges", xticklabels=xticklabels, yticklabels=yticklabels,
 						fmt=".2", vmin=0, vmax=1, ax=ax2, annot_kws={"size": 35 / np.sqrt(len(purity_matrix))},)
-	sns.set(font_scale=8) 
+	# sns.set(font_scale=8) #! Don't do this! Messes with all subsequent plots
 	ax1.set_xlabel("Truth", fontsize=18)
 	ax1.set_ylabel("Prediction", fontsize=18)
 	ax2.set_xlabel("Truth", fontsize=18)
