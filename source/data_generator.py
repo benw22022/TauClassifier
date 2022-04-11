@@ -18,14 +18,10 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.tau_files = tau_files
         self.jet_files = jet_files
 
-        x = uproot.lazy(self.tau_files, filter_name='TauJets_truthDecayMode', libray='np')
-        y = uproot.lazy(self.jet_files, filter_name='TauJets_truthDecayMode', libray='np')
-
-
-        x = x["TauJets_truthDecayMode"]
-        y = y["TauJets_truthDecayMode"]
-        self.ntaus = len(x)
-        self.njets = len(y)
+        tau_dummy_arr = uproot.lazy(self.tau_files, filter_name='TauJets_truthDecayMode', libray='np')["TauJets_truthDecayMode"]
+        jet_dummy_arr = uproot.lazy(self.jet_files, filter_name='TauJets_truthDecayMode', libray='np')["TauJets_truthDecayMode"]
+        self.ntaus = len(tau_dummy_arr)
+        self.njets = len(jet_dummy_arr)
         self.nevents = self.ntaus + self.njets
 
         self.tau_batch_size = int((self.ntaus / self.nevents) * self.batch_size)
