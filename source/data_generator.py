@@ -9,7 +9,7 @@ from source.dataloader import RayDataLoader
 
 class DataGenerator(tf.keras.utils.Sequence):
 
-    def __init__(self, tau_files: List[str], jet_files: List[str], yaml_feature_cfg: str, batch_size: int=256, step_size: Union[str, int]='1GB'):
+    def __init__(self, tau_files: List[str], jet_files: List[str], yaml_feature_cfg: str, batch_size: int=256, step_size: Union[str, int]='1GB') -> None:
 
         self.yaml_feature_config = os.path.abspath(yaml_feature_cfg)
         self.dataloaders = []
@@ -56,7 +56,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         return x_batch, y_batch, weight_batch
 
-    def on_epoch_end(self):
+    def on_epoch_end(self) -> None:
         """
         Just an alias for reset so that Keras knows what to do at the end of the epcoh
         """
@@ -73,5 +73,5 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.jet_loader = RayDataLoader.remote(self.jet_files, self.yaml_feature_config, self.jet_batch_size, step_size=self.step_size)
     
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.steps_per_epoch
