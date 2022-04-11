@@ -4,15 +4,11 @@ ________________________________________________________________________
 File to store useful plotting functions
 """
 
-import imp
 import matplotlib.pyplot as plt
-from keras.models import load_model
-from sklearn.metrics import auc, roc_auc_score
+from sklearn.metrics import auc
 from sklearn import metrics
-import pandas as pd
 import numpy as np
 import seaborn as sns
-import numba as nb
 import os
 from typing import Tuple
 
