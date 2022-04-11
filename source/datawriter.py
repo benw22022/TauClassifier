@@ -14,7 +14,7 @@ import uproot
 import numpy as np
 import awkward as ak
 from typing import List, Union, Tuple
-from source import DataLoader
+from source.dataloader import DataLoader
 import tensorflow as tf
 
 
