@@ -1,12 +1,10 @@
+import os
 import ray
+import uproot
+import numpy as np
 import tensorflow as tf
 from typing import List, Union, Tuple
-import numpy as np
-import uproot
-import awkward as ak
-import yaml
-import os
-from source2.dataloader import RayDataLoader
+from source.dataloader import RayDataLoader
 
 
 class DataGenerator(tf.keras.utils.Sequence):

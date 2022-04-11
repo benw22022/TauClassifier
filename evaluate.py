@@ -1,13 +1,10 @@
 import os
+import tqdm 
 import glob
 import yaml
-import numpy as np
 from sklearn.model_selection import train_test_split
 from model.models import ModelDSNN
-from source2.data_generator import DataGenerator
-from source2.dataloader import DataWriter
-import source2.plotting_functions as pf
-import tqdm 
+from source.dataloader import DataWriter
 
 
 def evaluate():

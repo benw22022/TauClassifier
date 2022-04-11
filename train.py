@@ -8,17 +8,14 @@ Script to run the neural network training
 import os
 import ray
 import glob
-from model.models import ModelDSNN
+import uproot
+import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-import numpy as np
-import time
-import datetime
-from model.callbacks import ParallelModelCheckpoint
-import tqdm
 from sklearn.model_selection import train_test_split
-import uproot
-from source2.data_generator import DataGenerator
+from model.models import ModelDSNN
+from source.data_generator import DataGenerator
+from model.callbacks import ParallelModelCheckpoint
 
 
 def get_number_of_events(files):

@@ -4,12 +4,14 @@ ________________________________________________________________________
 File to store useful plotting functions
 """
 
-import matplotlib.pyplot as plt
-from sklearn.metrics import auc
-from sklearn import metrics
+import os
 import numpy as np
 import seaborn as sns
-import os
+from sklearn import metrics
+import matplotlib.pyplot as plt
+from sklearn.metrics import auc
+
+
 from typing import Tuple
 
 
