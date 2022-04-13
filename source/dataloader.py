@@ -96,7 +96,7 @@ class DataLoader:
         """
         return self.__next__()
 
-    def build_array(self, batch: ak.Array, branchname:str, pad_val: int=0, cutoff: int=100) -> np.ndarray:
+    def build_array(self, batch: ak.Array, branchname:str, pad_val: int=-999, cutoff: int=1e2) -> np.ndarray:
         """
         Builds input array for input branch from data in feature config
         Pads and clips non-rectilinear arrays
