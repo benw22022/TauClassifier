@@ -53,11 +53,11 @@ def visualise():
 
     wp_cuts = get_tauid_wp_cut(y_true[:, 0], y_pred[:, ], WORKING_POINT_EFFS)
     y_true_95RNN, y_pred_95RNN, weights_95RNN = get_scores(cut="TauJets_RNNJetScoreSigTrans > 0.95")
-    y_true_95UTC, y_pred_95UTC, weights_95UTC = get_scores(cut="TauJets_isFake < 0.95")
+    y_true_95UTC, y_pred_95UTC, weights_95UTC = get_scores(cut="TauClassifier_isFake < 0.95")
     
-
-    pf.plot_confusion_matrix(y_true, y_pred, weights=weights, saveas="plots/conf_matrix_allProng.png")
     pf.plot_confusion_matrix(y_true_95RNN, y_pred_95RNN, weights=weights_95RNN, no_jets=True, saveas="plots/conf_matrix_TauIDRNN95.png")
+    pf.plot_confusion_matrix(y_true_95UTC, y_pred_95UTC, weights=weights_95UTC, no_jets=True, saveas="plots/conf_matrix_TauIDUTC95.png")
+    pf.plot_confusion_matrix(y_true, y_pred, weights=weights, saveas="plots/conf_matrix_allProng.png")
     # pf.plot_confusion_matrix(y_true, y_pred, weights=weights, saveas="plots/conf_matrix_allProng.png")
 
 
