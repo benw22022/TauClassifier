@@ -12,7 +12,7 @@ import uproot
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import learning_curve, train_test_split
 from model.models import ModelDSNN
 from source.data_generator import DataGenerator
 from model.callbacks import ParallelModelCheckpoint
@@ -48,8 +48,8 @@ def train():
 
 
     # Generators
-    training_generator = DataGenerator(tau_train_files, jet_train_files, "config/features.yaml", batch_size=256)
-    validation_generator = DataGenerator(tau_val_files, jet_val_files, "config/features.yaml", batch_size=1024)
+    training_generator = DataGenerator(tau_train_files, jet_train_files, "config/features.yaml", batch_size=524)
+    validation_generator = DataGenerator(tau_val_files, jet_val_files, "config/features.yaml", batch_size=2048)
 
     # Configure callbacks
     early_stopping = tf.keras.callbacks.EarlyStopping(
@@ -97,7 +97,7 @@ def train():
                                   ])
 
 
-    opt = tf.keras.optimizers.Adam()
+    opt = tf.keras.optimizers.Adam(learning_rate=1e-4)
     model.compile(optimizer=opt, loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()], )
     
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""

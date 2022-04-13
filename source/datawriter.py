@@ -8,6 +8,7 @@ instead of uproot.iterate
 """
 
 import os
+from attr import Attribute
 import ray
 import tqdm
 import uproot
@@ -62,8 +63,8 @@ class DataWriter(DataLoader):
         fig, ax = plt.subplots()
         ax.hist(array, bins=500, histtype='step')
         ax.set_xlabel(var_name)
-        ax.set_yscale("symlog")
-        ax.set_xscale("symlog")
+        # ax.set_yscale("symlog")
+        # ax.set_xscale("symlog")
         plt.savefig(saveas)
 
     def make_control_plots(self, outfile_loc: str="control_plots") -> None:
@@ -87,8 +88,14 @@ class DataWriter(DataLoader):
                 for i in range(0, branch_arr.shape[1]):
                     var_name = self.features_config["branches"][branch_name]['features'][i]
                     outfile = os.path.join(output_dir, f"{var_name}.png")
-                    # self.plot_hist(branch_arr[:, i].ravel(), var_name, outfile)
-                    self.plot_hist(ak.to_numpy(ak.flatten(self.big_batch[var_name])).ravel(), var_name, outfile)
+                    array  = branch_arr[:, i].ravel()
+                    self.plot_hist(array[array != -999], var_name, outfile)
+                    # try:
+                    #     arr = ak.to_numpy(ak.flatten(self.big_batch[var_name])).ravel()
+                    # except Exception:
+                    #     arr = ak.to_numpy(self.big_batch[var_name]).ravel()
+                    # self.plot_hist(arr, var_name, outfile)
+                        
                     pbar.update()
                     plt.close('all')
         

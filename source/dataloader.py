@@ -100,6 +100,8 @@ class DataLoader:
         """
         Builds input array for input branch from data in feature config
         Pads and clips non-rectilinear arrays
+        Note: use ak.fill_none() on the none padded ak arrays. Trying to pad after converting to numpy leads to 
+        unitialised memory in the array
         args:
             batch: ak.Array - A batch of data loaded by uproot 
             branchname: Name of NN input branch e.g. TauTracks, NeutralPFO etc... A key in the 'branches' dict in 
@@ -114,12 +116,9 @@ class DataLoader:
         max_objs = self.features_config["branches"][branchname]["max_objects"]
 
         if max_objs > 1:
-            arrays = np.stack([ak.to_numpy(ak.pad_none(arr, max_objs, clip=True)) for arr in arrays], axis=1).filled(pad_val) 
-            arrays = np.where((abs(arrays) < cutoff) & (arrays != cutoff), arrays, cutoff)
+            arrays = np.stack([ak.to_numpy(ak.fill_none(ak.pad_none(arr, max_objs, clip=True), pad_val)) for arr in arrays], axis=1)
             return np.nan_to_num(arrays)
-
         arrays = np.stack([ak.to_numpy(arr) for arr in arrays], axis=1)
-        arrays = np.where((abs(arrays) < cutoff) & (arrays != cutoff), arrays, cutoff)
         return np.nan_to_num(arrays)
 
     def reweight_batch(self, batch: ak.Array) -> np.ndarray:
