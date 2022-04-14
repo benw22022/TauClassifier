@@ -16,11 +16,12 @@ import awkward as ak
 from source import DataLoader
 import tensorflow as tf
 import matplotlib.pyplot as plt
+from omegaconf import DictConfig    
 
 class DataWriter(DataLoader):
     
-    def __init__(self, file: str, yaml_features_cfg: str) -> None:
-        super().__init__((file,), yaml_features_cfg, batch_size=256, step_size='1 GB')
+    def __init__(self, file: str, config: DictConfig) -> None:
+        super().__init__((file,), config, batch_size=256, step_size='1 GB')
 
         """
         Instead of loading batches of data just load the full file
@@ -28,7 +29,7 @@ class DataWriter(DataLoader):
         Trying to iterativly fill the result tree is hard
         args:
             files: List[str] - A list of root files to load data from
-            yaml_features_cfg: str - A filepath to a yaml config file containing info on input features
+            config: DictConfig - A global config dict from Hydra
         """
         self.file = file
         self.big_batch = uproot.concatenate(file, filter_name=self.features)
@@ -50,7 +51,7 @@ class DataWriter(DataLoader):
         branch_dict["TauClassifier_is3p0n"] = y_pred[:, 4]
         branch_dict["TauClassifier_is3pXn"] = y_pred[:, 5]
         branch_dict["TauClassifier_TruthScores"] = y_true
-        for branch in self.features_config["OutFileBranches"]:
+        for branch in self.config.OutFileBranches:
             branch_dict[branch] = self.big_batch[branch]
 
         branch_dict["TauClassifier_Weight"] = weights
@@ -79,13 +80,13 @@ class DataWriter(DataLoader):
 
         nplots = sum([branch_arr.shape[1] for branch_arr in batch]) + 2
 
-        branch_names = self.features_config["branches"].keys()
+        branch_names = self.config.branches.keys()
 
         with tqdm.tqdm(total=nplots) as pbar:
 
             for branch_name, branch_arr in zip(branch_names, batch):
                 for i in range(0, branch_arr.shape[1]):
-                    var_name = self.features_config["branches"][branch_name]['features'][i]
+                    var_name = self.config.branches[branch_name].features[i]
                     outfile = os.path.join(output_dir, f"{var_name}.png")
                     array  = branch_arr[:, i].ravel()
                     self.plot_hist(array[array != -999], var_name, outfile)

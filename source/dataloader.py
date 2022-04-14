@@ -23,7 +23,7 @@ class DataLoader:
         TODO: Add option for cuts (probably have cuts as an option in config file)
         args:
             files: List[str] - A list of root files to load data from
-            yaml_features_cfg: str - A filepath to a yaml config file containing info on input features
+            config: DictConfig - A global config dict from Hydra
             batch_size: int - The batch size for training/inferance. Number of samples yielded when next() is called
             (optional) step_size: Union(str, int)='5 GB' - step_size arguement for uproot.iterate. If str then a a memory size e.g. '1 GB' 
             else if an int then the number of samples to load per batch. Rough testing has shown that 5 GB seems to be a good option when running 
