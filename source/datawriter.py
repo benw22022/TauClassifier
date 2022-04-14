@@ -12,8 +12,7 @@ import ray
 import tqdm
 import uproot
 import numpy as np
-import awkward as ak
-from source import DataLoader
+from source.dataloader import DataLoader
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from omegaconf import DictConfig    

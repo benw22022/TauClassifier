@@ -16,7 +16,8 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from omegaconf import DictConfig
 from sklearn.model_selection import train_test_split
-from source import DataGenerator
+import source
+from source.data_generator import DataGenerator
 from model import configure_callbacks, ModelDSNN
 from typing import Tuple
 
@@ -33,7 +34,7 @@ def get_number_of_events(files):
 def train(config: DictConfig) -> Tuple[float]:
 
     # Initialise Ray
-    ray.init()
+    ray.init(runtime_env={"py_modules": [source]})
 
     # Model
     model = ModelDSNN(config)
