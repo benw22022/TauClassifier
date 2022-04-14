@@ -1,6 +1,6 @@
 ---
-
- # Location of reweighting histogram and variable to use for reweighting
+# @package _group_
+# Location of reweighting histogram and variable to use for reweighting
 reweight:
   feature: "TauJets_ptJetSeed"
   histogram_file: "config/ReWeightHist.root"

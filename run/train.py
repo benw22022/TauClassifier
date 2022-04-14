@@ -5,14 +5,18 @@ ________________________________________________
 Script to run the neural network training
 """
 
+import logger
+log = logger.get_logger(__name__)
 import os
 import ray
 import glob
+import yaml
 import uproot
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from sklearn.model_selection import learning_curve, train_test_split
+from omegaconf import DictConfig
+from sklearn.model_selection import train_test_split
 from model.models import ModelDSNN
 from source.data_generator import DataGenerator
 from model.callbacks import ParallelModelCheckpoint
@@ -27,29 +31,25 @@ def get_number_of_events(files):
     return ret
 
 
-def train():
+def train(config: DictConfig) -> None:
 
+    # Initialise Ray
     ray.init()
 
     # Model
-    model = ModelDSNN("config/model_config.yaml", "config/features.yaml")
+    model = ModelDSNN(config)
 
-    # Train/Test/Val
-    files = glob.glob("../split_NTuples/*/*.root")
-    tau_files = glob.glob("../split_NTuples/*Gammatautau*/*.root")
-    tau_train_files, tau_test_files = train_test_split(tau_files, test_size=0.2, random_state=42)
-    tau_train_files, tau_val_files = train_test_split(tau_train_files, test_size=0.2, random_state=42)
-
-    jet_files = glob.glob("../split_NTuples/*JZ*/*.root")
-    jet_train_files, jet_test_files = train_test_split(jet_files, test_size=0.2, random_state=42)
-    jet_train_files, jet_val_files = train_test_split(jet_train_files, test_size=0.2, random_state=42)
-
-    njets, n1p0n, n1p1n,  n1pxn, n3p0n, n3pxn = get_number_of_events(files)
-
+    # Grab train/val files
+    tau_files = glob.glob(config.TauFiles)
+    jet_files = glob.glob(config.FakeFiles)
+    tau_train_files, _ = train_test_split(tau_files, test_size=config.TestSplit, random_state=config.RandomSeed)
+    tau_train_files, tau_val_files = train_test_split(tau_files, test_size=config.ValSplit, random_state=config.RandomSeed)
+    jet_train_files, _ = train_test_split(jet_files, test_size=config.TestSplit, random_state=config.RandomSeed)
+    jet_train_files, jet_val_files = train_test_split(jet_files, test_size=config.ValSplit, random_state=config.RandomSeed)
 
     # Generators
-    training_generator = DataGenerator(tau_train_files, jet_train_files, "config/features.yaml", batch_size=524)
-    validation_generator = DataGenerator(tau_val_files, jet_val_files, "config/features.yaml", batch_size=2048)
+    training_generator = DataGenerator(tau_train_files, jet_train_files, config, batch_size=config.batch_size)
+    validation_generator = DataGenerator(tau_val_files, jet_val_files, config, batch_size=4056)
 
     # Configure callbacks
     early_stopping = tf.keras.callbacks.EarlyStopping(
@@ -69,8 +69,8 @@ def train():
 
     # Following steps in: https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
     # Compute class weights 
-    
-    total = njets + n1p0n + n1p1n + n1pxn + n3p0n + n3pxn
+    njets, n1p0n, n1p1n,  n1pxn, n3p0n, n3pxn = get_number_of_events(tau_files + jet_files)
+    total = njets + n1p0n + n1p1n + n1pxn + n3p0n + n3pxn   
 
     weight_for_jets = (1 / njets) * (total / 2.0)
     weight_for_1p0n = (1 / n1p0n) * (total / 2.0)
@@ -97,7 +97,7 @@ def train():
                                   ])
 
 
-    opt = tf.keras.optimizers.Adam(learning_rate=1e-4)
+    opt = tf.keras.optimizers.Adam(config.learning_rate)
     model.compile(optimizer=opt, loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()], )
     
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""

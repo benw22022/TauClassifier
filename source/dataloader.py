@@ -11,12 +11,13 @@ import yaml
 import uproot
 import numpy as np
 import awkward as ak
+from omegaconf import DictConfig
 from typing import List, Union, Tuple
 
 
 class DataLoader:
 
-    def __init__(self, files: List[str], yaml_features_cfg: str, batch_size: int, step_size: Union[str, int]='5 GB') -> None:
+    def __init__(self, files: List[str], config: DictConfig, batch_size: int, step_size: Union[str, int]='5 GB') -> None:
         """
         Create a new DataLoader for handling input. Instantiated as a ray Actor on new python process
         For efficiency for small batch sizes this code loads a large batch of data and slices of smaller batches for training
@@ -32,18 +33,15 @@ class DataLoader:
         self.files = files
         self.batch_size = batch_size
         self.step_size = step_size
-
-        # Load yaml config file 
-        with open(yaml_features_cfg, 'r') as stream:
-            self.features_config = yaml.load(stream, Loader=yaml.FullLoader)
+        self.config = config
 
         # Get a list of all features
         self.features = []
-        for branch_name in self.features_config["branches"]:
-            self.features.extend(self.features_config["branches"][branch_name]["features"])
-        self.features.extend(self.features_config["OutFileBranches"])
-        self.features.append(self.features_config["Label"])
-        self.features.append(self.features_config["reweight"]["feature"])
+        for branch_name in self.config.branches:
+            self.features.extend(self.config.branches[branch_name].features)
+        self.features.extend(self.features.config.OutFileBranches)
+        self.features.append(self.features.config.Label)
+        self.features.append(self.features.config.reweight.feature)
 
         # Create uproot iterator and load 1st large batch of data
         self.itr = None
@@ -52,8 +50,8 @@ class DataLoader:
         self.idx = -1
 
         # Load reweighting histogram
-        histfile = self.features_config["reweight"]["histogram_file"]
-        histname = self.features_config["reweight"]["histogram_name"]
+        histfile = self.config.reweight.histogram_file
+        histname = self.config.reweight.histogram_name
         file = uproot.open(histfile)
         self.reweight_hist_edges = file[histname].axis().edges()
         self.reweight_hist_values = file[histname].values()
@@ -112,8 +110,8 @@ class DataLoader:
             np.ndarray - A complete input array for one branch of the network
         """
 
-        arrays = ak.unzip(batch[self.features_config["branches"][branchname]["features"]])
-        max_objs = self.features_config["branches"][branchname]["max_objects"]
+        arrays = ak.unzip(batch[self.config.branches[branchname].features])
+        max_objs = self.config.branches[branchname].max_objects
 
         if max_objs > 1:
             arrays = np.stack([ak.to_numpy(ak.fill_none(ak.pad_none(arr, max_objs, clip=True), pad_val)) for arr in arrays], axis=1)
@@ -131,7 +129,7 @@ class DataLoader:
             A array of weights
         """
         
-        reweight_param = self.features_config["reweight"]["feature"]
+        reweight_param = self.config.reweight.feature
         return np.asarray(self.reweight_hist_values[np.digitize(batch[reweight_param], self.reweight_hist_edges)])
     
     def process_batch(self, batch: ak.Array) -> Tuple:

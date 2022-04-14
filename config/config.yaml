@@ -1,5 +1,15 @@
 ---
 
+# Logging
+log_level: DEBUG
+tf_log_level: 1
+
+defaults:
+  - _self_
+  - features.yaml
+  - model_config.yaml
+
+
 # glob-able paths to input files
 TauFiles: "/home/bewilson/split_NTuples/*Gammatautau*/*.root"
 FakeFiles: "/home/bewilson/split_NTuples/*JZ*/*.root"
@@ -8,3 +18,7 @@ FakeFiles: "/home/bewilson/split_NTuples/*JZ*/*.root"
 TestSplit: 0.2
 ValSplit: 0.2
 RandomSeed: 42
+
+# Training config params
+learning_rate: 1e-4
+batch_size: 526

@@ -1,4 +1,5 @@
 ---
+# @package _group_
 model_name: DSNN
 batch_norm: 1
 alpha: 0.05
