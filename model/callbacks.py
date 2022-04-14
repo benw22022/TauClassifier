@@ -36,7 +36,7 @@ def configure_callbacks(config: DictConfig, model: tf.keras.Model) -> List[keras
     
     # Early stopping
     if config.early_stopping.use:
-        min_delta = config.early_stopping.min_delta,
+        min_delta = config.early_stopping.min_delta
         patience=config.early_stopping.patience
 
         early_stopping = tf.keras.callbacks.EarlyStopping( monitor="val_loss", min_delta=min_delta,
