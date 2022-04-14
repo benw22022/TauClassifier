@@ -18,8 +18,8 @@ lr_schedd:
 
 # Early stopping
 early_stopping:
-  min_delta: 0.0001,
-  patience: 20,
+  min_delta: 0.0001
+  patience: 20
   use: True
 
 # Model checkpoint
