@@ -7,7 +7,6 @@ A helper class for reading and processing network input data
 
 
 import ray
-import yaml
 import uproot
 import numpy as np
 import awkward as ak

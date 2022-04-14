@@ -8,13 +8,12 @@ instead of uproot.iterate
 """
 
 import os
-from attr import Attribute
 import ray
 import tqdm
 import uproot
 import numpy as np
 import awkward as ak
-from source.dataloader import DataLoader
+from source import DataLoader
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
