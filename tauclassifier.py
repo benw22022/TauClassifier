@@ -22,9 +22,6 @@ from run import train
 
 @hydra.main(config_path="config", config_name="config")
 def unified_tau_classifier(cfg : DictConfig) -> None:
-    # print(OmegaConf.to_yaml(cfg))
-
-    # args = OmegaConf.to_yaml(cfg)
 
     log.error("Test")
     train(cfg)

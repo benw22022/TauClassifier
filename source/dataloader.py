@@ -39,9 +39,9 @@ class DataLoader:
         self.features = []
         for branch_name in self.config.branches:
             self.features.extend(self.config.branches[branch_name].features)
-        self.features.extend(self.features.config.OutFileBranches)
-        self.features.append(self.features.config.Label)
-        self.features.append(self.features.config.reweight.feature)
+        self.features.extend(self.config.OutFileBranches)
+        self.features.append(self.config.Label)
+        self.features.append(self.config.reweight.feature)
 
         # Create uproot iterator and load 1st large batch of data
         self.itr = None
@@ -149,7 +149,7 @@ class DataLoader:
         conv_tracks = self.build_array(batch,"ConvTrack")
         jets = self.build_array(batch,"TauJets")
 
-        labels = np.asarray(batch[self.features_config["Label"]])
+        labels = np.asarray(batch[self.config.Label])
 
         # Only reweight jets  (weight = 1 for taus)
         weights = self.reweight_batch(batch)

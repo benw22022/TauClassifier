@@ -3,7 +3,7 @@
 # Location of reweighting histogram and variable to use for reweighting
 reweight:
   feature: "TauJets_ptJetSeed"
-  histogram_file: "config/ReWeightHist.root"
+  histogram_file: "/home/bewilson/TauClassifier/config/ReWeightHist.root"
   histogram_name: "ReWeightHist"
 
 Label: "TauClassifier_Labels"
