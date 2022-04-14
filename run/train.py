@@ -140,7 +140,3 @@ def train(config: DictConfig) -> None:
     best_val_acc = history.history["val_categorical_accuracy"][best_val_loss_epoch]
 
     return best_val_loss, best_val_acc
-
-
-if __name__ == "__main__":
-    train()
