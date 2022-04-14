@@ -10,28 +10,27 @@ log = logger.get_logger(__name__)
 import os
 import ray
 import glob
-import yaml
 import uproot
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from omegaconf import DictConfig
 from sklearn.model_selection import train_test_split
-from model.models import ModelDSNN
-from source.data_generator import DataGenerator
-from model.callbacks import ParallelModelCheckpoint
+from source import DataGenerator
+from model import configure_callbacks, ModelDSNN
+from typing import Tuple
 
 
 def get_number_of_events(files):
     all_labels = uproot.concatenate(files, filter_name="TauClassifier_Labels", library='np')["TauClassifier_Labels"]
     all_labels = np.vstack(all_labels)
-    ret = []
+    class_breakdown = []
     for l in range(0, all_labels.shape[1]):
-        ret.append(sum(all_labels[:, l]))
-    return ret
+        class_breakdown.append(np.sum(all_labels[:, l]))
+    return class_breakdown
 
 
-def train(config: DictConfig) -> None:
+def train(config: DictConfig) -> Tuple[float]:
 
     # Initialise Ray
     ray.init()
@@ -52,17 +51,7 @@ def train(config: DictConfig) -> None:
     validation_generator = DataGenerator(tau_val_files, jet_val_files, config, batch_size=4056)
 
     # Configure callbacks
-    early_stopping = tf.keras.callbacks.EarlyStopping(
-        monitor="val_loss", min_delta=0.0001,
-        patience=20, verbose=0, restore_best_weights=True)
-
-    model_checkpoint = ParallelModelCheckpoint(model, path=os.path.join("network_weights", 'weights-{epoch:02d}.h5'),
-                                               monitor="val_loss", save_best_only=True, save_weights_only=True)
-
-    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.75, patience=3, min_lr=1e-9)
-
-
-    callbacks = [early_stopping, model_checkpoint, reduce_lr]
+    callbacks = configure_callbacks(config, model)
 
     # Compile and summarise model
     model.summary()
@@ -138,5 +127,7 @@ def train(config: DictConfig) -> None:
     best_val_loss_epoch = np.argmin(history.history["val_loss"])
     best_val_loss = history.history["val_loss"][best_val_loss_epoch]
     best_val_acc = history.history["val_categorical_accuracy"][best_val_loss_epoch]
+
+    log.info(f"Best epoch was {best_val_loss_epoch}\tloss: {best_val_loss:.3f}\tAccuracy: {best_val_acc:.2f}")
 
     return best_val_loss, best_val_acc

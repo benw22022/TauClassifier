@@ -1,14 +1,22 @@
 ---
-
-# Logging
-log_level: DEBUG
-tf_log_level: 1
-
 defaults:
   - _self_
   - features.yaml
   - model_config.yaml
 
+# Hydra specific
+# TODO: Add help message
+hydra:
+  help:
+    template:
+      'TODO: Add help message'
+
+# Logging
+log_level: DEBUG
+tf_log_level: 1
+
+# Run mode
+run_mode: train
 
 # glob-able paths to input files
 TauFiles: "/home/bewilson/split_NTuples/*Gammatautau*/*.root"
@@ -22,3 +30,20 @@ RandomSeed: 42
 # Training config params
 learning_rate: 1e-4
 batch_size: 526
+
+# Learining rate schedd
+lr_schedd:
+  - factor: 0.75
+  - patience: 3
+  - min_lr: 1e-9
+  - use: True
+
+# Early stopping
+early_stopping:
+  - min_delta: 0.0001,
+  - patience: 20,
+  - use: True
+
+# Model checkpoint
+model_checkpoint:
+  use: True
