@@ -3,7 +3,7 @@ import ray
 import uproot
 import numpy as np
 import tensorflow as tf
-from source import RayDataLoader
+from source.dataloader import RayDataLoader
 from omegaconf import DictConfig
 from typing import List, Union, Tuple
 
