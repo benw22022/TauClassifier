@@ -9,22 +9,30 @@ python3 tauclassifier.py test -weights=network_weights/weights-20.h5
 python3 tauclassifier.py scan -lr_range 5e-4 1e-1 10
 """
 
+import sys
 import logger
 log = logger.get_logger(__name__)
-import os
-import sys
-import argparse
-import tensorflow as tf
-import matplotlib
+import run
 import hydra
-from omegaconf import DictConfig, OmegaConf
-from run import train
+import matplotlib
+from omegaconf import DictConfig
+import tensorflow as tf
+
+
+RUN_DICT = {'train': run.train,
+            'evaluate': run.evaluate,
+            'visualise': run.visualise,
+            }
+
+def invalid_run_mode(cfg: DictConfig) -> None:
+    log.fatal(f"Run mode: {cfg.run_mode} not recognised! Available modes are {RUN_DICT.keys()}")
+    sys.exit(1)
 
 @hydra.main(config_path="config", config_name="config")
 def unified_tau_classifier(cfg : DictConfig) -> None:
 
-    log.error("Test")
-    train(cfg)
+    RUN_DICT.get(cfg.run_mode, invalid_run_mode)(cfg)
+    sys.exit(0)
 
 if __name__ == "__main__":
     unified_tau_classifier()
