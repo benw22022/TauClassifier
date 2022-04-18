@@ -6,7 +6,6 @@ import pandas as pd
 import tqdm
 import time
 from typing import List
-import ray
 
 def compute_labels(decay_mode: np.ndarray, is_tau: bool) -> np.ndarray:
     """
@@ -48,8 +47,10 @@ def split_files(files: List[str], outpath: str, name: str, is_tau: bool, step_si
     returns:
         None
     """
-    
-    os.makedirs(outpath)
+    try:
+        os.makedirs(outpath)
+    except FileExistsError:
+        pass
     keys = uproot.open(f"{files[0]}:tree").keys()
     stats_df = pd.read_csv("../TauClassifier2/config/stats_df.csv", index_col=0)
     
@@ -59,7 +60,7 @@ def split_files(files: List[str], outpath: str, name: str, is_tau: bool, step_si
     reweight_hist_edges = histfile[histname].axis().edges()
     reweight_hist_values = histfile[histname].values()
 
-    for i, batch in enumerate(uproot.iterate(files, step_size = 100000)):
+    for i, batch in enumerate(uproot.iterate(files, step_size=step_size)):
         i += 1
         start_time = time.time()
         new_file = uproot.recreate(os.path.join(outpath, f"{name}_{i:03d}.root"))
@@ -68,6 +69,9 @@ def split_files(files: List[str], outpath: str, name: str, is_tau: bool, step_si
         for column in keys:
     
             column_fixed = column.replace(".", "_")
+
+            if "TauCluster" in column_fixed:
+                continue
 
             branch_dict[column_fixed] = batch[column]
             try:
@@ -78,15 +82,17 @@ def split_files(files: List[str], outpath: str, name: str, is_tau: bool, step_si
                 pass
 
         branch_dict["TauClassifier_Labels"] = compute_labels(batch["TauJets.truthDecayMode"], is_tau)
-        branch_dict["TauClassifier_pTReweight"] = np.asarray(reweight_hist_values[np.digitize(batch["TauJets.ptJetSeed"], reweight_hist_edges)])
-
+        if is_tau:
+            branch_dict["TauClassifier_pTReweight"] = np.ones(len(batch["TauJets.ptJetSeed"]))
+        else:
+            branch_dict["TauClassifier_pTReweight"] = np.asarray(reweight_hist_values[np.digitize(batch["TauJets.ptJetSeed"], reweight_hist_edges)])
+    
         new_file['tree'] = branch_dict
+        new_file.close()
 
-        print(f"Done: {name}_{i:03d}.root in {time.time - start_time}s")
+        # print(f"Done: {name}_{i:03d}.root in {time.time - start_time}s")
 
     print(f"All files for {name} done!")
-
-ray_split_files = ray.remote(split_files)
 
 def main() -> None:
     """
@@ -96,17 +102,15 @@ def main() -> None:
         - Features are normed by subracting mean and dividing by stdDev
     Adds a new branch for labels
     """
-    results = []
-    results.append(ray_split_files.remote(glob.glob("../NTuples/*Gammatautau*/*.root"), "../split_NTuples/Gammatautau", "Gammatautau", True, 100000))
-    results.append(ray_split_files.remote(glob.glob("../NTuples/*JZ1*/*.root"), "../split_NTuples/JZ1", "JZ1", False, 100000))
-    results.append(ray_split_files.remote(glob.glob("../NTuples/*JZ2*/*.root"), "../split_NTuples/JZ2", "JZ2", False, 100000))
-    results.append(ray_split_files.remote(glob.glob("../NTuples/*JZ3*/*.root"), "../split_NTuples/JZ3", "JZ3", False, 100000))
-    results.append(ray_split_files.remote(glob.glob("../NTuples/*JZ4*/*.root"), "../split_NTuples/JZ4", "JZ4", False, 50000))
-    results.append(ray_split_files.remote(glob.glob("../NTuples/*JZ5*/*.root"), "../split_NTuples/JZ5", "JZ5", False, 100000))
-    results.append(ray_split_files.remote(glob.glob("../NTuples/*JZ6*/*.root"), "../split_NTuples/JZ6", "JZ6", False, 100000))
-    results.append(ray_split_files.remote(glob.glob("../NTuples/*JZ7*/*.root"), "../split_NTuples/JZ7", "JZ7", False, 100000))
-    results.append(ray_split_files.remote(glob.glob("../NTuples/*JZ8*/*.root"), "../split_NTuples/JZ8", "JZ8", False, 100000))
-    ray.get(results)
+    split_files(glob.glob("../NTuples/*Gammatautau*/*.root"), "../split_NTuples/Gammatautau", "Gammatautau", True, 100000)
+    split_files(glob.glob("../NTuples/*JZ1*/*.root"), "../split_NTuples/JZ1", "JZ1", False, 100000)
+    split_files(glob.glob("../NTuples/*JZ2*/*.root"), "../split_NTuples/JZ2", "JZ2", False, 100000)
+    split_files(glob.glob("../NTuples/*JZ3*/*.root"), "../split_NTuples/JZ3", "JZ3", False, 100000)
+    split_files(glob.glob("../NTuples/*JZ4*/*.root"), "../split_NTuples/JZ4", "JZ4", False, 50000)
+    split_files(glob.glob("../NTuples/*JZ5*/*.root"), "../split_NTuples/JZ5", "JZ5", False, 100000)
+    split_files(glob.glob("../NTuples/*JZ6*/*.root"), "../split_NTuples/JZ6", "JZ6", False, 100000)
+    split_files(glob.glob("../NTuples/*JZ7*/*.root"), "../split_NTuples/JZ7", "JZ7", False, 100000)
+    split_files(glob.glob("../NTuples/*JZ8*/*.root"), "../split_NTuples/JZ8", "JZ8", False, 100000)
     
 if __name__ == "__main__":
     main()
