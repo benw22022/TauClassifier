@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from omegaconf import DictConfig
 from sklearn.model_selection import train_test_split
 import source
-from source.data_generator import DataGenerator
+from source import DataGenerator
 from model import configure_callbacks, ModelDSNN
 from typing import Tuple
 
