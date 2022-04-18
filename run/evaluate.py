@@ -2,25 +2,21 @@ import os
 import tqdm 
 import glob
 import yaml
-import ray
 from sklearn.model_selection import train_test_split
 from model.models import ModelDSNN
-from source.datawriter import RayDataWriter, DataWriter
+from source.datawriter import DataWriter
+from omegaconf import DictConfig
 
-def evaluate():
+def evaluate(config: DictConfig) -> None:
 
     # Disable GPU (Don't really need it and it could cause issues if already training)
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-    # Load yaml config file 
-    with open("config/file_config.yaml", 'r') as stream:
-            file_config = yaml.load(stream, Loader=yaml.FullLoader)
-    
-    # Grab testing files
-    tau_files = glob.glob(file_config["TauFiles"])
-    jet_files = glob.glob(file_config["FakeFiles"])
-    _, tau_test_files = train_test_split(tau_files, test_size=file_config["TestSplit"], random_state=file_config["RandomSeed"])
-    _, jet_test_files = train_test_split(jet_files, test_size=file_config["TestSplit"], random_state=file_config["RandomSeed"])
+    # Grab files
+    tau_files = glob.glob(config.TauFiles)
+    jet_files = glob.glob(config.FakeFiles)
+    _, tau_test_files= train_test_split(tau_files, test_size=config.TestSplit, random_state=config.RandomSeed)
+    _, jet_test_files= train_test_split(jet_files, test_size=config.TestSplit, random_state=config.RandomSeed)
 
     # TODO: Don't hard code this - add it as arg before
     # Load model
