@@ -38,6 +38,9 @@ def split_files(files: List[str], outpath: str, name: str, is_tau: bool, step_si
     Splits a group of similar files into smaller chunks of length step_size
     Adds new branches for normalised features (feature - mean / stdDev)
     Adds new branch for one-hot encoded labels
+    #? TODO: For some reason for all the normed branches this is creating an extra branch called 
+    #? TODO: nTauTracks_<etc..> which is a histogram of the object multiplicity. Don't think this is a huge issue
+    #? TODO: But should understand why this is happening
     args:
         files: List[str] - A list of files to be processed
         outpath: str - Output directory to store files
