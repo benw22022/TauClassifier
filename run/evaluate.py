@@ -13,7 +13,7 @@ def get_last_weights():
     Get last weights file saved
     """
     avail_weights = glob.glob("outputs/*/*/network_weights/*.h5")
-    return  max(avail_weights, key=os.path.getctime)
+    return  max(avail_weights, key=os.path.getctime())
 
 def evaluate(config: DictConfig) -> None:
 
@@ -24,7 +24,7 @@ def evaluate(config: DictConfig) -> None:
 
     # Grab files
     _, tau_test_files, _ = source.get_files(config, "TauFiles") 
-    _, jet_test_files, _ = source.get_files(config, "JetFiles") 
+    _, jet_test_files, _ = source.get_files(config, "FakeFiles") 
     
     # Grab weights file - automatically select last created weights file unless specified
     try:

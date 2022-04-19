@@ -42,7 +42,7 @@ def train(config: DictConfig) -> Tuple[float]:
 
     # Grab train/val files
     tau_train_files, tau_test_files, tau_val_files = source.get_files(config, "TauFiles") 
-    jet_train_files, jet_test_files, jet_val_files = source.get_files(config, "JetFiles") 
+    jet_train_files, jet_test_files, jet_val_files = source.get_files(config, "FakeFiles") 
     tau_files = tau_train_files + tau_test_files + tau_val_files
     jet_files = jet_train_files + jet_test_files + jet_val_files
 
