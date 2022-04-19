@@ -5,7 +5,8 @@ Class definition for DataLoader object
 A helper class for reading and processing network input data
 """
 
-
+import logger
+log = logger.get_logger(__name__)
 import ray
 import uproot
 import numpy as np
@@ -16,7 +17,7 @@ from typing import List, Union, Tuple
 
 class DataLoader:
 
-    def __init__(self, files: List[str], config: DictConfig, batch_size: int, step_size: Union[str, int]='5 GB') -> None:
+    def __init__(self, files: List[str], config: DictConfig, batch_size: int, step_size: Union[str, int]='5 GB', name: str='DataLoader') -> None:
         """
         Create a new DataLoader for handling input. Instantiated as a ray Actor on new python process
         For efficiency for small batch sizes this code loads a large batch of data and slices of smaller batches for training
@@ -28,11 +29,13 @@ class DataLoader:
             (optional) step_size: Union(str, int)='5 GB' - step_size arguement for uproot.iterate. If str then a a memory size e.g. '1 GB' 
             else if an int then the number of samples to load per batch. Rough testing has shown that 5 GB seems to be a good option when running 
             on laptop with 27 GB of available RAM
+            (optional) name: str - A optional name to give this DataLoader object 
         """
         self.files = files
         self.batch_size = batch_size
         self.step_size = step_size
         self.config = config
+        self.name = name
 
         # Get a list of all features
         self.features = []
@@ -46,7 +49,12 @@ class DataLoader:
         self.itr = None
         self.create_itr()
         self.big_batch = next(self.itr)
+        self.big_batch_idx
         self.idx = -1
+
+        if len(self.big_batch) < self.batch_size:
+            log.warning(f"{self.name} has a batch_size ({self.batch_size}) larger than batch length ({len(self.big_batch)})")
+        log.debug(f"{self.name}: Initialized")
 
     def create_itr(self) -> None:
         """
@@ -54,6 +62,7 @@ class DataLoader:
         """
         self.itr = uproot.iterate(self.files, filter_name=self.features, step_size=self.step_size)
         self.idx = -1
+        self.big_batch_idx = -1
     
     def terminate(self) -> None:
         """
@@ -69,15 +78,19 @@ class DataLoader:
         """
         self.idx += 1
         if self.idx * self.batch_size < len(self.big_batch):
+            log.debug(f"{self.name}: Loading batch {self.idx} from big_batch {self.big_batch_idx}")
             return self.process_batch(self.big_batch[self.idx * self.batch_size: (self.idx + 1) * self.batch_size])
         else:
             try:
                 self.big_batch = next(self.itr)
+                self.big_batch_idx += 1
                 self.idx = -1
+                log.debug(f"{self.name}: Loading next big_batch")
                 return self.__next__()
             except StopIteration:
                 self.create_itr()
                 self.big_batch = next(self.itr)
+                log.debug(f"{self.name}: Ran out of data - restarting iterator")
                 return self.__next__()
         
     def next(self):

@@ -1,3 +1,12 @@
+
+"""
+DataGenerator
+___________________________________
+Class definition for DataGenerator
+"""
+
+import logger
+log = logger.get_logger(__name__)
 import os
 import ray
 import uproot
@@ -10,7 +19,7 @@ from typing import List, Union, Tuple
 
 class DataGenerator(tf.keras.utils.Sequence):
 
-    def __init__(self, tau_files: List[str], jet_files: List[str], config: DictConfig, batch_size: int=256, step_size: Union[str, int]='1GB') -> None:
+    def __init__(self, tau_files: List[str], jet_files: List[str], config: DictConfig, batch_size: int=256, step_size: Union[str, int]='1GB', name: str='DataGenerator') -> None:
         
         self.config = config
         self.dataloaders = []
@@ -18,6 +27,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.step_size = step_size
         self.tau_files = tau_files
         self.jet_files = jet_files
+        self.name = name
 
         tau_dummy_arr = uproot.lazy(self.tau_files, filter_name='TauJets_truthDecayMode', libray='np')["TauJets_truthDecayMode"]
         jet_dummy_arr = uproot.lazy(self.jet_files, filter_name='TauJets_truthDecayMode', libray='np')["TauJets_truthDecayMode"]
@@ -30,8 +40,10 @@ class DataGenerator(tf.keras.utils.Sequence):
         
         self.steps_per_epoch = self.nevents // self.batch_size
 
-        self.tau_loader = RayDataLoader.remote(self.tau_files, self.config, self.tau_batch_size, step_size=self.step_size)
-        self.jet_loader = RayDataLoader.remote(self.jet_files, self.config, self.jet_batch_size, step_size=self.step_size)
+        self.tau_loader = RayDataLoader.remote(self.tau_files, self.config, self.tau_batch_size, step_size=self.step_size, name='TauLoader')
+        self.jet_loader = RayDataLoader.remote(self.jet_files, self.config, self.jet_batch_size, step_size=self.step_size, name='JetLoader')
+        
+        log.debug(f"{self.name}: Initialised")
 
     def __getitem__(self, idx: int) -> Tuple[np.ndarray]:
         """
@@ -55,6 +67,13 @@ class DataGenerator(tf.keras.utils.Sequence):
         y_batch = np.concatenate([result[1] for result in batch])
         weight_batch = np.concatenate([result[2] for result in batch])
 
+        # Consistency checks
+        log.debug(f"{self.name}: loaded batch - index called was {idx}")
+        if np.amax(x_batch) > 100:
+            log.warning(f"{self.name}: Large number found in batch: value = {np.amax(x_batch)}\tindex = {np.argmax(x_batch)}")
+        if np.isnan(x_batch).any:
+            log.error(f"{self.name}: NaN found in batch: index={np.argwhere(np.isnan(x_batch))}")
+
         return x_batch, y_batch, weight_batch
 
     def __len__(self) -> int:
@@ -73,7 +92,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         """
         self.tau_loader.terminate.remote()
         self.jet_loader.terminate.remote()
-        self.tau_loader = RayDataLoader.remote(self.tau_files, self.config, self.tau_batch_size, step_size=self.step_size)
-        self.jet_loader = RayDataLoader.remote(self.jet_files, self.config, self.jet_batch_size, step_size=self.step_size)
-    
+        log.debug(f"{self.name}: Terminating DataLoaders")
+        self.tau_loader = RayDataLoader.remote(self.tau_files, self.config, self.tau_batch_size, step_size=self.step_size, name="TauLoader")
+        self.jet_loader = RayDataLoader.remote(self.jet_files, self.config, self.jet_batch_size, step_size=self.step_size, name="JetLoader")
+        log.debug(f"{self.name}: Recreating Dataders")
     
