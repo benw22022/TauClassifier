@@ -47,8 +47,8 @@ def train(config: DictConfig) -> Tuple[float]:
     jet_files = jet_train_files + jet_test_files + jet_val_files
 
     # Generators
-    training_generator = source.DataGenerator(tau_train_files, jet_train_files, config, batch_size=config.batch_size)
-    validation_generator = source.DataGenerator(tau_val_files, jet_val_files, config, batch_size=10000)
+    training_generator = source.DataGenerator(tau_train_files, jet_train_files, config, batch_size=config.batch_size, step_size=config.step_size, name='TrainGen')
+    validation_generator = source.DataGenerator(tau_val_files, jet_val_files, config, batch_size=10000, step_size=config.step_size, name='ValGen')
 
     # Configure callbacks
     callbacks = configure_callbacks(config)
