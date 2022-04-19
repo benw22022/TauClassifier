@@ -29,3 +29,7 @@ early_stopping:
 # Model checkpoint
 model_checkpoint:
   use: True
+
+# Tensorboard callback
+tensorboard:
+  use: True
