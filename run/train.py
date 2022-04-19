@@ -51,7 +51,7 @@ def train(config: DictConfig) -> Tuple[float]:
     validation_generator = source.DataGenerator(tau_val_files, jet_val_files, config, batch_size=10000)
 
     # Configure callbacks
-    callbacks = configure_callbacks(config, model)
+    callbacks = configure_callbacks(config)
 
     # Compile and summarise model
     model.summary()
