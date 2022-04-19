@@ -15,9 +15,8 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from omegaconf import DictConfig
-from sklearn.model_selection import train_test_split
 import source
-from source import DataGenerator
+from source import DataGenerator, get_files
 from model import configure_callbacks, ModelDSNN
 from typing import Tuple
 
@@ -40,12 +39,10 @@ def train(config: DictConfig) -> Tuple[float]:
     model = ModelDSNN(config)
 
     # Grab train/val files
-    tau_files = glob.glob(config.TauFiles)
-    jet_files = glob.glob(config.FakeFiles)
-    tau_train_files, _ = train_test_split(tau_files, test_size=config.TestSplit, random_state=config.RandomSeed)
-    tau_train_files, tau_val_files = train_test_split(tau_files, test_size=config.ValSplit, random_state=config.RandomSeed)
-    jet_train_files, _ = train_test_split(jet_files, test_size=config.TestSplit, random_state=config.RandomSeed)
-    jet_train_files, jet_val_files = train_test_split(jet_files, test_size=config.ValSplit, random_state=config.RandomSeed)
+    tau_train_files, tau_test_files, tau_val_files = get_files(config, "TauFiles") 
+    jet_train_files, jet_test_files, jet_val_files = get_files(config, "JetFiles") 
+    tau_files = tau_train_files + tau_test_files + tau_val_files
+    jet_files = jet_train_files + jet_test_files + jet_val_files
 
     # Generators
     training_generator = DataGenerator(tau_train_files, jet_train_files, config, batch_size=config.batch_size)
