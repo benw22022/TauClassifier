@@ -10,13 +10,13 @@ log = logger.get_logger(__name__)
 import os
 import ray
 import glob
+import source
+import run
 import uproot
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from omegaconf import DictConfig
-import source
-from source import DataGenerator, get_files
 from model import configure_callbacks, ModelDSNN
 from typing import Tuple
 
@@ -32,6 +32,8 @@ def get_number_of_events(files):
 
 def train(config: DictConfig) -> Tuple[float]:
 
+    log.info("Running training")
+
     # Initialise Ray
     ray.init(runtime_env={"py_modules": [source]})
 
@@ -39,14 +41,14 @@ def train(config: DictConfig) -> Tuple[float]:
     model = ModelDSNN(config)
 
     # Grab train/val files
-    tau_train_files, tau_test_files, tau_val_files = get_files(config, "TauFiles") 
-    jet_train_files, jet_test_files, jet_val_files = get_files(config, "JetFiles") 
+    tau_train_files, tau_test_files, tau_val_files = source.get_files(config, "TauFiles") 
+    jet_train_files, jet_test_files, jet_val_files = source.get_files(config, "JetFiles") 
     tau_files = tau_train_files + tau_test_files + tau_val_files
     jet_files = jet_train_files + jet_test_files + jet_val_files
 
     # Generators
-    training_generator = DataGenerator(tau_train_files, jet_train_files, config, batch_size=config.batch_size)
-    validation_generator = DataGenerator(tau_val_files, jet_val_files, config, batch_size=4056)
+    training_generator = source.DataGenerator(tau_train_files, jet_train_files, config, batch_size=config.batch_size)
+    validation_generator = source.DataGenerator(tau_val_files, jet_val_files, config, batch_size=4056)
 
     # Configure callbacks
     callbacks = configure_callbacks(config, model)
@@ -102,6 +104,9 @@ def train(config: DictConfig) -> Tuple[float]:
     Make Plots 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
+    # Make plots dir
+    os.makedirs("plots", exist_ok=True)
+
     # Loss History
     fig, ax = plt.subplots()
     ax.plot(history.history['loss'], label='train')
@@ -111,7 +116,6 @@ def train(config: DictConfig) -> Tuple[float]:
     ax.legend()
     plt.savefig(os.path.join("plots", "loss_history.png"))
     
-
     # Accuracy history
     fig, ax = plt.subplots()
     ax.plot(history.history['categorical_accuracy'], label='train')
@@ -127,5 +131,11 @@ def train(config: DictConfig) -> Tuple[float]:
     best_val_acc = history.history["val_categorical_accuracy"][best_val_loss_epoch]
 
     log.info(f"Best epoch was {best_val_loss_epoch}\tloss: {best_val_loss:.3f}\tAccuracy: {best_val_acc:.2f}")
+
+    # Run model testing 
+    if config.save_ntuples:
+        run.evaluate(config)
+        if config.make_plots:
+            run.visualise(config)
 
     return best_val_loss, best_val_acc
