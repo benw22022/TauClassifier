@@ -2,7 +2,6 @@
 Callback definitions
 """
 import tensorflow as tf
-from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from keras.callbacks import ModelCheckpoint
 import keras
 from timeit import default_timer as timer
@@ -29,12 +28,10 @@ class TimingCallback(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs={}):
         self.logs.append(timer()-self.starttime)
 
-
 def configure_callbacks(config: DictConfig, model: tf.keras.Model) -> List[keras.callbacks.Callback]:
     
     callbacks = []
     
-    # Early stopping
     if config.early_stopping.use:
         min_delta = config.early_stopping.min_delta
         patience=config.early_stopping.patience
@@ -58,5 +55,9 @@ def configure_callbacks(config: DictConfig, model: tf.keras.Model) -> List[keras
         reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=factor, patience=patience, min_lr=min_lr)
 
         callbacks.append(reduce_lr)
+
+    if config.tensorboard.use:
+        tensorboard_callback = keras.callbacks.TensorBoard(log_dir="logs", histogram_freq = 1)
+        callbacks.append(tensorboard_callback)
 
     return callbacks
