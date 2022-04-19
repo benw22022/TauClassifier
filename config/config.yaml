@@ -11,6 +11,9 @@ hydra:
   help:
     template:
       'TODO: Add help message'
+  run:
+    dir:
+      outputs/${run_mode}_output/${now:%Y-%m-%d_%H-%M-%S}
 
 # Logging settings
 log_level: DEBUG
