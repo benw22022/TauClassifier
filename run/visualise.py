@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from typing import Tuple, List
 from source import plotting_functions as pf
+from omegaconf import DictConfig
 
 WORKING_POINT_EFFS = (95, 75, 50)
 
@@ -22,7 +23,7 @@ def get_tauid_wp_cut(y_true: np.ndarray, y_pred: np.ndarray, wp_effs: List[int])
         cuts.append(np.percentile(correct_pred_taus, wp))
     return cuts
 
-def visualise():
+def visualise(config: DictConfig) -> None:
     
     # Remove matplotlib popups
     matplotlib.use('Agg')
