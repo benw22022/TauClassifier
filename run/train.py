@@ -48,7 +48,7 @@ def train(config: DictConfig) -> Tuple[float]:
 
     # Generators
     training_generator = source.DataGenerator(tau_train_files, jet_train_files, config, batch_size=config.batch_size)
-    validation_generator = source.DataGenerator(tau_val_files, jet_val_files, config, batch_size=4056)
+    validation_generator = source.DataGenerator(tau_val_files, jet_val_files, config, batch_size=10000)
 
     # Configure callbacks
     callbacks = configure_callbacks(config, model)
@@ -93,7 +93,7 @@ def train(config: DictConfig) -> Tuple[float]:
     Train Model
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-    history = model.fit(training_generator, epochs=200, 
+    history = model.fit(training_generator, epochs=config.epochs, 
                         class_weight=class_weight, 
                         callbacks=callbacks,
                         validation_data=validation_generator, validation_freq=1, 
