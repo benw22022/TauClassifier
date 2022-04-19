@@ -22,7 +22,8 @@ tf_log_level: 1
 # Run mode
 run_mode: train
 use_gpu: True
+step_size: 5 GB 
 
 # glob-able paths to input files
-TauFiles: "/home/bewilson/split_NTuples/*Gammatautau*/*.root"
-FakeFiles: "/home/bewilson/split_NTuples/*JZ*/*.root"
+TauFiles: /home/bewilson/split_NTuples/*Gammatautau*/*.root
+FakeFiles: /home/bewilson/split_NTuples/*JZ*/*.root

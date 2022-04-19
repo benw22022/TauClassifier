@@ -32,7 +32,7 @@ def configure_callbacks(config: DictConfig, model: tf.keras.Model) -> List[keras
     
     callbacks = []
     
-    if config.early_stopping.use:
+    if config.early_stopping.enabled:
         min_delta = config.early_stopping.min_delta
         patience=config.early_stopping.patience
 
@@ -41,13 +41,13 @@ def configure_callbacks(config: DictConfig, model: tf.keras.Model) -> List[keras
 
         callbacks.append(early_stopping)
 
-    if config.model_checkpoint.use:
+    if config.model_checkpoint.enabled:
         os.makedirs("network_weights")
         model_checkpoint = ParallelModelCheckpoint(model, path=os.path.join("network_weights", 'weights-{epoch:02d}.h5'),
                                                     monitor="val_loss", save_best_only=True, save_weights_only=True)
         callbacks.append(model_checkpoint)                                                
 
-    if config.lr_schedd.use:
+    if config.lr_schedd.enabled:
         factor = config.lr_schedd.factor
         patience = config.lr_schedd.patience
         min_lr = config.lr_schedd.min_lr
@@ -56,7 +56,7 @@ def configure_callbacks(config: DictConfig, model: tf.keras.Model) -> List[keras
 
         callbacks.append(reduce_lr)
 
-    if config.tensorboard.use:
+    if config.tensorboard.enabled:
         tensorboard_callback = keras.callbacks.TensorBoard(log_dir="logs", histogram_freq = 1)
         callbacks.append(tensorboard_callback)
 
