@@ -6,10 +6,11 @@ reweight:
   histogram_file: "/home/bewilson/TauClassifier/config/ReWeightHist.root"
   histogram_name: "ReWeightHist"
 
+# TODO: Really inconsisent use of snake_case and CamelCase - should fix this
 Label: "TauClassifier_Labels"
 DecayMode: "TauJets_truthDecayMode"
 TruthProng: "TauJets_truthProng"
-# Weights: "TauClassifier_Weight" # TODO: Add this to NTuples
+Weight: "TauClassifier_pTReweight"
 
 # Training features for each input of the neural network
 branches:
@@ -99,7 +100,7 @@ OutFileBranches:
   # - "TauClassifier_Labels"
   - "TauJets_truthDecayMode"
   - "TauJets_truthProng"
-  # - "TauClassifier_Weight"
+  - "TauClassifier_pTReweight"
   - "TauJets_mu"
   - "TauJets_ptJetSeed"
   - "TauJets_etaJetSeed"

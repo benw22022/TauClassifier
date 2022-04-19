@@ -48,13 +48,6 @@ class DataLoader:
         self.big_batch = next(self.itr)
         self.idx = -1
 
-        # Load reweighting histogram
-        histfile = self.config.reweight.histogram_file
-        histname = self.config.reweight.histogram_name
-        file = uproot.open(histfile)
-        self.reweight_hist_edges = file[histname].axis().edges()
-        self.reweight_hist_values = file[histname].values()
-
     def create_itr(self) -> None:
         """
         Create the iterator
@@ -108,7 +101,7 @@ class DataLoader:
         returns:
             np.ndarray - A complete input array for one branch of the network
         """
-
+        
         arrays = ak.unzip(batch[self.config.branches[branchname].features])
         max_objs = self.config.branches[branchname].max_objects
 
@@ -118,19 +111,6 @@ class DataLoader:
         arrays = np.stack([ak.to_numpy(arr) for arr in arrays], axis=1)
         return np.nan_to_num(arrays)
 
-    def reweight_batch(self, batch: ak.Array) -> np.ndarray:
-        """
-        Use reweighting histogram to compute weights. Variable and histogram to be used for reweighting
-        defined in yaml feature config
-        args:
-            batch: ak.Array - Batch of data loaded by uproot
-        returns:
-            A array of weights
-        """
-        
-        reweight_param = self.config.reweight.feature
-        return np.asarray(self.reweight_hist_values[np.digitize(batch[reweight_param], self.reweight_hist_edges)])
-    
     def process_batch(self, batch: ak.Array) -> Tuple:
         """
         Build input arrays for each branch of the NN, lables and weights
@@ -148,11 +128,8 @@ class DataLoader:
         conv_tracks = self.build_array(batch,"ConvTrack")
         jets = self.build_array(batch,"TauJets")
 
-        labels = np.asarray(batch[self.config.Label])
-
-        # Only reweight jets  (weight = 1 for taus)
-        weights = self.reweight_batch(batch)
-        weights = np.where(labels[:, 0] !=0, weights, 1)
+        labels = ak.to_numpy(batch[self.config.Label])
+        weights = ak.to_numpy(batch[self.config.Weight])
 
         return (tracks, neutral_pfo, shot_pfo, conv_tracks, jets), labels, weights
     
