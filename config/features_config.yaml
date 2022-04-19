@@ -11,6 +11,7 @@ Label: "TauClassifier_Labels"
 DecayMode: "TauJets_truthDecayMode"
 TruthProng: "TauJets_truthProng"
 Weight: "TauClassifier_pTReweight"
+class_labels: ['fakes', '1p0n', '1p1n', '1pXn', '3p0n', '3pXn']
 
 # Training features for each input of the neural network
 branches:
