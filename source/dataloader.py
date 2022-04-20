@@ -17,7 +17,7 @@ from typing import List, Union, Tuple
 
 class DataLoader:
 
-    def __init__(self, files: List[str], config: DictConfig, batch_size: int, step_size: Union[str, int]='5 GB', name: str='DataLoader') -> None:
+    def __init__(self, files: List[str], config: DictConfig, batch_size: int=0, step_size: Union[str, int]='5 GB', name: str='DataLoader') -> None:
         """
         Create a new DataLoader for handling input. Instantiated as a ray Actor on new python process
         For efficiency for small batch sizes this code loads a large batch of data and slices of smaller batches for training
@@ -25,7 +25,8 @@ class DataLoader:
         args:
             files: List[str] - A list of root files to load data from
             config: DictConfig - A global config dict from Hydra
-            batch_size: int - The batch size for training/inferance. Number of samples yielded when next() is called
+            (optoinal) batch_size: int=0 - The batch size for training/inferance. Number of samples yielded when next() is called
+            if not set then use maximum possible batch size which is step_size
             (optional) step_size: Union(str, int)='5 GB' - step_size arguement for uproot.iterate. If str then a a memory size e.g. '1 GB' 
             else if an int then the number of samples to load per batch. Rough testing has shown that 5 GB seems to be a good option when running 
             on laptop with 27 GB of available RAM
@@ -51,6 +52,9 @@ class DataLoader:
         self.big_batch = next(self.itr)
         self.big_batch_idx
         self.idx = -1
+
+        if self.batch_size < 1:
+            self.batch_size = len(self.big_batch)
 
         if len(self.big_batch) < self.batch_size:
             log.warning(f"{self.name} has a batch_size ({self.batch_size}) larger than batch length ({len(self.big_batch)})")
