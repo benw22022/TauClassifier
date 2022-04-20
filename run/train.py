@@ -35,7 +35,7 @@ def train(config: DictConfig) -> Tuple[float]:
     log.info("Running training")
 
     # Initialise Ray
-    ray.init(runtime_env={"py_modules": [source]})
+    ray.init(runtime_env={"py_modules": [source, run, logger]})
 
     # Model
     model = ModelDSNN(config)
