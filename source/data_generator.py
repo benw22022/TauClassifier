@@ -67,13 +67,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         y_batch = np.concatenate([result[1] for result in batch])
         weight_batch = np.concatenate([result[2] for result in batch])
 
-        # Consistency checks
-        log.debug(f"{self.name}: loaded batch - index called was {idx}")
-        if np.amax(x_batch) > 100:
-            log.warning(f"{self.name}: Large number found in batch: value = {np.amax(x_batch)}\tindex = {np.argmax(x_batch)}")
-        if np.isnan(x_batch).any:
-            log.error(f"{self.name}: NaN found in batch: index={np.argwhere(np.isnan(x_batch))}")
-
         return x_batch, y_batch, weight_batch
 
     def __len__(self) -> int:
