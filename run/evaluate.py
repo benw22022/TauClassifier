@@ -7,17 +7,20 @@ import  source
 from model.models import ModelDSNN
 from omegaconf import DictConfig
 import glob
+from hydra.utils import get_original_cwd, to_absolute_path
+from pathlib import Path
+
 
 def get_last_weights():
     """
     Get last weights file saved
     """
-    avail_weights = glob.glob("outputs/*/*/network_weights/*.h5")
-    return  max(avail_weights, key=os.path.getctime())
+    avail_weights = glob.glob(os.path.join(get_original_cwd(), "outputs", "train_output", "*", "network_weights", "*.h5"))
+    return  max(avail_weights, key=os.path.getctime)
 
 def evaluate(config: DictConfig) -> None:
 
-    log.info()
+    log.info("Running Evaluation")
 
     # Disable GPU (Don't really need it and it could cause issues if already training)
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -29,8 +32,14 @@ def evaluate(config: DictConfig) -> None:
     # Grab weights file - automatically select last created weights file unless specified
     try:
         weights_file = config.weights
+        log.info(f"Loading weights from specified file: {weights_file}")
     except AttributeError:
         weights_file = get_last_weights()
+        log.info(f"Loading weights from last created file: {weights_file}")
+    
+    run_dir = Path(weights_file).parents[1]
+    output_dir = os.path.join(run_dir, "results")
+    os.makedirs(output_dir, exist_ok=True)
 
     # Load model
     model = ModelDSNN(config)
@@ -40,12 +49,12 @@ def evaluate(config: DictConfig) -> None:
     # TODO: ^^^ Cannot pass model object to ray Actor - have to create model on Actor instantiation
     # Write results to file
     for i, file in tqdm.tqdm(enumerate(tau_test_files), total=len(tau_test_files)):
-        loader = source.DataWriter(file, config)
-        loader.write_results(model, output_file=f"results/taus_{i:02d}.root")
+        loader = source.DataWriter(file, config) 
+        loader.write_results(model, output_file=os.path.join(output_dir, f"taus_{i:02d}.root"))
 
     for i, file in tqdm.tqdm(enumerate(jet_test_files), total=len(jet_test_files)):
         loader = source.DataWriter(file, config)
-        loader.write_results(model, output_file=f"results/jets_{i:02d}.root")
+        loader.write_results(model, output_file=os.path.join(output_dir, f"taus_{i:02d}.root"))
 
     # results = []
     # for i, file in tqdm.tqdm(enumerate(tau_test_files)):
