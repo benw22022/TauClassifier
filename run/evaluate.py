@@ -11,12 +11,24 @@ from hydra.utils import get_original_cwd, to_absolute_path
 from pathlib import Path
 
 
-def get_last_weights():
+def get_weights(config: DictConfig) -> str:
     """
-    Get last weights file saved
+    Grabs weights file specified in config. If no weights available then function finds the 
+    most recent weights hdf5 file saved
+    args:
+        config: DictConfig - Hydra config object
+    returns:
+        weights_file: str - Path to weights file to be loaded
     """
-    avail_weights = glob.glob(os.path.join(get_original_cwd(), "outputs", "train_output", "*", "network_weights", "*.h5"))
-    return  max(avail_weights, key=os.path.getctime)
+    try:
+        weights_file = config.weights
+        log.info(f"Loading weights from specified file: {weights_file}")
+    except AttributeError:
+        avail_weights = glob.glob(os.path.join(get_original_cwd(), "outputs", "train_output", "*", "network_weights", "*.h5"))
+        weights_file = max(avail_weights, key=os.path.getctime)
+        log.info(f"Loading weights from last created file: {weights_file}")
+    return weights_file
+
 
 def evaluate(config: DictConfig) -> None:
 
@@ -30,12 +42,7 @@ def evaluate(config: DictConfig) -> None:
     _, jet_test_files, _ = source.get_files(config, "FakeFiles") 
     
     # Grab weights file - automatically select last created weights file unless specified
-    try:
-        weights_file = config.weights
-        log.info(f"Loading weights from specified file: {weights_file}")
-    except AttributeError:
-        weights_file = get_last_weights()
-        log.info(f"Loading weights from last created file: {weights_file}")
+    weights_file = get_weights(config)
     
     run_dir = Path(weights_file).parents[1]
     output_dir = os.path.join(run_dir, "results")
@@ -54,7 +61,7 @@ def evaluate(config: DictConfig) -> None:
 
     for i, file in tqdm.tqdm(enumerate(jet_test_files), total=len(jet_test_files)):
         loader = source.DataWriter(file, config)
-        loader.write_results(model, output_file=os.path.join(output_dir, f"taus_{i:02d}.root"))
+        loader.write_results(model, output_file=os.path.join(output_dir, f"jets_{i:02d}.root"))
 
     # results = []
     # for i, file in tqdm.tqdm(enumerate(tau_test_files)):
