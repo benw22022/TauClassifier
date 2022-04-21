@@ -98,7 +98,6 @@ branches:
 
 # Branches for outfile: i.e. network scores and key features for perf plots
 OutFileBranches:
-  # - TauClassifier_Labels
   - TauJets_truthDecayMode
   - TauJets_truthProng
   - TauClassifier_pTReweight
@@ -107,5 +106,10 @@ OutFileBranches:
   - TauJets_etaJetSeed
   - TauJets_phiJetSeed
   - TauJets_RNNJetScoreSigTrans
+  - TauJets_is1p0n
+  - TauJets_is1p1n
+  - TauJets_is1pXn
+  - TauJets_is3p0n
+  - TauJets_is3pXn
   - TauJets_mcEventWeight
 
