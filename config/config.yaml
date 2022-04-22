@@ -21,5 +21,5 @@ run_mode: train
 use_gpu: True
 
 # glob-able paths to input files
-TauFiles: "/home/bewilson/split_NTuples/*Gammatautau*/*.root"
-FakeFiles: "/home/bewilson/split_NTuples/*JZ*/*.root"
+TauFiles: "/hepgpu5-data3/benwilson/split_NTuples/*Gammatautau*/*.root"
+FakeFiles: "/hepgpu5-data3/benwilson/split_NTuples/*JZ*/*.root"
