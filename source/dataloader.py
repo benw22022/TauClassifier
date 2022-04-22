@@ -5,7 +5,8 @@ Class definition for DataLoader object
 A helper class for reading and processing network input data
 """
 
-
+import logger
+log = logger.get_logger(__name__)
 import ray
 import uproot
 import numpy as np
@@ -16,7 +17,7 @@ from typing import List, Union, Tuple
 
 class DataLoader:
 
-    def __init__(self, files: List[str], config: DictConfig, batch_size: int, step_size: Union[str, int]='5 GB') -> None:
+    def __init__(self, files: List[str], config: DictConfig, batch_size: int=0, step_size: Union[str, int]='5 GB', name: str='DataLoader') -> None:
         """
         Create a new DataLoader for handling input. Instantiated as a ray Actor on new python process
         For efficiency for small batch sizes this code loads a large batch of data and slices of smaller batches for training
@@ -24,15 +25,18 @@ class DataLoader:
         args:
             files: List[str] - A list of root files to load data from
             config: DictConfig - A global config dict from Hydra
-            batch_size: int - The batch size for training/inferance. Number of samples yielded when next() is called
+            (optoinal) batch_size: int=0 - The batch size for training/inferance. Number of samples yielded when next() is called
+            if not set then use maximum possible batch size which is step_size
             (optional) step_size: Union(str, int)='5 GB' - step_size arguement for uproot.iterate. If str then a a memory size e.g. '1 GB' 
             else if an int then the number of samples to load per batch. Rough testing has shown that 5 GB seems to be a good option when running 
             on laptop with 27 GB of available RAM
+            (optional) name: str - A optional name to give this DataLoader object 
         """
         self.files = files
         self.batch_size = batch_size
         self.step_size = step_size
         self.config = config
+        self.name = name
 
         # Get a list of all features
         self.features = []
@@ -46,14 +50,15 @@ class DataLoader:
         self.itr = None
         self.create_itr()
         self.big_batch = next(self.itr)
+        self.big_batch_idx
         self.idx = -1
 
-        # Load reweighting histogram
-        histfile = self.config.reweight.histogram_file
-        histname = self.config.reweight.histogram_name
-        file = uproot.open(histfile)
-        self.reweight_hist_edges = file[histname].axis().edges()
-        self.reweight_hist_values = file[histname].values()
+        if self.batch_size < 1:
+            self.batch_size = len(self.big_batch)
+
+        if len(self.big_batch) < self.batch_size:
+            log.warning(f"{self.name} has a batch_size ({self.batch_size}) larger than batch length ({len(self.big_batch)})")
+        log.debug(f"{self.name}: Initialized")
 
     def create_itr(self) -> None:
         """
@@ -61,6 +66,7 @@ class DataLoader:
         """
         self.itr = uproot.iterate(self.files, filter_name=self.features, step_size=self.step_size)
         self.idx = -1
+        self.big_batch_idx = -1
     
     def terminate(self) -> None:
         """
@@ -76,15 +82,19 @@ class DataLoader:
         """
         self.idx += 1
         if self.idx * self.batch_size < len(self.big_batch):
+            log.debug(f"{self.name}: Loading batch {self.idx} from big_batch {self.big_batch_idx}")
             return self.process_batch(self.big_batch[self.idx * self.batch_size: (self.idx + 1) * self.batch_size])
         else:
             try:
                 self.big_batch = next(self.itr)
+                self.big_batch_idx += 1
                 self.idx = -1
+                log.debug(f"{self.name}: Loading next big_batch")
                 return self.__next__()
             except StopIteration:
                 self.create_itr()
                 self.big_batch = next(self.itr)
+                log.debug(f"{self.name}: Ran out of data - restarting iterator")
                 return self.__next__()
         
     def next(self):
@@ -108,7 +118,7 @@ class DataLoader:
         returns:
             np.ndarray - A complete input array for one branch of the network
         """
-
+        
         arrays = ak.unzip(batch[self.config.branches[branchname].features])
         max_objs = self.config.branches[branchname].max_objects
 
@@ -118,19 +128,6 @@ class DataLoader:
         arrays = np.stack([ak.to_numpy(arr) for arr in arrays], axis=1)
         return np.nan_to_num(arrays)
 
-    def reweight_batch(self, batch: ak.Array) -> np.ndarray:
-        """
-        Use reweighting histogram to compute weights. Variable and histogram to be used for reweighting
-        defined in yaml feature config
-        args:
-            batch: ak.Array - Batch of data loaded by uproot
-        returns:
-            A array of weights
-        """
-        
-        reweight_param = self.config.reweight.feature
-        return np.asarray(self.reweight_hist_values[np.digitize(batch[reweight_param], self.reweight_hist_edges)])
-    
     def process_batch(self, batch: ak.Array) -> Tuple:
         """
         Build input arrays for each branch of the NN, lables and weights
@@ -148,11 +145,8 @@ class DataLoader:
         conv_tracks = self.build_array(batch,"ConvTrack")
         jets = self.build_array(batch,"TauJets")
 
-        labels = np.asarray(batch[self.config.Label])
-
-        # Only reweight jets  (weight = 1 for taus)
-        weights = self.reweight_batch(batch)
-        weights = np.where(labels[:, 0] !=0, weights, 1)
+        labels = ak.to_numpy(batch[self.config.Label])
+        weights = ak.to_numpy(batch[self.config.Weight])
 
         return (tracks, neutral_pfo, shot_pfo, conv_tracks, jets), labels, weights
     

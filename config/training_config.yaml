@@ -5,23 +5,32 @@ TestSplit: 0.2
 ValSplit: 0.2
 RandomSeed: 42
 
+# Configure post training actions
+save_ntuples: True
+make_plots: True
+
 # Training config params
 learning_rate: 1e-4
 batch_size: 526
+epochs: 200
 
 # Learining rate schedd
 lr_schedd:
+  enabled: True
   factor: 0.75
   patience: 3
   min_lr: 1e-9
-  use: True
 
 # Early stopping
 early_stopping:
+  enabled: True
   min_delta: 0.0001
   patience: 20
-  use: True
 
 # Model checkpoint
 model_checkpoint:
-  use: True
+  enabled: True
+
+# Tensorboard callback
+tensorboard:
+  enabled: True

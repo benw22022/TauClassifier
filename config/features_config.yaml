@@ -2,108 +2,115 @@
 # @package _group_
 # Location of reweighting histogram and variable to use for reweighting
 reweight:
-  feature: "TauJets_ptJetSeed"
-  histogram_file: "/home/bewilson/TauClassifier/config/ReWeightHist.root"
-  histogram_name: "ReWeightHist"
+  feature: TauJets_ptJetSeed
+  histogram_file: /home/bewilson/TauClassifier/config/ReWeightHist.root
+  histogram_name: ReWeightHist
 
-Label: "TauClassifier_Labels"
-DecayMode: "TauJets_truthDecayMode"
-TruthProng: "TauJets_truthProng"
-# Weights: "TauClassifier_Weight" # TODO: Add this to NTuples
+# TODO: Really inconsisent use of snake_case and CamelCase - should fix this
+Label: TauClassifier_Labels
+DecayMode: TauJets_truthDecayMode
+TruthProng: TauJets_truthProng
+Weight: TauClassifier_pTReweight
+class_labels: ['fakes', '1p0n', '1p1n', '1pXn', '3p0n', '3pXn']
 
 # Training features for each input of the neural network
 branches:
   TauTracks:
     max_objects: 3
     features:
-      - "TauTracks_nInnermostPixelHits_normed"
-      - "TauTracks_nPixelHits_normed"
-      - "TauTracks_nSCTHits_normed"
-      - "TauTracks_chargedScoreRNN_normed"
-      - "TauTracks_isolationScoreRNN_normed"
-      - "TauTracks_conversionScoreRNN_normed"
-      - "TauTracks_pt_normed"
-      - "TauTracks_dphiECal_normed"
-      - "TauTracks_detaECal_normed"
-      - "TauTracks_jetpt_normed"
-      - "TauTracks_d0TJVA_normed"
-      - "TauTracks_d0SigTJVA_normed"
-      - "TauTracks_z0sinthetaTJVA_normed"
-      - "TauTracks_z0sinthetaSigTJVA_normed"
+      - TauTracks_nInnermostPixelHits_normed
+      - TauTracks_nPixelHits_normed
+      - TauTracks_nSCTHits_normed
+      - TauTracks_chargedScoreRNN_normed
+      - TauTracks_isolationScoreRNN_normed
+      - TauTracks_conversionScoreRNN_normed
+      - TauTracks_pt_normed
+      - TauTracks_dphiECal_normed
+      - TauTracks_detaECal_normed
+      - TauTracks_jetpt_normed
+      - TauTracks_d0TJVA_normed
+      - TauTracks_d0SigTJVA_normed
+      - TauTracks_z0sinthetaTJVA_normed
+      - TauTracks_z0sinthetaSigTJVA_normed
 
   NeutralPFO:
     max_objects: 6
     features:
-      - "NeutralPFO_dphiECal_normed"
-      - "NeutralPFO_dphi_normed"
-      - "NeutralPFO_detaECal_normed"
-      - "NeutralPFO_deta_normed"
-      - "NeutralPFO_pt_normed"
-      - "NeutralPFO_jetpt_normed"
-      - "NeutralPFO_FIRST_ETA_normed"
-      - "NeutralPFO_SECOND_R_normed"
-      - "NeutralPFO_DELTA_THETA_normed"
-      - "NeutralPFO_CENTER_LAMBDA_normed"
-      - "NeutralPFO_LONGITUDINAL_normed"
-      - "NeutralPFO_SECOND_ENG_DENS_normed"
-      - "NeutralPFO_ENG_FRAC_CORE_normed"
-      - "NeutralPFO_NPosECells_EM1_normed"
-      - "NeutralPFO_NPosECells_EM2_normed"
-      - "NeutralPFO_energy_EM1_normed"
-      - "NeutralPFO_energy_EM2_normed"
-      - "NeutralPFO_EM1CoreFrac_normed"
-      - "NeutralPFO_firstEtaWRTClusterPosition_EM1_normed"
-      - "NeutralPFO_firstEtaWRTClusterPosition_EM2_normed"
-      - "NeutralPFO_secondEtaWRTClusterPosition_EM1_normed"
-      - "NeutralPFO_secondEtaWRTClusterPosition_EM2_normed"
+      - NeutralPFO_dphiECal_normed
+      - NeutralPFO_dphi_normed
+      - NeutralPFO_detaECal_normed
+      - NeutralPFO_deta_normed
+      - NeutralPFO_pt_normed
+      - NeutralPFO_jetpt_normed
+      - NeutralPFO_FIRST_ETA_normed
+      - NeutralPFO_SECOND_R_normed
+      - NeutralPFO_DELTA_THETA_normed
+      - NeutralPFO_CENTER_LAMBDA_normed
+      - NeutralPFO_LONGITUDINAL_normed
+      - NeutralPFO_SECOND_ENG_DENS_normed
+      - NeutralPFO_ENG_FRAC_CORE_normed
+      - NeutralPFO_NPosECells_EM1_normed
+      - NeutralPFO_NPosECells_EM2_normed
+      - NeutralPFO_energy_EM1_normed
+      - NeutralPFO_energy_EM2_normed
+      - NeutralPFO_EM1CoreFrac_normed
+      - NeutralPFO_firstEtaWRTClusterPosition_EM1_normed
+      - NeutralPFO_firstEtaWRTClusterPosition_EM2_normed
+      - NeutralPFO_secondEtaWRTClusterPosition_EM1_normed
+      - NeutralPFO_secondEtaWRTClusterPosition_EM2_normed
 
   ShotPFO:
     max_objects: 3
     features:
-      - "ShotPFO_dphiECal_normed"
-      - "ShotPFO_dphi_normed"
-      - "ShotPFO_detaECal_normed"
-      - "ShotPFO_deta_normed"
-      - "ShotPFO_pt_normed"
-      - "ShotPFO_jetpt_normed"
+      - ShotPFO_dphiECal_normed
+      - ShotPFO_dphi_normed
+      - ShotPFO_detaECal_normed
+      - ShotPFO_deta_normed
+      - ShotPFO_pt_normed
+      - ShotPFO_jetpt_normed
 
   ConvTrack:
     max_objects: 4
     features:
-    - "ConvTrack_dphiECal_normed"
-    - "ConvTrack_dphi_normed"
-    - "ConvTrack_detaECal_normed"
-    - "ConvTrack_deta_normed"
-    - "ConvTrack_pt_normed"
-    - "ConvTrack_jetpt_normed"
-    - "ConvTrack_d0TJVA_normed"
-    - "ConvTrack_d0SigTJVA_normed"
-    - "ConvTrack_z0sinthetaTJVA_normed"
-    - "ConvTrack_z0sinthetaSigTJVA_normed"
+    - ConvTrack_dphiECal_normed
+    - ConvTrack_dphi_normed
+    - ConvTrack_detaECal_normed
+    - ConvTrack_deta_normed
+    - ConvTrack_pt_normed
+    - ConvTrack_jetpt_normed
+    - ConvTrack_d0TJVA_normed
+    - ConvTrack_d0SigTJVA_normed
+    - ConvTrack_z0sinthetaTJVA_normed
+    - ConvTrack_z0sinthetaSigTJVA_normed
 
   TauJets:
     max_objects: 1
     features:
-      - "TauJets_centFrac_normed"
-      - "TauJets_etOverPtLeadTrk_normed"
-      - "TauJets_dRmax_normed"
-      - "TauJets_SumPtTrkFrac_normed"
-      - "TauJets_ptRatioEflowApprox_normed"
-      - "TauJets_mEflowApprox_normed"
-      - "TauJets_ptJetSeed_normed"
-      - "TauJets_etaJetSeed_normed"
-      - "TauJets_phiJetSeed_normed"
+      - TauJets_centFrac_normed
+      - TauJets_etOverPtLeadTrk_normed
+      - TauJets_dRmax_normed
+      - TauJets_SumPtTrkFrac_normed
+      - TauJets_ptRatioEflowApprox_normed
+      - TauJets_mEflowApprox_normed
+      - TauJets_ptJetSeed_normed
+      - TauJets_etaJetSeed_normed
+      - TauJets_phiJetSeed_normed
 
 # Branches for outfile: i.e. network scores and key features for perf plots
 OutFileBranches:
-  # - "TauClassifier_Labels"
-  - "TauJets_truthDecayMode"
-  - "TauJets_truthProng"
-  # - "TauClassifier_Weight"
-  - "TauJets_mu"
-  - "TauJets_ptJetSeed"
-  - "TauJets_etaJetSeed"
-  - "TauJets_phiJetSeed"
-  - "TauJets_RNNJetScoreSigTrans"
-  - "TauJets_mcEventWeight"
+  - TauClassifier_Labels
+  - TauJets_truthDecayMode
+  - TauJets_truthProng
+  - TauClassifier_pTReweight
+  - TauJets_mu
+  - TauJets_ptJetSeed
+  - TauJets_etaJetSeed
+  - TauJets_phiJetSeed
+  - TauJets_RNNJetScoreSigTrans
+  - TauJets_is1p0n
+  - TauJets_is1p1n
+  - TauJets_is1pXn
+  - TauJets_is3p0n
+  - TauJets_is3pXn
+  - TauJets_mcEventWeight
 
