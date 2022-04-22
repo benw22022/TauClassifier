@@ -1,10 +1,10 @@
 ---
 # @package _group_
 # Location of reweighting histogram and variable to use for reweighting
-reweight:
-  feature: TauJets_ptJetSeed
-  histogram_file: /home/bewilson/TauClassifier/config/ReWeightHist.root
-  histogram_name: ReWeightHist
+#? reweight:
+#?   feature: TauJets_ptJetSeed
+#?   histogram_file: /home/bewilson/TauClassifier/config/ReWeightHist.root
+#?   histogram_name: ReWeightHist
 
 # TODO: Really inconsisent use of snake_case and CamelCase - should fix this
 Label: TauClassifier_Labels

@@ -44,7 +44,6 @@ class DataLoader:
             self.features.extend(self.config.branches[branch_name].features)
         self.features.extend(self.config.OutFileBranches)
         self.features.append(self.config.Label)
-        self.features.append(self.config.reweight.feature)
 
         # Create uproot iterator and load 1st large batch of data
         self.itr = None
