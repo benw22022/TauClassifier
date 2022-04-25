@@ -18,7 +18,7 @@ This part is **still work in progess** but for now do:\
 
 ## How to run
 The [Hydra](https://hydra.cc/) package is used to parse command line arguements and manage config settings
-To avoid having to shuffle the entire dataset together, sub-batches of data for taus and fakes are loaded seperately and merged to create a complete training batch. To speed this up, the dataloading is run a pair of parallel python processes using the [Ray](https://www.ray.io/) library.
+To avoid having to shuffle the entire dataset together, sub-batches of data for taus and fakes are loaded seperately and merged to create a complete training batch. To speed this up, the dataloading is run on a pair of parallel python processes using the [Ray](https://www.ray.io/) library.
 ### Training
 To run training do\
 `python3 tauclassifier.py learning_rate=1e-4 batch_size=1024`\
