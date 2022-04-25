@@ -7,6 +7,8 @@ This class differs from DataLoader in that it uses uproot.concatenate
 instead of uproot.iterate
 """
 
+import logger
+log = logger.get_logger(__name__)
 import os
 import ray
 import tqdm
@@ -46,11 +48,16 @@ class DataWriter(DataLoader):
         branch_dict["TauClassifier_isFake"] = y_pred[:, 0]
         branch_dict["TauClassifier_is1p0n"] = y_pred[:, 1]
         branch_dict["TauClassifier_is1p1n"] = y_pred[:, 2]
-        branch_dict["TauClassifier_is1pXn"] = y_pred[:, 3]
+        branch_dict["TauClassifier_is1pxn"] = y_pred[:, 3]
         branch_dict["TauClassifier_is3p0n"] = y_pred[:, 4]
-        branch_dict["TauClassifier_is3pXn"] = y_pred[:, 5]
+        branch_dict["TauClassifier_is3pxn"] = y_pred[:, 5]
         for branch in self.config.OutFileBranches:
-            branch_dict[branch] = self.big_batch[branch]
+            try:
+                branch_dict[branch] = self.big_batch[branch]
+            except ValueError:
+                log.warn(f"{self.file} has no branch named {branch}. Is this expected? Filling tree with dummy data")
+                branch_dict[branch] = np.ones_like(y_pred[:, 0]) * -999
+
         outfile["tree"] = branch_dict
 
     @staticmethod
