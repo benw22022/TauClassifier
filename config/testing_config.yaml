@@ -21,7 +21,7 @@ OutFileBranches:
   - TauJets_RNNJetScoreSigTrans
   - TauJets_is1p0n
   - TauJets_is1p1n
-  - TauJets_is1pXn
+  - TauJets_is1pxn
   - TauJets_is3p0n
-  - TauJets_is3pXn
+  - TauJets_is3pxn
   - TauJets_mcEventWeight
