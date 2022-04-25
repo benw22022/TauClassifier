@@ -4,7 +4,6 @@ ________________________________________________________________________________
 This is basically Bowen's Tau Decay Mode Classifier with an extra branch for TauJets
 """
 
-from statistics import variance
 import yaml
 from keras import backend as kbe
 from tensorflow.keras.layers import Input, Dense, Masking, TimeDistributed, Concatenate
@@ -48,17 +47,6 @@ class Sum(Layer):
 
     def compute_mask(self, inputs, mask=None):
         return None
-
-def get_mean_and_vars(df, var_list):
-    means = []
-    variances = []
-    for f in var_list:
-        means.append((df.loc[f]['Mean']))
-        variances.append(df.loc[f]['StdDev']**2)
-    return means, variances
-
-
-
 
 
 # =================
