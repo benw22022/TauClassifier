@@ -4,7 +4,7 @@ Development of a combined tau ID and tau decay mode classifier for ATLAS Tau Gro
 
 
 ## Enviroment setup
-Install miniconda
+Install miniconda\
   `conda env create -f config/environment.yaml`
 
 ## Dataset creation
