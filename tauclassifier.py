@@ -23,6 +23,7 @@ import tensorflow as tf
 RUN_DICT = {'train': run.train,
             'evaluate': run.evaluate,
             'visualise': run.visualise,
+            'rank': run.feature_rank,
             }
 
 def invalid_run_mode(cfg: DictConfig) -> None:
