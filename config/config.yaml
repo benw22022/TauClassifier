@@ -4,6 +4,7 @@ defaults:
   - features_config.yaml
   - model_config.yaml
   - training_config.yaml
+  - testing_config.yaml
 
 # Hydra specific
 # TODO: Add help message
@@ -25,5 +26,5 @@ use_gpu: True
 step_size: 5 GB 
 
 # glob-able paths to input files
-TauFiles: "/hepgpu5-data3/benwilson/split_NTuples/*Gammatautau*/*.root"
-FakeFiles: "/hepgpu5-data3/benwilson/split_NTuples/*JZ*/*.root"
+TauFiles: "/home/bewilson/split_NTuples/*Gammatautau*/*.root"
+FakeFiles: "/home/bewilson/split_NTuples/*JZ*/*.root"

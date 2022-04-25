@@ -1,9 +1,9 @@
 ---
-
+# @package _group_
 # Some aliases for branch names
 truth_labels: TauClassifier_Labels
 pred_labels: TauClassifier_Scores
-weights: - TauClassifier_pTReweight
+weights: TauClassifier_pTReweight
 
 # TauID working point effs
 wps: [95, 75, 60]
