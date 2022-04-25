@@ -19,7 +19,7 @@ from typing import List, Union, Tuple
 
 class DataGenerator(tf.keras.utils.Sequence):
 
-    def __init__(self, tau_files: List[str], jet_files: List[str], config: DictConfig, batch_size: int=256, step_size: Union[str, int]='1GB', name: str='DataGenerator') -> None:
+    def __init__(self, tau_files: List[str], jet_files: List[str], config: DictConfig, batch_size: int=None, step_size: Union[str, int]='1GB', name: str='DataGenerator') -> None:
         
         self.config = config
         self.dataloaders = []
@@ -68,7 +68,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         weight_batch = np.concatenate([result[2] for result in batch])
 
         return x_batch, y_batch, weight_batch
-
+    
     def __len__(self) -> int:
         return self.steps_per_epoch
 
