@@ -33,7 +33,7 @@ class DataWriter(DataLoader):
             config: DictConfig - A global config dict from Hydra
         """
         self.file = file
-        self.big_batch = uproot.concatenate(file, filter_name=self.features)
+        self.big_batch = uproot.concatenate(file, filter_name=self.features, cut=self.config.cuts)
 
     def write_results(self, model: tf.keras.Model, output_file: str) -> None:
         """

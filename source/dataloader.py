@@ -56,14 +56,14 @@ class DataLoader:
             self.batch_size = len(self.big_batch)
 
         if len(self.big_batch) < self.batch_size:
-            log.warning(f"{self.name} has a batch_size ({self.batch_size}) larger than batch length ({len(self.big_batch)})")
+            log.warning(f"{self.name} has a batch_size ({self.batch_size}) larger than actual batch length ({len(self.big_batch)})")
         log.debug(f"{self.name}: Initialized")
 
     def create_itr(self) -> None:
         """
         Create the iterator
         """
-        self.itr = uproot.iterate(self.files, filter_name=self.features, step_size=self.step_size)
+        self.itr = uproot.iterate(self.files, filter_name=self.features, step_size=self.step_size, cut=self.config.cuts)
         self.idx = -1
         self.big_batch_idx = -1
     
@@ -78,6 +78,8 @@ class DataLoader:
         Gets next batch of data
         If we run out of data in the currently loaded large batch then move to next 
         If we finish looping through all data then restart the iterator
+        returns:
+            Tuple[np.ndarray] - A Tuple of arrays corresponding to one sub-batch
         """
         self.idx += 1
         if self.idx * self.batch_size < len(self.big_batch):
@@ -134,10 +136,9 @@ class DataLoader:
             batch: ak.Array - Batch of data loaded by uproot
         returns:
             Tuple - A Tuple of arrays for training/inferance. Structure is:
-            (x, y, weights) where x = (branch1, branch2, ..., branchn)
+            (x, y, weights) where x = (input1, input2, ..., inputn)
         """
 
-        # TODO: can this be done without knowing the number of branches?
         tracks = self.build_array(batch, "TauTracks")
         neutral_pfo = self.build_array(batch,"NeutralPFO")
         shot_pfo = self.build_array(batch,"ShotPFO")
@@ -148,7 +149,6 @@ class DataLoader:
         weights = ak.to_numpy(batch[self.config.Weight])
 
         return (tracks, neutral_pfo, shot_pfo, conv_tracks, jets), labels, weights
-    
-    
 
+# Ray Actor version of this class   
 RayDataLoader = ray.remote(DataLoader)
