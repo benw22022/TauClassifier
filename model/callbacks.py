@@ -3,11 +3,35 @@ Callbacks
 ___________________________________________________
 Functions to configure callbacks for training
 """
+import logger
+log = logger.get_logger(__name__)
 import os
 import keras
 import tensorflow as tf
 from omegaconf import DictConfig
 from typing import List
+
+
+class LoggingCallback(keras.callbacks.Callback):
+    """
+    Simple callback to log log train / val metrics to logging
+    Regular tensorflow printouts are not logged
+    """
+    def on_train_begin(self, logs=None):
+        log.info("Starting training")
+
+    def on_train_end(self, logs=None):
+        log.info("Training stopped")
+
+    def on_epoch_begin(self, epoch, logs=None):
+        log.info(f"Start epoch {epoch}")
+
+    def on_epoch_end(self, epoch, logs=None):
+        log.info(f"End epoch {epoch}")
+        log.info(f"Train Loss = {logs['train_loss']}   Train Categorical Accuracy = {logs['train_categorical_accuracy']}")
+        log.info(f"Val Loss = {logs['val_loss']}   Val Categorical Accuracy = {logs['val_categorical_accuracy']}")
+    
+
 
 def configure_callbacks(config: DictConfig) -> List[keras.callbacks.Callback]:
     """
@@ -19,7 +43,7 @@ def configure_callbacks(config: DictConfig) -> List[keras.callbacks.Callback]:
     """
     callbacks = []
     
-    if config.early_stopping.enabled:
+    if config.callbacks.early_stopping.enabled:
         min_delta = config.early_stopping.min_delta
         patience=config.early_stopping.patience
 
@@ -28,13 +52,13 @@ def configure_callbacks(config: DictConfig) -> List[keras.callbacks.Callback]:
 
         callbacks.append(early_stopping)
 
-    if config.model_checkpoint.enabled:
+    if config.callbacks.model_checkpoint.enabled:
         os.makedirs("network_weights")
         model_checkpoint = tf.keras.callbacks.ModelCheckpoint(os.path.join("network_weights", 'weights-{epoch:02d}.h5'),
                                                     monitor="val_loss", save_best_only=True, save_weights_only=True)
         callbacks.append(model_checkpoint)                                                
 
-    if config.lr_schedd.enabled:
+    if config.callbacks.lr_schedd.enabled:
         factor = config.lr_schedd.factor
         patience = config.lr_schedd.patience
         min_lr = config.lr_schedd.min_lr
@@ -42,8 +66,11 @@ def configure_callbacks(config: DictConfig) -> List[keras.callbacks.Callback]:
         reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=factor, patience=patience, min_lr=min_lr)
         callbacks.append(reduce_lr)
 
-    if config.tensorboard.enabled:
+    if config.callbacks.tensorboard.enabled:
         tensorboard_callback = keras.callbacks.TensorBoard(log_dir="logs", histogram_freq = 1)
         callbacks.append(tensorboard_callback)
+
+    if config.callbacks.logging.enabled:
+        callbacks.append(LoggingCallback)
 
     return callbacks
