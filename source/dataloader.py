@@ -17,7 +17,7 @@ from typing import List, Union, Tuple
 
 class DataLoader:
 
-    def __init__(self, files: List[str], config: DictConfig, batch_size: int=0, step_size: Union[str, int]='5 GB', name: str='DataLoader') -> None:
+    def __init__(self, files: List[str], config: DictConfig, batch_size: int=0, step_size: Union[str, int]='5 GB', name: str='DataLoader', cuts: str=None) -> None:
         """
         Create a new DataLoader for handling input. Instantiated as a ray Actor on new python process
         For efficiency for small batch sizes this code loads a large batch of data and slices of smaller batches for training
@@ -37,6 +37,7 @@ class DataLoader:
         self.step_size = step_size
         self.config = config
         self.name = name
+        self.cuts = cuts
 
         # Get a list of all features
         self.features = []
@@ -63,7 +64,7 @@ class DataLoader:
         """
         Create the iterator
         """
-        self.itr = uproot.iterate(self.files, filter_name=self.features, step_size=self.step_size, cut=self.config.cuts)
+        self.itr = uproot.iterate(self.files, filter_name=self.features, step_size=self.step_size, cut=self.cuts)
         self.idx = -1
         self.big_batch_idx = -1
     
