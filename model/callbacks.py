@@ -3,20 +3,26 @@ Callbacks
 ___________________________________________________
 Functions to configure callbacks for training
 """
+from attr import Attribute
 import logger
 log = logger.get_logger(__name__)
 import os
+import time
 import keras
 import tensorflow as tf
 from omegaconf import DictConfig
 from typing import List
-
+from model.conf_matrix_cb import ConfusionMatrixCallback
 
 class LoggingCallback(keras.callbacks.Callback):
     """
     Simple callback to log log train / val metrics to logging
     Regular tensorflow printouts are not logged
     """
+
+    time_start = time.time()
+    time_epoch_start = 0
+
     def on_train_begin(self, logs=None):
         log.info("Starting training")
 
@@ -25,15 +31,23 @@ class LoggingCallback(keras.callbacks.Callback):
 
     def on_epoch_begin(self, epoch, logs=None):
         log.info(f"Start epoch {epoch}")
+        self.time_epoch_start = time.time()
 
     def on_epoch_end(self, epoch, logs=None):
-        log.info(f"End epoch {epoch}")
-        log.info(f"Train Loss = {logs['train_loss']}   Train Categorical Accuracy = {logs['train_categorical_accuracy']}")
-        log.info(f"Val Loss = {logs['val_loss']}   Val Categorical Accuracy = {logs['val_categorical_accuracy']}")
-    
+        time_epoch_taken = time.time() - self.time_epoch_start
+        time_taken = time.time() - self.time_start
+        time_epoch_taken = time.strftime('%H:%M:%S', time.localtime(time_epoch_taken))
+        time_taken = time.strftime('%H:%M:%S', time.localtime(time_taken))
+
+        log.info(f"Epoch {epoch} took {time_epoch_taken}")
+        log.info(f"End epoch {epoch}: Time elapased so far = {time_taken}")
+        # log.info(f"Train Loss = {logs['train_loss']}   Train Categorical Accuracy = {logs['train_categorical_accuracy']}")
+        # log.info(f"Val Loss = {logs['val_loss']}   Val Categorical Accuracy = {logs['val_categorical_accuracy']}")
+        for key, value in logs.items():
+            log.info(f"{key}: {value}")
 
 
-def configure_callbacks(config: DictConfig) -> List[keras.callbacks.Callback]:
+def configure_callbacks(config: DictConfig, **kwargs) -> List[keras.callbacks.Callback]:
     """
     Parses config files to configure callbacks
     args:
@@ -44,10 +58,10 @@ def configure_callbacks(config: DictConfig) -> List[keras.callbacks.Callback]:
     callbacks = []
     
     if config.callbacks.early_stopping.enabled:
-        min_delta = config.early_stopping.min_delta
-        patience=config.early_stopping.patience
+        min_delta = config.callbacks.early_stopping.min_delta
+        patience=config.callbacks.early_stopping.patience
 
-        early_stopping = tf.keras.callbacks.EarlyStopping( monitor="val_loss", min_delta=min_delta,
+        early_stopping = tf.keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=min_delta,
             patience=patience, verbose=0, restore_best_weights=True)
 
         callbacks.append(early_stopping)
@@ -59,9 +73,9 @@ def configure_callbacks(config: DictConfig) -> List[keras.callbacks.Callback]:
         callbacks.append(model_checkpoint)                                                
 
     if config.callbacks.lr_schedd.enabled:
-        factor = config.lr_schedd.factor
-        patience = config.lr_schedd.patience
-        min_lr = config.lr_schedd.min_lr
+        factor = config.callbacks.lr_schedd.factor
+        patience = config.callbacks.lr_schedd.patience
+        min_lr = config.callbacks.lr_schedd.min_lr
 
         reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=factor, patience=patience, min_lr=min_lr)
         callbacks.append(reduce_lr)
@@ -71,6 +85,17 @@ def configure_callbacks(config: DictConfig) -> List[keras.callbacks.Callback]:
         callbacks.append(tensorboard_callback)
 
     if config.callbacks.logging.enabled:
-        callbacks.append(LoggingCallback)
+        callbacks.append(LoggingCallback())
+        # callbacks.append(tf.keras.callbacks.ProgbarLogger(count_mode='steps', stateful_metrics=None))
+
+    if config.callbacks.conf_matrix.enabled:
+
+        if not config.callbacks.tensorboard.enabled:
+            log.warn("Ignoring confusion matrix callback since is tensorboard disabled")
+        else:
+            try:
+                callbacks.append(ConfusionMatrixCallback(kwargs['generator']))
+            except KeyError:
+                log.error("To enable confusion matrix callback you must specify a generator")
 
     return callbacks

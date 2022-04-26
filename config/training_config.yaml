@@ -40,3 +40,7 @@ callbacks:
   # Simple logging
   logging:
     enabled: True
+  
+  # Confusion matrix tensorboard callback
+  conf_matrix:
+    enabled: True
