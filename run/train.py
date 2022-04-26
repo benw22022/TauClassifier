@@ -4,7 +4,6 @@ Training Script
 ________________________________________________
 Script to run the neural network training
 """
-
 import logger
 log = logger.get_logger(__name__)
 import os
@@ -54,7 +53,7 @@ def train(config: DictConfig) -> Tuple[float]:
     validation_generator = source.DataGenerator(tau_val_files, jet_val_files, config, batch_size=10000, step_size=config.step_size, name='ValGen')
 
     # Configure callbacks
-    callbacks = configure_callbacks(config)
+    callbacks = configure_callbacks(config, generator=validation_generator)
 
     # Compile and summarise model
     model.summary()
