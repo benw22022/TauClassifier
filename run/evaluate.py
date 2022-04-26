@@ -25,7 +25,6 @@ def get_weights(config: DictConfig) -> str:
         log.info(f"Loading weights from specified file: {weights_file}")
     except AttributeError:
         avail_weights = glob.glob(os.path.join(get_original_cwd(), "outputs", "train_output", "*", "network_weights", "*.h5"))
-        print(avail_weights)
         weights_file = max(avail_weights, key=os.path.getctime)
         log.info(f"Loading weights from last created file: {weights_file}")
     return weights_file
