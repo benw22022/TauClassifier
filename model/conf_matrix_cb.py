@@ -1,5 +1,6 @@
 import logger
 log = logger.get_logger(__name__)
+import io
 import os
 import time
 import tqdm
@@ -8,8 +9,10 @@ import source
 import source.plotting_functions as pf
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
 from omegaconf import DictConfig
 from typing import List
+
 
 def plot_to_image(figure):
     """
@@ -62,11 +65,12 @@ class ConfusionMatrixCallback(keras.callbacks.Callback):
         y_pred = np.concatenate([y for y in y_pred])
         weights = np.concatenate([w for w in weights])
 
-        cm_fig = pl.plot_confusion_matrix(y_true, y_pred, weights, saveas=False)
+        cm_fig = pf.plot_confusion_matrix(y_true, y_pred, weights, saveas=False)
 
         cm_image = plot_to_image(cm_fig)
     
-        # Log the confusion matrix as an image summary.
+        # Log the confusion matrix as an image summary
+        file_writer_cm = tf.summary.create_file_writer(os.path.join("logs", 'cm'))
         with file_writer_cm.as_default():
             tf.summary.image("Confusion Matrix", cm_image, step=epoch)
         
