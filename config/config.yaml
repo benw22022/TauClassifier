@@ -16,13 +16,14 @@ hydra:
       outputs/${run_mode}_output/${now:%Y-%m-%d_%H-%M-%S}
 
 # Logging settings
+# TODO: actually implement this
 log_level: DEBUG
 tf_log_level: 1
 
 # Run mode
 run_mode: train
 use_gpu: True
-step_size: 5 GB 
+step_size: 5 GB  # sets memory used by dataloaders
 
 # glob-able paths to input files
 TauFiles: "/hepgpu5-data3/benwilson/split_NTuples/*Gammatautau*/*.root"

@@ -34,7 +34,9 @@ def train(config: DictConfig) -> Tuple[float]:
 
     log.info("Running training")
 
-    # Initialise Ray
+    os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'       # Allow tensorflow to use more GPU VRAM
+
+    # Initialise Ray (need to specify modules due to hydra changing cwd)
     ray.init(runtime_env={"py_modules": [source, run, logger]})
 
     # Model
