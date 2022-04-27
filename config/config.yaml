@@ -14,14 +14,14 @@ hydra:
       'TODO: Add help message'
   run:
     dir:
-      outputs/${run_mode}_output/${now:%Y-%m-%d_%H-%M-%S}
+      outputs/${run}_output/${now:%Y-%m-%d_%H-%M-%S}
 
 # Logging settings
 log_level: DEBUG
 tf_log_level: 1
 
 # Run mode
-run_mode: train
+run: train
 use_gpu: True
 step_size: 5 GB 
 

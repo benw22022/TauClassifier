@@ -34,7 +34,7 @@ def invalid_run_mode(cfg: DictConfig) -> None:
     returns:
         None
     """
-    log.fatal(f"Run mode: {cfg.run_mode} not recognised! Available modes are {RUN_DICT.keys()}")
+    log.fatal(f"Run mode: {cfg.run} not recognised! Available modes are {RUN_DICT.keys()}")
     sys.exit(1)
 
 @hydra.main(config_path="config", config_name="config")
@@ -59,7 +59,7 @@ def unified_tau_classifier(config: DictConfig) -> None:
         sys.exit(1)
 
     # Run selected script. If arg invaild exit 
-    RUN_DICT.get(config.run_mode, invalid_run_mode)(config)
+    RUN_DICT.get(config.run, invalid_run_mode)(config)
     sys.exit(0)
 
 if __name__ == "__main__":
