@@ -21,7 +21,7 @@ def get_weights(config: DictConfig) -> str:
         weights_file: str - Path to weights file to be loaded
     """
     try:
-        weights_file = config.network_weights
+        weights_file = os.path.join(get_original_cwd(), config.network_weights)
         log.info(f"Loading weights from specified file: {weights_file}")
     except AttributeError:
         avail_weights = glob.glob(os.path.join(get_original_cwd(), "outputs", "train_output", "*", "network_weights", "*.h5"))

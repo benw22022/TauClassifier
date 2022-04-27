@@ -27,9 +27,9 @@ def get_UTC_scores(results_dir: str, cut: str=None) -> Tuple[np.ndarray]:
     Load y_true, y_pred and weights from directory contatining evaluated NTuples
     """
     data = uproot.concatenate(glob.glob(os.path.join(results_dir, "*.root")), library='np', cut=cut)
-    y_true = data["TauClassifier_TruthScores"]
+    y_true = data["TauClassifier_Labels"]
     y_pred = data["TauClassifier_Scores"]
-    weights = data["TauClassifier_Weight"]
+    weights = data["TauClassifier_pTReweight"]
     return y_true, y_pred, weights
 
 def get_TauIDRNN_scores(results_dir: str, cut: str=None) -> Tuple[np.ndarray]:
@@ -37,9 +37,9 @@ def get_TauIDRNN_scores(results_dir: str, cut: str=None) -> Tuple[np.ndarray]:
     Load y_true, y_pred and weights from directory contatining evaluated NTuples
     """
     data = uproot.concatenate(glob.glob(os.path.join(results_dir, "*.root")), library='np', cut=cut)
-    y_true = 1 - data["TauClassifier_TruthScores"][:, 0]
+    y_true = 1 - data["TauClassifier_Labels"][:, 0]
     y_pred = data["TauJets_RNNJetScoreSigTrans"]
-    weights = data["TauClassifier_Weight"]
+    weights = data["TauClassifier_pTReweight"]
     return y_true, y_pred, weights
 
 
@@ -63,7 +63,7 @@ def get_results_dir(config: DictConfig) -> str:
         results_dir: str - Path to directory containing evaluated ntuples
     """
     try:
-        results_dir = config.results
+        results_dir = os.path.join(get_original_cwd(), config.results)
         log.info(f"Loading evaluated ntuples from specified file: {results_dir}")
     except AttributeError:
         avail_results_dir = glob.glob(os.path.join(get_original_cwd(), "outputs", "train_output", "*", "results"))
@@ -100,7 +100,7 @@ class ResultLoader:
 
     @property
     def y_true(self):
-        return ak.to_numpy(self.data["TauClassifier_TruthScores"])
+        return ak.to_numpy(self.data["TauClassifier_Labels"])
 
     @property
     def y_pred(self):
