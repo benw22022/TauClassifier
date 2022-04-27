@@ -86,7 +86,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.tau_loader.terminate.remote()
         self.jet_loader.terminate.remote()
         log.debug(f"{self.name}: Terminating DataLoaders")
-        self.tau_loader = RayDataLoader.remote(self.tau_files, self.config, self.tau_batch_size, step_size=self.step_size, name="TauLoader")
-        self.jet_loader = RayDataLoader.remote(self.jet_files, self.config, self.jet_batch_size, step_size=self.step_size, name="JetLoader")
+        self.tau_loader = RayDataLoader.remote(self.tau_files, self.config, self.tau_batch_size, step_size=self.step_size, name="TauLoader", cuts=self.config.tau_cuts)
+        self.jet_loader = RayDataLoader.remote(self.jet_files, self.config, self.jet_batch_size, step_size=self.step_size, name="JetLoader", cuts=self.config.fake_cuts)
         log.debug(f"{self.name}: Recreating Dataders")
     

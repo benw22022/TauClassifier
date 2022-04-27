@@ -136,13 +136,12 @@ def plot_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, weights: np.nd
 	fig.suptitle(title, fontsize=9)
 	if saveas is None:
 		plt.savefig(os.path.join("plots", "confusion_matrix.png"))
+	elif saveas is False:
+		return fig
 	else:
 		plt.savefig(saveas)
-	plt.show()
-	plt.clf()
-	plt.close(fig)
-	
-	return np.trace(purity_matrix) / purity_matrix.shape[0]
+
+	return fig
 
 
 

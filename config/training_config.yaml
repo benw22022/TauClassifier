@@ -14,23 +14,33 @@ learning_rate: 1e-4
 batch_size: 526
 epochs: 200
 
-# Learining rate schedd
-lr_schedd:
-  enabled: True
-  factor: 0.75
-  patience: 3
-  min_lr: 1e-9
+# Callbacks
+callbacks:
+  # Learining rate schedd
+  lr_schedd:
+    enabled: True
+    factor: 0.75
+    patience: 3
+    min_lr: 1e-9
 
-# Early stopping
-early_stopping:
-  enabled: True
-  min_delta: 0.0001
-  patience: 20
+  # Early stopping
+  early_stopping:
+    enabled: True
+    min_delta: 0.0001
+    patience: 20
 
-# Model checkpoint
-model_checkpoint:
-  enabled: True
+  # Model checkpoint
+  model_checkpoint:
+    enabled: True
 
-# Tensorboard callback
-tensorboard:
-  enabled: True
+  # Tensorboard callback
+  tensorboard:
+    enabled: True
+  
+  # Simple logging
+  logging:
+    enabled: True
+  
+  # Confusion matrix tensorboard callback
+  conf_matrix:
+    enabled: True

@@ -70,7 +70,8 @@ def split_files(files: List[str], outpath: str, name: str, is_tau: bool, step_si
 
         branch_dict = {}
         for column in keys:
-    
+            
+            # Replace '.' with '_', ROOT does not like '.'s in names TODO: Fix upstream in THOR
             column_fixed = column.replace(".", "_")
 
             if "TauCluster" in column_fixed:

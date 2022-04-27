@@ -17,7 +17,7 @@ from typing import List, Union, Tuple
 
 class DataLoader:
 
-    def __init__(self, files: List[str], config: DictConfig, batch_size: int=0, step_size: Union[str, int]='5 GB', name: str='DataLoader') -> None:
+    def __init__(self, files: List[str], config: DictConfig, batch_size: int=0, step_size: Union[str, int]='5 GB', name: str='DataLoader', cuts: str=None) -> None:
         """
         Create a new DataLoader for handling input. Instantiated as a ray Actor on new python process
         For efficiency for small batch sizes this code loads a large batch of data and slices of smaller batches for training
@@ -37,6 +37,7 @@ class DataLoader:
         self.step_size = step_size
         self.config = config
         self.name = name
+        self.cuts = cuts
 
         # Get a list of all features
         self.features = []
@@ -56,14 +57,14 @@ class DataLoader:
             self.batch_size = len(self.big_batch)
 
         if len(self.big_batch) < self.batch_size:
-            log.warning(f"{self.name} has a batch_size ({self.batch_size}) larger than batch length ({len(self.big_batch)})")
+            log.warning(f"{self.name} has a batch_size ({self.batch_size}) larger than actual batch length ({len(self.big_batch)})")
         log.debug(f"{self.name}: Initialized")
 
     def create_itr(self) -> None:
         """
         Create the iterator
         """
-        self.itr = uproot.iterate(self.files, filter_name=self.features, step_size=self.step_size)
+        self.itr = uproot.iterate(self.files, filter_name=self.features, step_size=self.step_size, cut=self.cuts)
         self.idx = -1
         self.big_batch_idx = -1
     
@@ -78,6 +79,8 @@ class DataLoader:
         Gets next batch of data
         If we run out of data in the currently loaded large batch then move to next 
         If we finish looping through all data then restart the iterator
+        returns:
+            Tuple[np.ndarray] - A Tuple of arrays corresponding to one sub-batch
         """
         self.idx += 1
         if self.idx * self.batch_size < len(self.big_batch):
@@ -102,7 +105,7 @@ class DataLoader:
         """
         return self.__next__()
 
-    def build_array(self, batch: ak.Array, branchname:str, pad_val: int=-999, cutoff: int=1e2) -> np.ndarray:
+    def build_array(self, batch: ak.Array, branchname:str, pad_val: int=-999) -> np.ndarray:
         """
         Builds input array for input branch from data in feature config
         Pads and clips non-rectilinear arrays
@@ -134,10 +137,9 @@ class DataLoader:
             batch: ak.Array - Batch of data loaded by uproot
         returns:
             Tuple - A Tuple of arrays for training/inferance. Structure is:
-            (x, y, weights) where x = (branch1, branch2, ..., branchn)
+            (x, y, weights) where x = (input1, input2, ..., inputn)
         """
 
-        # TODO: can this be done without knowing the number of branches?
         tracks = self.build_array(batch, "TauTracks")
         neutral_pfo = self.build_array(batch,"NeutralPFO")
         shot_pfo = self.build_array(batch,"ShotPFO")
@@ -148,7 +150,6 @@ class DataLoader:
         weights = ak.to_numpy(batch[self.config.Weight])
 
         return (tracks, neutral_pfo, shot_pfo, conv_tracks, jets), labels, weights
-    
-    
 
+# Ray Actor version of this class   
 RayDataLoader = ray.remote(DataLoader)

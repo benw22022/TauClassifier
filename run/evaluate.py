@@ -21,7 +21,7 @@ def get_weights(config: DictConfig) -> str:
         weights_file: str - Path to weights file to be loaded
     """
     try:
-        weights_file = config.weights
+        weights_file = os.path.join(get_original_cwd(), config.network_weights)
         log.info(f"Loading weights from specified file: {weights_file}")
     except AttributeError:
         avail_weights = glob.glob(os.path.join(get_original_cwd(), "outputs", "train_output", "*", "network_weights", "*.h5"))
@@ -56,11 +56,11 @@ def evaluate(config: DictConfig) -> None:
     # TODO: ^^^ Cannot pass model object to ray Actor - have to create model on Actor instantiation
     # Write results to file
     for i, file in tqdm.tqdm(enumerate(tau_test_files), total=len(tau_test_files)):
-        loader = source.DataWriter(file, config) 
+        loader = source.DataWriter(file, config, cuts=config.tau_cuts) 
         loader.write_results(model, output_file=os.path.join(output_dir, f"taus_{i:02d}.root"))
 
     for i, file in tqdm.tqdm(enumerate(jet_test_files), total=len(jet_test_files)):
-        loader = source.DataWriter(file, config)
+        loader = source.DataWriter(file, config, cuts=config.fake_cuts)
         loader.write_results(model, output_file=os.path.join(output_dir, f"jets_{i:02d}.root"))
 
     # results = []

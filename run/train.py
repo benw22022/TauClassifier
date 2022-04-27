@@ -4,7 +4,6 @@ Training Script
 ________________________________________________
 Script to run the neural network training
 """
-
 import logger
 log = logger.get_logger(__name__)
 import os
@@ -34,9 +33,10 @@ def train(config: DictConfig) -> Tuple[float]:
 
     log.info("Running training")
 
-    os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'       # Allow tensorflow to use more GPU VRAM
+    # Allow tensorflow to use more GPU VRAM
+    os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 
-    # Initialise Ray (need to specify modules due to hydra changing cwd)
+    # Initialise Ray
     ray.init(runtime_env={"py_modules": [source, run, logger]})
 
     # Model
@@ -53,7 +53,7 @@ def train(config: DictConfig) -> Tuple[float]:
     validation_generator = source.DataGenerator(tau_val_files, jet_val_files, config, batch_size=10000, step_size=config.step_size, name='ValGen')
 
     # Configure callbacks
-    callbacks = configure_callbacks(config)
+    callbacks = configure_callbacks(config, generator=validation_generator)
 
     # Compile and summarise model
     model.summary()
