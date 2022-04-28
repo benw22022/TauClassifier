@@ -3,7 +3,7 @@ Callbacks
 ___________________________________________________
 Functions to configure callbacks for training
 """
-from attr import Attribute
+
 import logger
 log = logger.get_logger(__name__)
 import os
@@ -64,12 +64,14 @@ def configure_callbacks(config: DictConfig, **kwargs) -> List[keras.callbacks.Ca
         early_stopping = tf.keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=min_delta,
             patience=patience, verbose=0, restore_best_weights=True)
 
+        log.info("Enabling early stopping")
         callbacks.append(early_stopping)
 
     if config.callbacks.model_checkpoint.enabled:
         os.makedirs("network_weights")
         model_checkpoint = tf.keras.callbacks.ModelCheckpoint(os.path.join("network_weights", 'weights-{epoch:02d}.h5'),
                                                     monitor="val_loss", save_best_only=True, save_weights_only=True)
+        log.info("Enabling model checkpointing")                                                    
         callbacks.append(model_checkpoint)                                                
 
     if config.callbacks.lr_schedd.enabled:
@@ -78,15 +80,17 @@ def configure_callbacks(config: DictConfig, **kwargs) -> List[keras.callbacks.Ca
         min_lr = config.callbacks.lr_schedd.min_lr
 
         reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=factor, patience=patience, min_lr=min_lr)
+        log.info("Enabling learing rate decay")
         callbacks.append(reduce_lr)
 
     if config.callbacks.tensorboard.enabled:
         tensorboard_callback = keras.callbacks.TensorBoard(log_dir="logs", histogram_freq = 1)
+        log.info("Enabling tensorboard")
         callbacks.append(tensorboard_callback)
 
     if config.callbacks.logging.enabled:
+        log.info("Enabling training logging")
         callbacks.append(LoggingCallback())
-        # callbacks.append(tf.keras.callbacks.ProgbarLogger(count_mode='steps', stateful_metrics=None))
 
     if config.callbacks.conf_matrix.enabled:
 
@@ -94,6 +98,7 @@ def configure_callbacks(config: DictConfig, **kwargs) -> List[keras.callbacks.Ca
             log.warn("Ignoring confusion matrix callback since is tensorboard disabled")
         else:
             try:
+                log.info("Enabling cm in tensorboard")
                 callbacks.append(ConfusionMatrixCallback(kwargs['generator']))
             except KeyError:
                 log.error("To enable confusion matrix callback you must specify a generator")
