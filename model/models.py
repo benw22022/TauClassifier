@@ -4,15 +4,12 @@ ________________________________________________________________________________
 This is basically Bowen's Tau Decay Mode Classifier with an extra branch for TauJets
 """
 
-from statistics import variance
-import yaml
 from keras import backend as kbe
 from tensorflow.keras.layers import Input, Dense, Masking, TimeDistributed, Concatenate
 from tensorflow.keras.layers import Layer, Activation, BatchNormalization
 from tensorflow.keras import Model
 import tensorflow as tf
 from model.set_transformer.model import BasicSetTransformer
-import pandas as pd
 
 # =============
 # Custom Layers
