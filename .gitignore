@@ -10,6 +10,7 @@
 *.snapshot
 *.pb
 *.metadata
+*.root
 
 # Ignore any plots
 *.png
@@ -28,6 +29,7 @@ scratch/*
 experimental*
 tb_logs/*
 logs/*
+outputs/*
 
 # Ignore logs
 *.log

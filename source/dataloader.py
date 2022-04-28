@@ -1,63 +1,155 @@
-import os
-import awkward as ak
-import numpy as np
+"""
+DataLoader
+______________________________________________________________
+Class definition for DataLoader object
+A helper class for reading and processing network input data
+"""
+
+import logger
+log = logger.get_logger(__name__)
+import ray
 import uproot
-from typing import List, Tuple
-from source.feature_handler import FeatureHandler
-from math import ceil
+import numpy as np
+import awkward as ak
+from omegaconf import DictConfig
+from typing import List, Union, Tuple
+
 
 class DataLoader:
 
-    # Helper class to manage just one of each file type
-    # This was my original approach - I tried to parallelise the I/O by making DataLoaders run
-    # on seperate python processes in parallel using Ray
-
-    def __init__(self, files: List[str], features: FeatureHandler, is_tau: bool, batch_size: int=1) -> None:
-        
+    def __init__(self, files: List[str], config: DictConfig, batch_size: int=0, step_size: Union[str, int]='5 GB', name: str='DataLoader', cuts: str=None) -> None:
+        """
+        Create a new DataLoader for handling input. Instantiated as a ray Actor on new python process
+        For efficiency for small batch sizes this code loads a large batch of data and slices of smaller batches for training
+        TODO: Add option for cuts (probably have cuts as an option in config file)
+        args:
+            files: List[str] - A list of root files to load data from
+            config: DictConfig - A global config dict from Hydra
+            (optoinal) batch_size: int=0 - The batch size for training/inferance. Number of samples yielded when next() is called
+            if not set then use maximum possible batch size which is step_size
+            (optional) step_size: Union(str, int)='5 GB' - step_size arguement for uproot.iterate. If str then a a memory size e.g. '1 GB' 
+            else if an int then the number of samples to load per batch. Rough testing has shown that 5 GB seems to be a good option when running 
+            on laptop with 27 GB of available RAM
+            (optional) name: str - A optional name to give this DataLoader object 
+        """
         self.files = files
-        self.features = features
-
         self.batch_size = batch_size
-        self.is_tau = is_tau
+        self.step_size = step_size
+        self.config = config
+        self.name = name
+        self.cuts = cuts
 
-        # This particular version of this class uses uproot.lazy - can also use uproot.iterate (which was my original approach)
-        cache = uproot.LRUArrayCache("50 MB")
-        self.lazy_array = uproot.lazy(self.files, filter_name=self.features.as_list(), step_size="50 MB", file_handler=uproot.MultithreadedFileSource, array_cache=cache)
+        # Get a list of all features
+        self.features = []
+        for branch_name in self.config.branches:
+            self.features.extend(self.config.branches[branch_name].features)
+        self.features.extend(self.config.OutFileBranches)
+        self.features.append(self.config.Label)
 
-    def __getitem__(self, idx) -> Tuple:
+        # Create uproot iterator and load 1st large batch of data
+        self.itr = None
+        self.create_itr()
+        self.big_batch = next(self.itr)
+        self.big_batch_idx
+        self.idx = -1
 
-        # I suspect that the leak here might be coming from the line below 
-        # I read you can run into memory issues when using slices / views etc - I tried deepcopying the slice but that was
-        # painfully slow and didn't completely solve the issue
-        batch = self.lazy_array[idx * self.batch_size: (idx  + 1) * self.batch_size]
+        if self.batch_size < 1:
+            self.batch_size = len(self.big_batch)
 
-        tracks = ak.unzip(batch[self.features["TauTracks"]])
-        tracks = np.stack([ak.to_numpy(ak.pad_none(arr, 3, clip=True)) for arr in tracks], axis=1).filled(0)  
+        if len(self.big_batch) < self.batch_size:
+            log.warning(f"{self.name} has a batch_size ({self.batch_size}) larger than actual batch length ({len(self.big_batch)})")
+        log.debug(f"{self.name}: Initialized")
 
-        neutral_pfo = ak.unzip(batch[self.features["NeutralPFO"]])
-        neutral_pfo = np.stack([ak.to_numpy(ak.pad_none(arr, 6, clip=True)) for arr in neutral_pfo], axis=1).filled(0)    
+    def create_itr(self) -> None:
+        """
+        Create the iterator
+        """
+        self.itr = uproot.iterate(self.files, filter_name=self.features, step_size=self.step_size, cut=self.cuts)
+        self.idx = -1
+        self.big_batch_idx = -1
+    
+    def terminate(self) -> None:
+        """
+        Terminate ray actor - useful for freeing memory
+        """
+        ray.actor.exit_actor()
 
-        shot_pfo = ak.unzip(batch[self.features["ShotPFO"]])
-        shot_pfo = np.stack([ak.to_numpy(ak.pad_none(arr, 8, clip=True)) for arr in shot_pfo], axis=1).filled(0)      
-        
-        conv_tracks = ak.unzip(batch[self.features["ConvTrack"]])
-        conv_tracks = np.stack([ak.to_numpy(ak.pad_none(arr, 4, clip=True)) for arr in conv_tracks], axis=1).filled(0)         
-
-        jets = ak.unzip(batch[self.features["TauJets"]])
-        jets = np.stack([ak.to_numpy(arr) for arr in jets], axis=1)     
-
-        if self.is_tau:
-            decay_mode = ak.to_numpy(batch["TauJets.truthDecayMode"])
-            labels = np.zeros((len(decay_mode), 6))  
-            for i, dm in enumerate(decay_mode):
-                labels[i][dm + 1] += 1
+    def __next__(self) -> Tuple[np.ndarray]:
+        """
+        Gets next batch of data
+        If we run out of data in the currently loaded large batch then move to next 
+        If we finish looping through all data then restart the iterator
+        returns:
+            Tuple[np.ndarray] - A Tuple of arrays corresponding to one sub-batch
+        """
+        self.idx += 1
+        if self.idx * self.batch_size < len(self.big_batch):
+            log.debug(f"{self.name}: Loading batch {self.idx} from big_batch {self.big_batch_idx}")
+            return self.process_batch(self.big_batch[self.idx * self.batch_size: (self.idx + 1) * self.batch_size])
         else:
-            labels = np.zeros((len(jets), 6))
-            labels[:, 0] = 1
+            try:
+                self.big_batch = next(self.itr)
+                self.big_batch_idx += 1
+                self.idx = -1
+                log.debug(f"{self.name}: Loading next big_batch")
+                return self.__next__()
+            except StopIteration:
+                self.create_itr()
+                self.big_batch = next(self.itr)
+                log.debug(f"{self.name}: Ran out of data - restarting iterator")
+                return self.__next__()
+        
+    def next(self):
+        """
+        An alias for __next__() - next() on ray actors doesn't work
+        """
+        return self.__next__()
 
-        weights = ak.to_numpy(batch["TauJets.mcEventWeight"])
+    def build_array(self, batch: ak.Array, branchname:str, pad_val: int=-999) -> np.ndarray:
+        """
+        Builds input array for input branch from data in feature config
+        Pads and clips non-rectilinear arrays
+        Note: use ak.fill_none() on the none padded ak arrays. Trying to pad after converting to numpy leads to 
+        unitialised memory in the array
+        args:
+            batch: ak.Array - A batch of data loaded by uproot 
+            branchname: Name of NN input branch e.g. TauTracks, NeutralPFO etc... A key in the 'branches' dict in 
+            in feature config
+            pad_val: The value to pad arrays with N.B. Should be the same as masking value in NN
+            cutoff: Maximum absolute value in the output arrays. Useful for removing outliers
+        returns:
+            np.ndarray - A complete input array for one branch of the network
+        """
+        
+        arrays = ak.unzip(batch[self.config.branches[branchname].features])
+        max_objs = self.config.branches[branchname].max_objects
 
-        return ((tracks, neutral_pfo, shot_pfo, conv_tracks, jets), labels, weights)
+        if max_objs > 1:
+            arrays = np.stack([ak.to_numpy(ak.fill_none(ak.pad_none(arr, max_objs, clip=True), pad_val)) for arr in arrays], axis=1)
+            return np.nan_to_num(arrays)
+        arrays = np.stack([ak.to_numpy(arr) for arr in arrays], axis=1)
+        return np.nan_to_num(arrays)
 
-    def __len__(self) -> int:
-        return ceil(len(self.lazy_array) / self.batch_size)
+    def process_batch(self, batch: ak.Array) -> Tuple:
+        """
+        Build input arrays for each branch of the NN, lables and weights
+        args:
+            batch: ak.Array - Batch of data loaded by uproot
+        returns:
+            Tuple - A Tuple of arrays for training/inferance. Structure is:
+            (x, y, weights) where x = (input1, input2, ..., inputn)
+        """
+
+        tracks = self.build_array(batch, "TauTracks")
+        neutral_pfo = self.build_array(batch,"NeutralPFO")
+        shot_pfo = self.build_array(batch,"ShotPFO")
+        conv_tracks = self.build_array(batch,"ConvTrack")
+        jets = self.build_array(batch,"TauJets")
+
+        labels = ak.to_numpy(batch[self.config.Label])
+        weights = ak.to_numpy(batch[self.config.Weight])
+
+        return (tracks, neutral_pfo, shot_pfo, conv_tracks, jets), labels, weights
+
+# Ray Actor version of this class   
+RayDataLoader = ray.remote(DataLoader)

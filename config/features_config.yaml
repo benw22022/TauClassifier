@@ -1,0 +1,90 @@
+---
+# @package _group_
+
+# TODO: Really inconsisent use of snake_case and CamelCase - should fix this
+Label: TauClassifier_Labels
+DecayMode: TauJets_truthDecayMode
+TruthProng: TauJets_truthProng
+Weight: TauClassifier_pTReweight
+class_labels: ['fakes', '1p0n', '1p1n', '1pXn', '3p0n', '3pXn']
+
+# Training features for each input of the neural network
+branches:
+  TauTracks:
+    max_objects: 3
+    features:
+      - TauTracks_nInnermostPixelHits_normed
+      - TauTracks_nPixelHits_normed
+      - TauTracks_nSCTHits_normed
+      - TauTracks_chargedScoreRNN_normed
+      - TauTracks_isolationScoreRNN_normed
+      - TauTracks_conversionScoreRNN_normed
+      - TauTracks_pt_normed
+      - TauTracks_dphiECal_normed
+      - TauTracks_detaECal_normed
+      - TauTracks_jetpt_normed
+      - TauTracks_d0TJVA_normed
+      - TauTracks_d0SigTJVA_normed
+      - TauTracks_z0sinthetaTJVA_normed
+      - TauTracks_z0sinthetaSigTJVA_normed
+
+  NeutralPFO:
+    max_objects: 6
+    features:
+      - NeutralPFO_dphiECal_normed
+      - NeutralPFO_dphi_normed
+      - NeutralPFO_detaECal_normed
+      - NeutralPFO_deta_normed
+      - NeutralPFO_pt_normed
+      - NeutralPFO_jetpt_normed
+      - NeutralPFO_FIRST_ETA_normed
+      - NeutralPFO_SECOND_R_normed
+      - NeutralPFO_DELTA_THETA_normed
+      - NeutralPFO_CENTER_LAMBDA_normed
+      - NeutralPFO_LONGITUDINAL_normed
+      - NeutralPFO_SECOND_ENG_DENS_normed
+      - NeutralPFO_ENG_FRAC_CORE_normed
+      - NeutralPFO_NPosECells_EM1_normed
+      - NeutralPFO_NPosECells_EM2_normed
+      - NeutralPFO_energy_EM1_normed
+      - NeutralPFO_energy_EM2_normed
+      - NeutralPFO_EM1CoreFrac_normed
+      - NeutralPFO_firstEtaWRTClusterPosition_EM1_normed
+      - NeutralPFO_firstEtaWRTClusterPosition_EM2_normed
+      - NeutralPFO_secondEtaWRTClusterPosition_EM1_normed
+      - NeutralPFO_secondEtaWRTClusterPosition_EM2_normed
+
+  ShotPFO:
+    max_objects: 3
+    features:
+      - ShotPFO_dphiECal_normed
+      - ShotPFO_dphi_normed
+      - ShotPFO_detaECal_normed
+      - ShotPFO_deta_normed
+      - ShotPFO_pt_normed
+      - ShotPFO_jetpt_normed
+
+  ConvTrack:
+    max_objects: 4
+    features:
+    - ConvTrack_dphiECal_normed
+    - ConvTrack_dphi_normed
+    - ConvTrack_detaECal_normed
+    - ConvTrack_deta_normed
+    - ConvTrack_pt_normed
+    - ConvTrack_jetpt_normed
+    - ConvTrack_d0TJVA_normed
+    - ConvTrack_d0SigTJVA_normed
+    - ConvTrack_z0sinthetaTJVA_normed
+    - ConvTrack_z0sinthetaSigTJVA_normed
+
+  TauJets:
+    max_objects: 1
+    features:
+      - TauJets_centFrac_normed
+      - TauJets_etOverPtLeadTrk_normed
+      - TauJets_dRmax_normed
+      - TauJets_SumPtTrkFrac_normed
+      - TauJets_ptRatioEflowApprox_normed
+      - TauJets_mEflowApprox_normed
+

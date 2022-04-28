@@ -1,77 +1,79 @@
-"""
-Evaluate.py
-___________________________________________________________________
-Compute predictions using a weights file
-Writes out y_pred array for each NTuple into a .npz
-"""
-
-import ray
-import numpy as np
-import sys
-from config.config import get_cuts, config_dict
-from source.utils import logger
-from config.variables import variable_handler
-from config.files import gammatautau_files, jz_files, testing_files, ntuple_dir, all_files
-from source.DataLoader import DataLoader
-from source.preprocessing import Reweighter
+import logger
+log = logger.get_logger(__name__)
+import os
+import tqdm 
 import glob
-from ray.util import inspect_serializability
+import  source
+from model.models import ModelDSNN
+from omegaconf import DictConfig
+import glob
+from hydra.utils import get_original_cwd, to_absolute_path
+from pathlib import Path
 
 
-def split_list(alist, wanted_parts=1):
+def get_weights(config: DictConfig) -> str:
     """
-    Splits a list into list of smaller lists
-    :param alist: A list to split up
-    :param wanted_parts: Number of parts to split alist into
-    :returns: A split up list
+    Grabs weights file specified in config. If no weights available then function finds the 
+    most recent weights hdf5 file saved
+    args:
+        config: DictConfig - Hydra config object
+    returns:
+        weights_file: str - Path to weights file to be loaded
     """
-    length = len(alist)
-    return [alist[i * length // wanted_parts: (i + 1) * length // wanted_parts]
-			for i in range(wanted_parts)]
+    try:
+        weights_file = os.path.join(get_original_cwd(), config.network_weights)
+        log.info(f"Loading weights from specified file: {weights_file}")
+    except AttributeError:
+        avail_weights = glob.glob(os.path.join(get_original_cwd(), "outputs", "train_output", "*", "network_weights", "*.h5"))
+        weights_file = max(avail_weights, key=os.path.getctime)
+        log.info(f"Loading weights from last created file: {weights_file}")
+    return weights_file
 
-def evaluate(args):
-    """
-    Evaluates the network output for each NTuple and writes them to an npz file
-    :param args: An argparse.Namespace object. Args that must be parsed:
-                 -weights: A path to the network weights to evaluate
-                 -ncores: Number of files to process in parallel
-    """
-    # Initialize Ray
-    # ray.init()
+
+def evaluate(config: DictConfig) -> None:
+
+    log.info("Running Evaluation")
+
+    # Disable GPU (Don't really need it and it could cause issues if already training)
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
+    # Grab files
+    _, tau_test_files, _ = source.get_files(config, "TauFiles") 
+    _, jet_test_files, _ = source.get_files(config, "FakeFiles") 
+    
+    # Grab weights file - automatically select last created weights file unless specified
+    weights_file = get_weights(config)
+    
+    run_dir = Path(weights_file).parents[1]
+    output_dir = os.path.join(run_dir, "results")
+    os.makedirs(output_dir, exist_ok=True)
 
     # Load model
-    model_config = config_dict
-    model_weights = args.weights
-    reweighter = Reweighter(ntuple_dir, prong=args.prong)
-    assert model_weights != "", logger.log("\nYou must specify a path to the model weights", 'ERROR')
+    model = ModelDSNN(config)
+    model.load_weights(weights_file)
 
-    # Get files
-    files = glob.glob("../NTuples/*/*.root")
-    nbatches = 250
-    
-    # Split files into groups to speed things up, will process args.ncores files in parallel
-    if args.ncores > len(files):
-        args.ncores = len(files)
-    if args.ncores < 0:
-        args.ncores = 1
-    files = split_list(files, len(files)//args.ncores)   
-    
-    # Make DataLoaders
-    for file_chunk in files:
-        dataloaders = []
-        for file in file_chunk:
-                flabel = "JZ1" 
-                if "26443658" in file:
-                    flabel = "Gammatautau"
-                dl = DataLoader(file, [file], 1, nbatches, variable_handler, cuts=get_cuts(args.prong)[flabel], 
-                                    reweighter=reweighter, no_gpu=True)
-                dataloaders.append(dl)
-                # inspect_serializability(dl)
-        # Save predictions for each file in parallel
-        
-        for dl in dataloaders:
-            dl.update_ntuples(args.model, model_config, model_weights)
-        # [dl.update_ntuples(args.model, model_config, model_weights) for dl in dataloaders]
-        # # ray.get([dl.predict(args.model, model_config, model_weights) for dl in dataloaders])
-        # for dl in dataloaders:
-        #     ray.kill(dl)
+    # TODO: see if this can be parallelised with ray (May not work due to how fussy tf can be with model objects)
+    # TODO: ^^^ Cannot pass model object to ray Actor - have to create model on Actor instantiation
+    # Write results to file
+    for i, file in tqdm.tqdm(enumerate(tau_test_files), total=len(tau_test_files)):
+        loader = source.DataWriter(file, config, cuts=config.tau_cuts) 
+        loader.write_results(model, output_file=os.path.join(output_dir, f"taus_{i:02d}.root"))
+
+    for i, file in tqdm.tqdm(enumerate(jet_test_files), total=len(jet_test_files)):
+        loader = source.DataWriter(file, config, cuts=config.fake_cuts)
+        loader.write_results(model, output_file=os.path.join(output_dir, f"jets_{i:02d}.root"))
+
+    # results = []
+    # for i, file in tqdm.tqdm(enumerate(tau_test_files)):
+    #     loader = RayDataWriter.remote(file, "config/features.yaml")
+    #     results.append(loader.write_results.remote(model, output_file=f"results/taus_{i:02d}.root"))
+    # ray.get(results)
+
+    # results = []
+    # for i, file in tqdm.tqdm(enumerate(jet_test_files)):
+    #     loader = RayDataWriter.remote(file, "config/features.yaml")
+    #     results.append(loader.write_results.remote(model, output_file=f"results/jets_{i:02d}.root"))
+    # ray.get(results)
+
+if __name__ == "__main__":
+    evaluate()
