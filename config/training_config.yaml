@@ -5,13 +5,14 @@ TestSplit: 0.2
 ValSplit: 0.2
 RandomSeed: 42
 
-# Configure post training actions
+# Configure post-training actions
 save_ntuples: True
 make_plots: True
 
 # Training config params
 learning_rate: 1e-4
 batch_size: 526
+val_batch_size: 100000
 epochs: 200
 
 # Callbacks
@@ -42,5 +43,6 @@ callbacks:
     enabled: True
   
   # Confusion matrix tensorboard callback
+  # Note: This can be quite slow if using small val batch size
   conf_matrix:
     enabled: True
