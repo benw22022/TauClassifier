@@ -50,6 +50,8 @@ def unified_tau_classifier(config: DictConfig) -> None:
     # Setup enviroment from config
     if not config.use_gpu:
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = config.tf_log_level 
+
 
     # Check that files can be found
     tau_files = glob.glob(config.TauFiles)

@@ -46,22 +46,22 @@ visualiser:
 sculpting_plots:
   TauJets_mu:
     x_scale: linear
-    y_scale: log
+    y_scale: linear
     units: ''
     bins: 25
   TauJets_ptJetSeed:
     x_scale: log
-    y_scale: log
+    y_scale: linear
     units: '[MeV]'
     bins: 25
   TauJets_etaJetSeed:
     x_scale: linear
-    y_scale: log
+    y_scale: linear
     units: ''
     bins: 25
   TauJets_phiJetSeed:
     x_scale: linear
-    y_scale: log
+    y_scale: linear
     units: ''
     bins: 25
   
