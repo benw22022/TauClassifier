@@ -3,7 +3,8 @@ Plotting Functions
 ________________________________________________________________________
 File to store useful plotting functions
 """
-
+import logger
+log = logger.get_logger(__name__)
 import io
 import os
 import itertools
@@ -46,9 +47,11 @@ def plot_ROC(y_true: np.ndarray, y_pred: np.ndarray, weights: np.ndarray=None, t
 	ax.set_title(title, loc='right', fontsize=5)
 	if saveas is not None:
 		plt.savefig(saveas)
+		log.info(f"Plotted {saveas}")
 	else:
-		plt.savefig(os.path.join("plots", "ROC.png"))
-	plt.show()
+		save_name = os.path.join("plots", "ROC.png")
+		plt.savefig(save_name)
+		log.info(f"Plotted {save_name}")
 
 
 # @nb.njit()
@@ -135,10 +138,13 @@ def plot_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, weights: np.nd
 	ax2.set_title(f"Diagonal Score = {get_diag_score(purity_matrix):.2f} Purity: {title}", loc='right', fontsize=12)
 	fig.suptitle(title, fontsize=9)
 	if saveas is None:
-		plt.savefig(os.path.join("plots", "confusion_matrix.png"))
+		save_name = os.path.join("plots", "confusion_matrix.png")
+		plt.savefig(save_name)
+		log.info(f"Plotted {save_name}")
 	elif saveas is False:
 		return fig
 	else:
+		log.info(f"Plotted {saveas}")
 		plt.savefig(saveas)
 
 	return fig
@@ -165,63 +171,25 @@ def plot_1_and_3_prong_ROC(data_1prong, data_3prong, title="ROC curve", saveas=N
 		plt.savefig(saveas)
 	else:
 		plt.savefig(os.path.join("plots", "ROC_seperate_prongs.png"))
-	plt.show()
 
-# From https://towardsdatascience.com/exploring-confusion-matrix-evolution-on-tensorboard-e66b39f4ac12
-def plot_confusion_matrix_tb(cm, class_names):
-    """
-    Returns a matplotlib figure containing the plotted confusion matrix.
-    
-    Args:
-       cm (array, shape = [n, n]): a confusion matrix of integer classes
-       class_names (array, shape = [n]): String names of the integer classes
-    """
-    
-    figure = plt.figure(figsize=(8, 8))
-    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
-    plt.title("Confusion matrix")
-    plt.colorbar()
-    tick_marks = np.arange(len(class_names))
-    plt.xticks(tick_marks, class_names, rotation=45)
-    plt.yticks(tick_marks, class_names)
-    
-    # Normalize the confusion matrix.
-    cm = np.around(cm.astype('float') / cm.sum(axis=1)[:, np.newaxis], decimals=2)
-    
-    # Use white text if squares are dark; otherwise black.
-    threshold = cm.max() / 2.
-    
-    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
-        color = "white" if cm[i, j] > threshold else "black"
-        plt.text(j, i, cm[i, j], horizontalalignment="center", color=color)
-        
-    plt.tight_layout()
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
-    return figure
+def create_ROC_plot_template(name: str='ROC'):
+	"""
+	Create a template matplotlib figure for plotting ROC curves
+	"""
+	fig, ax = plt.subplots()
+	ax.set_xlabel('Signal Efficiency')
+	ax.set_ylabel('Background Rejection')
+	ax.set_ylim(1e0, 1e4)
+	ax.set_yscale("log")
+	ax.set_title(f"plots/{name}.png", loc='right', fontsize=5)
+	return fig, ax
 
-
-def plot_to_image(figure):
-    """
-    Converts the matplotlib plot specified by 'figure' to a PNG image and
-    returns it. The supplied figure is closed and inaccessible after this call.
-    """
-    
-    buf = io.BytesIO()
-    
-    # Use plt.savefig to save the plot to a PNG in memory.
-    plt.savefig(buf, format='png')
-    
-    # Closing the figure prevents it from being displayed directly inside
-    # the notebook.
-    plt.close(figure)
-    buf.seek(0)
-    
-    # Use tf.image.decode_png to convert the PNG buffer
-    # to a TF image. Make sure you use 4 channels.
-    image = tf.image.decode_png(buf.getvalue(), channels=4)
-    
-    # Use tf.expand_dims to add the batch dimension
-    image = tf.expand_dims(image, 0)
-    
-    return image
+def create_plot_template(name: str, y_label: str='', units: str='', y_scale: str='', x_scale: str=''):
+	fig, ax = plt.subplots()
+	ax.set_xlabel(f'{name} {units}')
+	ax.set_ylabel(y_label)
+	# ax.set_ylim(1e0, 1e4)
+	ax.set_xscale(x_scale)
+	ax.set_yscale(y_scale)
+	ax.set_title(f"plots/{name}.png", loc='right', fontsize=5)
+	return fig, ax
