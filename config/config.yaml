@@ -19,7 +19,7 @@ hydra:
 # Logging settings
 # TODO: actually implement this
 log_level: DEBUG
-tf_log_level: 1
+tf_log_level: '1'
 
 # Run mode
 run: train
