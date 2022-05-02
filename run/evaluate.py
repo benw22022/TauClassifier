@@ -55,13 +55,17 @@ def evaluate(config: DictConfig) -> None:
     # TODO: see if this can be parallelised with ray (May not work due to how fussy tf can be with model objects)
     # TODO: ^^^ Cannot pass model object to ray Actor - have to create model on Actor instantiation
     # Write results to file
-    for i, file in tqdm.tqdm(enumerate(tau_test_files), total=len(tau_test_files)):
-        loader = source.DataWriter(file, config, cuts=config.tau_cuts) 
-        loader.write_results(model, output_file=os.path.join(output_dir, f"taus_{i:02d}.root"))
+    total_n_files = len(tau_test_files) + len(jet_test_files)
+    with tqdm.tqdm(total=total_n_files) as pbar:
+        for i, file in enumerate(tau_test_files):
+            loader = source.DataWriter(file, config, cuts=config.tau_cuts) 
+            loader.write_results(model, output_file=os.path.join(output_dir, f"taus_{i:02d}.root"))
+            pbar.update(1)
 
-    for i, file in tqdm.tqdm(enumerate(jet_test_files), total=len(jet_test_files)):
-        loader = source.DataWriter(file, config, cuts=config.fake_cuts)
-        loader.write_results(model, output_file=os.path.join(output_dir, f"jets_{i:02d}.root"))
+        for i, file in enumerate(jet_test_files):
+            loader = source.DataWriter(file, config, cuts=config.fake_cuts)
+            loader.write_results(model, output_file=os.path.join(output_dir, f"jets_{i:02d}.root"))
+            pbar.update(1)
 
     # results = []
     # for i, file in tqdm.tqdm(enumerate(tau_test_files)):
