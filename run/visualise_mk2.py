@@ -48,7 +48,8 @@ def get_results_dir(config: DictConfig) -> str:
     return results_dir
 
 class ResultLoader:
-
+    # TODO: add global documentation
+    # TODO: Should probably move this into source?
     def __init__(self, config: DictConfig, result_type: str, cuts: str=None):
         self.type = result_type
         self.config = config
@@ -69,20 +70,17 @@ class ResultLoader:
     
     def change_cuts(self, cuts: str):
         self.cuts = cuts
-        self._y_true = self.y_true()
-        self._y_pred = self.y_pred()
-        self._y_weights = self.weights()
         self.data = self.get_data()
     
-    # @property
+    @property
     def y_true(self):
         return ak.to_numpy(self.data[self.config.visualiser[self.type].y_true])
 
-    # @property
+    @property
     def y_pred(self):
         return ak.to_numpy(self.data[self.config.visualiser[self.type].y_pred])
     
-    # @property
+    @property
     def weights(self):
         return ak.to_numpy(self.data[self.config.visualiser[self.type].weights])
     
@@ -98,13 +96,12 @@ class ResultLoader:
         data = ak.concatenate((tau_data, jet_data))
         return data
     
-    def get_eff_rej(self): 
-        
-        return pf.get_efficiency_and_rejection(self.y_true(), self.y_pred(), self.weights())
+    def get_eff_rej(self):
+        return pf.get_efficiency_and_rejection(self.y_true, self.y_pred, self.weights)
         
     def get_tauid_wp_cut(self, wp_eff: int) -> str:
-        correct_pred_taus = self.y_pred()[self.y_true() == 1]
-        cut_val = np.percentile(correct_pred_taus, wp_eff)
+        correct_pred_taus = self.y_pred[self.y_true == 1]
+        cut_val = np.percentile(correct_pred_taus, 1 - wp_eff / 100)
         return f"{self.config.visualiser[self.type].y_pred} > {cut_val}"
 
     def __getitem__(self, index: str) -> np.ndarray:
@@ -132,7 +129,21 @@ def visualise(config: DictConfig):
     plt.savefig(os.path.join(plotting_dir, 'ROC.png'), dpi=300)
     
     # Confusion Matrix
-    pf.plot_confusion_matrix(utc_loader.y_true(), utc_loader.y_pred(), weights=utc_loader.weights(), saveas=os.path.join(plotting_dir, "confusion_matrix.png"))
+    pf.plot_confusion_matrix(utc_loader.y_true, utc_loader.y_pred, weights=utc_loader.weights, saveas=os.path.join(plotting_dir, "confusion_matrix.png"))
+    
+    # Plot network outputs
+    pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, "NN_output.png"), title='network output')
+    
+    tauid_utc_loader.change_cuts("TauJets_truthProng == 1")
+    tauid_rnn_loader.change_cuts("TauJets_truthProng == 3")
+    pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, "NN_output_1prong.png"), title='network output: 1-prong')
+    
+    tauid_utc_loader.change_cuts("TauJets_truthProng == 1")
+    tauid_rnn_loader.change_cuts("TauJets_truthProng == 3")
+    pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, "NN_output_3prong.png"), title='network output: 3-prong')
+
+    tauid_utc_loader.change_cuts(None)
+    tauid_rnn_loader.change_cuts(None)
     
     # Get different ROC for each prongs
     _, ax = pf.create_ROC_plot_template()
@@ -164,6 +175,10 @@ def visualise(config: DictConfig):
         
         tauid_utc_cut = tauid_utc_loader.get_tauid_wp_cut(wp)
         tauid_rnn_cut = tauid_rnn_loader.get_tauid_wp_cut(wp)
+        
+        tauid_utc_loader.change_cuts(tauid_utc_cut)
+        tauid_rnn_loader.change_cuts(tauid_rnn_cut)
+        pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, f"NN_output_wp-{wp}.png"), title=f'network output @{wp}')
         
         log.info(f"tauid_utc_cut @{wp} = {tauid_utc_cut}")
         log.info(f"tauid_rnn_cut @{wp} = {tauid_rnn_cut}")
@@ -199,9 +214,9 @@ def visualise(config: DictConfig):
         
         # With cut on TauID RNN
         utc_loader.change_cuts(tauid_rnn_cut)
-        y_true = np.delete(utc_loader.y_true(), 0, axis=1)
-        y_pred = np.delete(utc_loader.y_pred(), 0, axis=1)
-        weights = utc_loader.weights()
+        y_true = np.delete(utc_loader.y_true, 0, axis=1)
+        y_pred = np.delete(utc_loader.y_pred, 0, axis=1)
+        weights = utc_loader.weights
         utc_loader.change_cuts(None)
         
         saveas = os.path.join(plotting_dir, f"conf_matrix_TauIDRNN_{wp}.png")
@@ -209,9 +224,9 @@ def visualise(config: DictConfig):
         
         # With cut on UTC score
         utc_loader.change_cuts(tauid_utc_cut)
-        y_true = np.delete(utc_loader.y_true(), 0, axis=1)
-        y_pred = np.delete(utc_loader.y_pred(), 0, axis=1)
-        weights = utc_loader.weights()
+        y_true = np.delete(utc_loader.y_true, 0, axis=1)
+        y_pred = np.delete(utc_loader.y_pred, 0, axis=1)
+        weights = utc_loader.weights
         utc_loader.change_cuts(None)
         
         saveas = os.path.join(plotting_dir, f"conf_matrix_UTC_{wp}.png")
@@ -227,14 +242,14 @@ def visualise(config: DictConfig):
         
         _, ax = pf.create_plot_template(feature, y_label='efficiency', units=units, x_scale=x_scale, y_scale=y_scale)
         
-        hist, bins = np.histogram(utc_loader.data[feature], weights=utc_loader.weights(), bins=binning)
+        hist, bins = np.histogram(utc_loader.data[feature], weights=utc_loader.weights, bins=binning)
     
         # Loop through each working point tauid efficiency 
         for wp in config.working_points:
             tauid_utc_cut = tauid_utc_loader.get_tauid_wp_cut(wp)
             utc_loader.change_cuts(tauid_utc_cut)
             
-            cut_hist, bins = np.histogram(utc_loader[feature], weights=utc_loader.weights(), bins=bins)
+            cut_hist, bins = np.histogram(utc_loader[feature], weights=utc_loader.weights, bins=bins)
             
             ratio_hist = cut_hist / hist
             
@@ -249,7 +264,37 @@ def visualise(config: DictConfig):
     
         # Also make some control plots too
         _, ax = pf.create_plot_template(feature, units=units, x_scale=x_scale, y_scale=y_scale)
-        ax.hist(utc_loader[feature], weights=utc_loader.weights(), histtype='step', bins=100)
+        ax.hist(utc_loader[feature], weights=utc_loader.weights, histtype='step', bins=100)
         saveas = os.path.join(plotting_dir, f'{feature}.png')
+        plt.savefig(saveas, dpi=300)
+        log.info(f"Plotted {saveas}")
+    
+    # Now make efficiency plots
+    for feature in config.sculpting_plots.keys():
+        
+        x_scale = config.sculpting_plots[feature].x_scale
+        y_scale = config.sculpting_plots[feature].y_scale
+        units =  config.sculpting_plots[feature].units
+        binning = config.sculpting_plots[feature].bins
+        
+        _, ax = pf.create_plot_template(feature, y_label='efficiency', units=units, x_scale=x_scale, y_scale=y_scale)
+        
+        hist, bins = np.histogram(utc_loader.data[feature], weights=utc_loader.weights, bins=binning)
+    
+        # Loop through each working point tauid efficiency 
+        for wp in config.working_points:
+            tauid_utc_cut = tauid_rnn_loader.get_tauid_wp_cut(wp)
+            utc_loader.change_cuts(tauid_utc_cut)
+            
+            cut_hist, bins = np.histogram(utc_loader[feature], weights=utc_loader.weights, bins=bins)
+            
+            ratio_hist = cut_hist / hist
+            
+            bincentres = [(bins[i]+bins[i+1])/2. for i in range(len(bins)-1)]
+            ax.step(bincentres, ratio_hist ,where='mid', label=f'WP = {wp}')
+    
+        utc_loader.change_cuts(None)
+        ax.legend()
+        saveas = os.path.join(plotting_dir, f'{feature}_tauidrnn_efficiencies.png')
         plt.savefig(saveas, dpi=300)
         log.info(f"Plotted {saveas}")

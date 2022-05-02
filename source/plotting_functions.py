@@ -193,3 +193,16 @@ def create_plot_template(name: str, y_label: str='', units: str='', y_scale: str
 	ax.set_yscale(y_scale)
 	ax.set_title(f"plots/{name}.png", loc='right', fontsize=5)
 	return fig, ax
+
+def plot_network_output(tauid_utc_loader, tauid_rnn_loader, saveas, title=''):
+	_, ax= plt.subplots()
+	ax.hist(tauid_utc_loader.y_pred[tauid_utc_loader.y_true == 1], weights=tauid_utc_loader.weights[tauid_utc_loader.y_true == 1], bins=100, label='taus UTC', alpha=0.4, color='orange' )
+	ax.hist(tauid_utc_loader.y_pred[tauid_utc_loader.y_true == 0], weights=tauid_utc_loader.weights[tauid_utc_loader.y_true == 0], bins=100, label='fakes UTC', alpha=0.4, color='blue')
+	ax.hist(tauid_rnn_loader.y_pred[tauid_rnn_loader.y_true == 1], weights=tauid_rnn_loader.weights[tauid_rnn_loader.y_true == 1], bins=100, label='taus RNN', histtype='step', color='orange')
+	ax.hist(tauid_rnn_loader.y_pred[tauid_rnn_loader.y_true == 0], weights=tauid_rnn_loader.weights[tauid_rnn_loader.y_true == 0], bins=100, label='fakes RNN', histtype='step', color='blue')
+	ax.legend()
+	ax.set_yscale("log")
+	ax.set_xscale("log")
+	ax.set_title(title, loc='right', fontsize=5)
+	plt.savefig(saveas, dpi=300)
+	log.info(f"Plotted {saveas}")
