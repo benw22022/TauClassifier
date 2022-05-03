@@ -30,7 +30,7 @@ class LoggingCallback(keras.callbacks.Callback):
         log.info("Training stopped")
 
     def on_epoch_begin(self, epoch, logs=None):
-        log.info(f"Start epoch {epoch}")
+        log.info(f"Start epoch {epoch + 1}")
         self.time_epoch_start = time.time()
 
     def on_epoch_end(self, epoch, logs=None):
@@ -39,8 +39,8 @@ class LoggingCallback(keras.callbacks.Callback):
         time_epoch_taken = time.strftime('%H:%M:%S', time.localtime(time_epoch_taken))
         time_taken = time.strftime('%H:%M:%S', time.localtime(time_taken))
 
-        log.info(f"Epoch {epoch} took {time_epoch_taken}")
-        log.info(f"End epoch {epoch}: Time elapased so far = {time_taken}")
+        log.info(f"Epoch {epoch + 1} took {time_epoch_taken}")
+        log.info(f"End epoch {epoch + 1}: Time elapased so far = {time_taken}")
         # log.info(f"Train Loss = {logs['train_loss']}   Train Categorical Accuracy = {logs['train_categorical_accuracy']}")
         # log.info(f"Val Loss = {logs['val_loss']}   Val Categorical Accuracy = {logs['val_categorical_accuracy']}")
         for key, value in logs.items():
