@@ -51,7 +51,7 @@ def unified_tau_classifier(config: DictConfig) -> None:
     if not config.use_gpu:
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = config.tf_log_level 
-
+    os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = config.allow_gpu_growth
 
     # Check that files can be found
     tau_files = glob.glob(config.TauFiles)

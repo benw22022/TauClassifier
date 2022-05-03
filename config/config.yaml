@@ -24,6 +24,7 @@ tf_log_level: '1'
 # Run mode
 run: train
 use_gpu: True
+allow_gpu_growth: 'true'
 step_size: 5 GB  # sets memory used by dataloaders
 
 # glob-able paths to input files
