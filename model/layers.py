@@ -61,13 +61,16 @@ def create_deepset_input(config: DictConfig, branchname: str, activation: str='e
     returns:
         input_layer, dense_layer
     """
+    
+    regularizer = tf.keras.regularizers.L1L2(l1=config.l1_penalty, l2=config.l2_penalty)
+    
     # Input
     input_layer = Input(shape=(len(config.branches[branchname].features), config.branches[branchname].max_objects))
     tdd_layer = Masking(mask_value=config.mask_value)(input_layer)
 
      # Time Distributed layers
     for n in config.n_inputs[branchname]:
-        tdd_layer = TimeDistributed(Dense(n, kernel_initializer=initializer))(tdd_layer)
+        tdd_layer = TimeDistributed(Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer))(tdd_layer)
         tdd_layer = Activation(activation)(tdd_layer)
     
     # Deepset Sum Layer
@@ -75,7 +78,7 @@ def create_deepset_input(config: DictConfig, branchname: str, activation: str='e
 
     # Regular dense layers
     for n in config.n_hiddens[branchname]:
-        dense_layer = Dense(n, kernel_initializer=initializer)(dense_layer)
+        dense_layer = Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer)(dense_layer)
         dense_layer = Activation(activation)(dense_layer)
     if config.batch_norm:
         dense_layer = BatchNormalization()(dense_layer)
@@ -94,10 +97,12 @@ def create_dense_input(config: DictConfig, branchname: str, activation: str='elu
         input_layer, dense_layer
     """
 
+    regularizer = tf.keras.regularizers.L1L2(l1=config.l1_penalty, l2=config.l2_penalty)
+    
     input_layer = Input(shape=(len(config.branches[branchname].features)))
     dense_layer = input_layer
     for n in config.n_hiddens[branchname]:
-        dense_layer = Dense(n, activation=activation, kernel_initializer=initializer)(dense_layer)
+        dense_layer = Dense(n, activation=activation, kernel_initializer=initializer, kernel_regularizer=regularizer)(dense_layer)
     if config.batch_norm:
         dense_layer = BatchNormalization()(dense_layer)
     

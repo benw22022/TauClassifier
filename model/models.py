@@ -17,21 +17,22 @@ def ModelDSNN(config: DictConfig):
     """
 
     initializer = tf.keras.initializers.HeNormal()
+    regularizer = tf.keras.regularizers.L1L2(l1=config.l1_penalty, l2=config.l2_penalty)
     activation = 'elu'
 
     # Create input branches
-    x_1, b_1 = create_deepset_input(config, 'TauTracks')
-    x_2, b_2 = create_deepset_input(config, "NeutralPFO")
-    x_3, b_3 = create_deepset_input(config, "ShotPFO")
-    x_4, b_4 = create_deepset_input(config, "ConvTrack")
-    x_5, b_5 = create_dense_input(config, "TauJets")
+    x_1, b_1 = create_deepset_input(config, 'TauTracks', regularizer=regularizer)
+    x_2, b_2 = create_deepset_input(config, "NeutralPFO", regularizer=regularizer)
+    x_3, b_3 = create_deepset_input(config, "ShotPFO", regularizer=regularizer)
+    x_4, b_4 = create_deepset_input(config, "ConvTrack", regularizer=regularizer)
+    x_5, b_5 = create_dense_input(config, "TauJets", regularizer=regularizer)
    
     # Concatenate inputs
     merged = Concatenate()([b_1, b_2, b_3, b_4, b_5])
 
     # Final dense layers
     for n in config.n_dense_merged:
-        merged = Dense(n, kernel_initializer=initializer)(merged)
+        merged = Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer)(merged)
         merged = Activation(activation)(merged)
         merged = Dropout(config.dropout)(merged)
 
