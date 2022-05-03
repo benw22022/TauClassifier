@@ -41,10 +41,8 @@ class LoggingCallback(keras.callbacks.Callback):
 
         log.info(f"Epoch {epoch + 1} took {time_epoch_taken}")
         log.info(f"End epoch {epoch + 1}: Time elapased so far = {time_taken}")
-        # log.info(f"Train Loss = {logs['train_loss']}   Train Categorical Accuracy = {logs['train_categorical_accuracy']}")
-        # log.info(f"Val Loss = {logs['val_loss']}   Val Categorical Accuracy = {logs['val_categorical_accuracy']}")
         for key, value in logs.items():
-            log.info(f"{key}: {value}")
+            log.info(f"{key}: {value:2.4f}")
 
 
 def configure_callbacks(config: DictConfig, **kwargs) -> List[keras.callbacks.Callback]:
