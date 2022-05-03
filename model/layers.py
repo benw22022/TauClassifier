@@ -73,7 +73,7 @@ def create_deepset_input(config: DictConfig, branchname: str, activation: str='e
         tdd_layer = Activation(activation, name=f"tdd_{branchname}_activation_{i}")(tdd_layer)
     
     # Deepset Sum Layer
-    dense_layer = Sum()(tdd_layer)
+    dense_layer = Sum(name=f'sum_{branchname}')(tdd_layer)
 
     # Regular dense layers
     for i, n in enumerate(config.n_hiddens[branchname]):
