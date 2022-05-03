@@ -101,9 +101,14 @@ class ResultLoader:
         
     def get_tauid_wp_cut(self, wp_eff: int) -> str:
         correct_pred_taus = self.y_pred[self.y_true == 1]
-        cut_val = np.percentile(correct_pred_taus, 1 - wp_eff / 100)
+        cut_val = np.percentile(correct_pred_taus, 100 - wp_eff)
         return f"{self.config.visualiser[self.type].y_pred} > {cut_val}"
 
+    # def get_tauid_rej_wp_cut(self, wp_eff: int) -> str:
+    #     correct_pred_fakes = 1 - self.y_pred[1 - self.y_true == 1]
+    #     cut_val = np.percentile(correct_pred_fakes, 100 - wp_eff)
+    #     return f"{self.config.visualiser[self.type].y_pred} > {cut_val}"
+    
     def __getitem__(self, index: str) -> np.ndarray:
         return ak.to_numpy(self.data[index])
         
@@ -135,10 +140,10 @@ def visualise(config: DictConfig):
     pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, "NN_output.png"), title='network output')
     
     tauid_utc_loader.change_cuts("TauJets_truthProng == 1")
-    tauid_rnn_loader.change_cuts("TauJets_truthProng == 3")
+    tauid_rnn_loader.change_cuts("TauJets_truthProng == 1")
     pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, "NN_output_1prong.png"), title='network output: 1-prong')
     
-    tauid_utc_loader.change_cuts("TauJets_truthProng == 1")
+    tauid_utc_loader.change_cuts("TauJets_truthProng == 3")
     tauid_rnn_loader.change_cuts("TauJets_truthProng == 3")
     pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, "NN_output_3prong.png"), title='network output: 3-prong')
 
@@ -178,10 +183,11 @@ def visualise(config: DictConfig):
         
         tauid_utc_loader.change_cuts(tauid_utc_cut)
         tauid_rnn_loader.change_cuts(tauid_rnn_cut)
-        pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, f"NN_output_wp-{wp}.png"), title=f'network output @{wp}')
         
         log.info(f"tauid_utc_cut @{wp} = {tauid_utc_cut}")
         log.info(f"tauid_rnn_cut @{wp} = {tauid_rnn_cut}")
+        
+        pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, f"NN_output_wp-{wp}.png"), title=f'network output @{wp}')
         
         # Get different ROC for each prongs
         _, ax = pf.create_ROC_plot_template()
@@ -283,8 +289,8 @@ def visualise(config: DictConfig):
     
         # Loop through each working point tauid efficiency 
         for wp in config.working_points:
-            tauid_utc_cut = tauid_rnn_loader.get_tauid_wp_cut(wp)
-            utc_loader.change_cuts(tauid_utc_cut)
+            tauid_rnn_cut = tauid_rnn_loader.get_tauid_wp_cut(wp)
+            utc_loader.change_cuts(tauid_rnn_cut)
             
             cut_hist, bins = np.histogram(utc_loader[feature], weights=utc_loader.weights, bins=bins)
             
