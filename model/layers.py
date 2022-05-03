@@ -64,23 +64,23 @@ def create_deepset_input(config: DictConfig, branchname: str, activation: str='e
     """
     
     # Input
-    input_layer = Input(shape=(len(config.branches[branchname].features), config.branches[branchname].max_objects))
-    tdd_layer = Masking(mask_value=config.mask_value)(input_layer)
+    input_layer = Input(shape=(len(config.branches[branchname].features), config.branches[branchname].max_objects), name=f'input_{branchname}')
+    tdd_layer = Masking(mask_value=config.mask_value, name=f'masked_{branchname}_input')(input_layer)
 
      # Time Distributed layers
-    for n in config.n_inputs[branchname]:
-        tdd_layer = TimeDistributed(Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer))(tdd_layer)
-        tdd_layer = Activation(activation)(tdd_layer)
+    for i, n in enumerate(config.n_inputs[branchname]):
+        tdd_layer = TimeDistributed(Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer), name=f'tdd_{branchname}_{i}-{n}')(tdd_layer)
+        tdd_layer = Activation(activation, name=f"tdd_{branchname}_activation_{i}")(tdd_layer)
     
     # Deepset Sum Layer
     dense_layer = Sum()(tdd_layer)
 
     # Regular dense layers
-    for n in config.n_hiddens[branchname]:
-        dense_layer = Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer)(dense_layer)
-        dense_layer = Activation(activation)(dense_layer)
+    for i, n in enumerate(config.n_hiddens[branchname]):
+        dense_layer = Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer, name=f'dense_{branchname}_{i}-{n}')(dense_layer)
+        dense_layer = Activation(activation, name=f"dense_{branchname}_activation_{i}")(dense_layer)
     if config.batch_norm:
-        dense_layer = BatchNormalization()(dense_layer)
+        dense_layer = BatchNormalization(name=f"batchnorm_{branchname}_{i}")(dense_layer)
     
     return input_layer, dense_layer
 
@@ -97,11 +97,11 @@ def create_dense_input(config: DictConfig, branchname: str, activation: str='elu
         input_layer, dense_layer
     """
     
-    input_layer = Input(shape=(len(config.branches[branchname].features)))
+    input_layer = Input(shape=(len(config.branches[branchname].features)), name=f'input_{branchname}')
     dense_layer = input_layer
-    for n in config.n_hiddens[branchname]:
-        dense_layer = Dense(n, activation=activation, kernel_initializer=initializer, kernel_regularizer=regularizer)(dense_layer)
+    for i, n in enumerate(config.n_hiddens[branchname]):
+        dense_layer = Dense(n, activation=activation, kernel_initializer=initializer, kernel_regularizer=regularizer, name=f'dense_{branchname}_{i}-{n}')(dense_layer)
     if config.batch_norm:
-        dense_layer = BatchNormalization()(dense_layer)
+        dense_layer = BatchNormalization(name=f"batchnorm_{branchname}_{i}")(dense_layer)
     
     return input_layer, dense_layer

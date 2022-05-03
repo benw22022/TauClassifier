@@ -31,11 +31,11 @@ def ModelDSNN(config: DictConfig):
     merged = Concatenate()([b_1, b_2, b_3, b_4, b_5])
 
     # Final dense layers
-    for n in config.n_dense_merged:
-        merged = Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer)(merged)
-        merged = Activation(activation)(merged)
-        merged = Dropout(config.dropout)(merged)
+    for i, n in enumerate(config.n_dense_merged):
+        merged = Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer, name=f"merged_dense_{i}-{n}")(merged)
+        merged = Activation(activation, name=f"merged_dense_activation_{i}")(merged)
+        merged = Dropout(config.dropout, name=f"merged_dropout_{i}")(merged)
 
-    y = Dense(config.n_classes, activation="softmax")(merged)
+    y = Dense(config.n_classes, activation="softmax", name='output')(merged)
 
     return Model(inputs=[x_1, x_2, x_3, x_4, x_5], outputs=y)
