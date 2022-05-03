@@ -50,7 +50,8 @@ class Sum(Layer):
 # Functional models
 # =================
 
-def create_deepset_input(config: DictConfig, branchname: str, activation: str='elu', initializer: tf.keras.initializers.Initializer=tf.keras.initializers.HeNormal()):
+def create_deepset_input(config: DictConfig, branchname: str, activation: str='elu', initializer: tf.keras.initializers.Initializer=tf.keras.initializers.HeNormal(),
+                         regularizer: tf.keras.regularizers.Regularizer=None):
     """
     Create a Deepset input branch
     args:
@@ -61,8 +62,6 @@ def create_deepset_input(config: DictConfig, branchname: str, activation: str='e
     returns:
         input_layer, dense_layer
     """
-    
-    regularizer = tf.keras.regularizers.L1L2(l1=config.l1_penalty, l2=config.l2_penalty)
     
     # Input
     input_layer = Input(shape=(len(config.branches[branchname].features), config.branches[branchname].max_objects))
@@ -85,7 +84,8 @@ def create_deepset_input(config: DictConfig, branchname: str, activation: str='e
     
     return input_layer, dense_layer
 
-def create_dense_input(config: DictConfig, branchname: str, activation: str='elu', initializer: tf.keras.initializers.Initializer=tf.keras.initializers.HeNormal()):
+def create_dense_input(config: DictConfig, branchname: str, activation: str='elu', initializer: tf.keras.initializers.Initializer=tf.keras.initializers.HeNormal(),
+                       regularizer: tf.keras.regularizers.Regularizer=None):
     """
     Create a dense network input branch
     args:
@@ -96,8 +96,6 @@ def create_dense_input(config: DictConfig, branchname: str, activation: str='elu
     returns:
         input_layer, dense_layer
     """
-
-    regularizer = tf.keras.regularizers.L1L2(l1=config.l1_penalty, l2=config.l2_penalty)
     
     input_layer = Input(shape=(len(config.branches[branchname].features)))
     dense_layer = input_layer
