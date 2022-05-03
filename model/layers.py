@@ -4,6 +4,12 @@ _________________________________________________________
 Functions to create custom layers
 """
 
+"""
+Layers
+_________________________________________________________________________
+Function and class definitions for model layers and model componants
+"""
+
 import yaml
 from keras import backend as kbe
 import tensorflow as tf
@@ -12,8 +18,6 @@ from tensorflow.keras.layers import Layer, Activation, BatchNormalization
 from tensorflow.keras import Model
 from model.set_transformer.model import BasicSetTransformer
 from omegaconf import DictConfig
-
-
 
 class Sum(Layer):
     """Simple sum layer.
@@ -44,11 +48,6 @@ class Sum(Layer):
 
     def compute_mask(self, inputs, mask=None):
         return None
-
-
-# =================
-# Functional models
-# =================
 
 def create_deepset_input(config: DictConfig, branchname: str, activation: str='elu', initializer: tf.keras.initializers.Initializer=tf.keras.initializers.HeNormal(),
                          regularizer: tf.keras.regularizers.Regularizer=None):
