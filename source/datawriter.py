@@ -54,6 +54,8 @@ class DataWriter(DataLoader):
         branch_dict["TauClassifier_is3pxn"] = y_pred[:, 5]
         branch_dict["TauClassifier_isTau"] = 1 - y_pred[:, 0]
         branch_dict["TauClassifier_isTrueTau"] = 1 - y_true[:, 0]
+        branch_dict["TauClassifier_isFake"] = y_pred[:, 0]
+        branch_dict["TauClassifier_isTrueFake"] = y_true[:, 0]
         for branch in self.config.OutFileBranches:
             try:
                 branch_dict[branch] = self.big_batch[branch]
