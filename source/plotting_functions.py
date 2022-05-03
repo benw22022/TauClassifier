@@ -202,7 +202,7 @@ def plot_network_output(tauid_utc_loader, tauid_rnn_loader, saveas, title=''):
 	ax.hist(tauid_rnn_loader.y_pred[tauid_rnn_loader.y_true == 0], weights=tauid_rnn_loader.weights[tauid_rnn_loader.y_true == 0], bins=100, label='fakes RNN', histtype='step', color='blue')
 	ax.legend()
 	ax.set_yscale("log")
-	ax.set_xscale("log")
+	# ax.set_xscale("log")
 	ax.set_title(title, loc='right', fontsize=5)
 	plt.savefig(saveas, dpi=300)
 	log.info(f"Plotted {saveas}")

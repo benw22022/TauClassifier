@@ -3,6 +3,10 @@
 model_name: DSNN
 batch_norm: True
 mask_value: -999
+
+# Regularization
+l1_penalty: 0.01
+l2_penalty: 0.01
 dropout: 0.0
 
 # For TDD (Phi)
@@ -22,6 +26,4 @@ n_hiddens:
 
 # For fully connected merged layers
 n_dense_merged: [100, 50]
-n_fc1: 100
-n_fc2: 50
 n_classes: 6
