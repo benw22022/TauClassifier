@@ -31,15 +31,16 @@ To run training do\
 `python3 tauclassifier.py learning_rate=1e-4 batch_size=1024`\
 Training related options can be found in `config/training_config.yaml`\
 Each training run will be saved to its own working directory saved in `outputs/train_output/<date-time>`
-Training progress can be tracked through the tensorboard callback; you can launch tensorboard using `tensorboard --logdir=outputs/train_output/<date-time>/logs`.
+Training progress can be tracked through the tensorboard callback; you can launch tensorboard using\
+`tensorboard --logdir=outputs/train_output/<date-time>/logs`.
 
 ### Evaluation
 
-After training you'll probably want to make some performance plots. To do this 1st run the evaluate function to write out a set of ntuples containing all the features you need to make the plots you want to make.
+After training you'll probably want to make some performance plots. To do this 1st run the evaluate function to write out a set of ntuples containing all the features you need to make the plots you want to make.\
 `python3 tauclassifier.py run=evaluate`\
 This will automatically select the most recently saved weights file\
 To select a specific weights file add a `weights` field to config e.g.\
-`python3 tauclassifier.py evaluate +weights=outputs/train_output/2022-04-20_10-50-12/network_weights/weights-05.h5`
+`python3 tauclassifier.py evaluate +weights=<path-to-weights-file>`
 The branches of the output file can be customised by modifing the `OutFileBranches` filed in`config/testing_config.yaml`. To configure additional custom branches related to the network predictions you can modify `source/datawriter.py`.
 
 ### Visualisation
@@ -47,5 +48,5 @@ The branches of the output file can be customised by modifing the `OutFileBranch
 To plot performance plots from a run \
 `python3 tauclassifier.py run=visualise`\
 To run on a specific set of evaluated ntuples add `results` field to config e.g.\
-`python3 tauclassifier.py run=visualise +results=outputs/train_output/2022-04-20_10-50-12/network_weights/weights-05.h5`\
-Options related to evaluation and visualisation steps are found in `config/evaluation_config.yaml`\
+`python3 tauclassifier.py run=visualise +results=<path-to-evaluated-ntuples-dir>`\
+Options related to evaluation and visualisation steps are found in `config/evaluation_config.yaml`
