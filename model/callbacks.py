@@ -84,7 +84,7 @@ def configure_callbacks(config: DictConfig, **kwargs) -> List[keras.callbacks.Ca
     if config.callbacks.tensorboard.enabled:
         tensorboard_callback = keras.callbacks.TensorBoard(log_dir="logs", histogram_freq = 1)
         log_dir = os.path.join(os.getcwd(), 'logs')
-        log.info(f"Enabling tensorboard, to start run: tensorboard --logdir{log_dir}")
+        log.info(f"Enabling tensorboard, to start run: tensorboard --logdir={log_dir}")
         callbacks.append(tensorboard_callback)
 
     if config.callbacks.logging.enabled:
