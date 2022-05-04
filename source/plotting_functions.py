@@ -184,14 +184,14 @@ def create_ROC_plot_template(name: str='ROC'):
 	ax.set_title(f"plots/{name}.png", loc='right', fontsize=5)
 	return fig, ax
 
-def create_plot_template(name: str, y_label: str='', units: str='', y_scale: str='', x_scale: str=''):
+def create_plot_template(name: str, y_label: str='', units: str='', y_scale: str='', x_scale: str='', title: str=''):
 	fig, ax = plt.subplots()
 	ax.set_xlabel(f'{name} {units}')
 	ax.set_ylabel(y_label)
 	# ax.set_ylim(1e0, 1e4)
 	ax.set_xscale(x_scale)
 	ax.set_yscale(y_scale)
-	ax.set_title(f"plots/{name}.png", loc='right', fontsize=5)
+	ax.set_title(title, loc='right', fontsize=5)
 	return fig, ax
 
 def plot_network_output(tauid_utc_loader, tauid_rnn_loader, saveas, title=''):
