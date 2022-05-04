@@ -326,8 +326,8 @@ def visualise(config: DictConfig):
         tauid_utc_loader.change_cuts(tauid_utc_cut)
         tauid_rnn_loader.change_cuts(tauid_rnn_cut)
         
-        log.info(f"tauid_utc_cut @{wp} = {tauid_utc_cut}")
-        log.info(f"tauid_rnn_cut @{wp} = {tauid_rnn_cut}")
+        log.info(f"tauid_utc_rej_cut @{wp} = {tauid_utc_cut}")
+        log.info(f"tauid_rnn_rej_cut @{wp} = {tauid_rnn_cut}")
         
         pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, f"NN_output_wp-{wp}.png"), title=f'network output @{wp}')
         
@@ -340,7 +340,7 @@ def visualise(config: DictConfig):
         ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: 3 prong')
         tauid_utc_loader.change_cuts(None)
         ax.legend()
-        saveas = os.path.join(plotting_dir, f'ROC_utc_prongs_{wp}-wp.png')
+        saveas = os.path.join(plotting_dir, f'ROC_utc_prongs_rej_{wp}-wp.png')
         plt.savefig(saveas, dpi=300)
         log.info(f"Plotted {saveas}")
         
@@ -352,7 +352,7 @@ def visualise(config: DictConfig):
         ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: 3 prong')
         ax.legend()
         tauid_rnn_loader.change_cuts(None)
-        saveas = os.path.join(plotting_dir, f'ROC_rnn_prongs_{wp}-wp.png')
+        saveas = os.path.join(plotting_dir, f'ROC_rnn_prongs_rej_{wp}-wp.png')
         plt.savefig(saveas, dpi=300)
         log.info(f"Plotted {saveas}")
         
@@ -377,7 +377,7 @@ def visualise(config: DictConfig):
         weights = utc_loader.weights
         utc_loader.change_cuts(None)
         
-        saveas = os.path.join(plotting_dir, f"conf_matrix_UTC_{wp}.png")
+        saveas = os.path.join(plotting_dir, f"conf_matrix_UTC_rej_{wp}.png")
         pf.plot_confusion_matrix(y_true, y_pred, weights=weights, saveas=saveas, labels=labels)
         
     # Now make efficiency plots
@@ -389,7 +389,7 @@ def visualise(config: DictConfig):
         binning = config.sculpting_plots[feature].bins
         
         _, ax = pf.create_plot_template(feature, y_label='efficiency', units=units, x_scale=x_scale, y_scale=y_scale,
-                                        title=f'plots/{feature}_tauid_efficiencies.png')
+                                        title=f'plots/{feature}_tauid_rejection.png')
         
         hist, bins = np.histogram(utc_loader.data[feature], weights=utc_loader.weights, bins=binning)
     
@@ -407,7 +407,7 @@ def visualise(config: DictConfig):
 
         utc_loader.change_cuts(None)
         ax.legend()
-        saveas = os.path.join(plotting_dir, f'{feature}_tauid_efficiencies.png')
+        saveas = os.path.join(plotting_dir, f'{feature}_tauid_rejection.png')
         plt.savefig(saveas, dpi=300)
         log.info(f"Plotted {saveas}")
     
@@ -419,8 +419,8 @@ def visualise(config: DictConfig):
         units =  config.sculpting_plots[feature].units
         binning = config.sculpting_plots[feature].bins
         
-        _, ax = pf.create_plot_template(feature, y_label='efficiency', units=units, x_scale=x_scale, y_scale=y_scale,
-                                        title=f'plots/{feature}_tauidrnn_efficiencies.png')
+        _, ax = pf.create_plot_template(feature, y_label='rejection', units=units, x_scale=x_scale, y_scale=y_scale,
+                                        title=f'plots/{feature}_tauidrnn_rejection.png')
         
         hist, bins = np.histogram(utc_loader.data[feature], weights=utc_loader.weights, bins=binning)
     
@@ -438,6 +438,6 @@ def visualise(config: DictConfig):
     
         utc_loader.change_cuts(None)
         ax.legend()
-        saveas = os.path.join(plotting_dir, f'{feature}_tauidrnn_efficiencies.png')
+        saveas = os.path.join(plotting_dir, f'{feature}_tauidrnn_rejection.png')
         plt.savefig(saveas, dpi=300)
         log.info(f"Plotted {saveas}")
