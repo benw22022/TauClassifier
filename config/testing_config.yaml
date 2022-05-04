@@ -4,6 +4,8 @@
 # TauID working point effs
 working_points: [95, 75, 60]
 
+rejection_working_points: [95, 75, 60]
+
 # Branches for outfile: i.e. network scores and key features for perf plots
 OutFileBranches:
   - TauClassifier_Labels
