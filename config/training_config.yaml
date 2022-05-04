@@ -43,6 +43,6 @@ callbacks:
     enabled: True
   
   # Confusion matrix tensorboard callback
-  # Note: This can be quite slow if using small val batch size
+  # Note: This seems to be quite slow so is disabled by default
   conf_matrix:
-    enabled: True
+    enabled: False
