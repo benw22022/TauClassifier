@@ -4,6 +4,7 @@ Utility functions
 
 import glob
 import random
+import math
 from sklearn.model_selection import train_test_split
 from omegaconf import DictConfig
 from typing import Tuple, List
@@ -23,7 +24,7 @@ def get_files(config: DictConfig, file_type: str) -> Tuple[List[str]]:
     
     # If requested, only take a fraction of the files
     if config.fraction < 100:
-        files = random.sample(files, len(files) * config.fraction / 100)
+        files = random.sample(files, math.ceil(len(files) * config.fraction / 100))
 
     # Do test/train/val split
     train_files, test_files = train_test_split(files, test_size=config.TestSplit, random_state=config.RandomSeed)
