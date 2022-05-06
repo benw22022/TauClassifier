@@ -24,6 +24,7 @@ def get_files(config: DictConfig, file_type: str) -> Tuple[List[str]]:
     
     # If requested, only take a fraction of the files
     if config.fraction < 100:
+        random.seed(42)
         files = random.sample(files, math.ceil(len(files) * config.fraction / 100))
 
     # Do test/train/val split
