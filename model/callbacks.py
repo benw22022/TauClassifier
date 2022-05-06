@@ -8,6 +8,7 @@ import logger
 log = logger.get_logger(__name__)
 import os
 import time
+import datetime
 import keras
 import tensorflow as tf
 from omegaconf import DictConfig
@@ -36,8 +37,8 @@ class LoggingCallback(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         time_epoch_taken = time.time() - self.time_epoch_start
         time_taken = time.time() - self.time_start
-        time_epoch_taken = time.strftime('%H:%M:%S', time.localtime(time_epoch_taken))
-        time_taken = time.strftime('%H:%M:%S', time.localtime(time_taken))
+        time_epoch_taken = datetime.timedelta(seconds=time_epoch_taken)
+        time_taken = datetime.timedelta(seconds=time_taken)
 
         log.info(f"Epoch {epoch + 1} took {time_epoch_taken}")
         log.info(f"End epoch {epoch + 1}: Time elapased so far = {time_taken}")
