@@ -5,13 +5,14 @@ TestSplit: 0.2
 ValSplit: 0.2
 RandomSeed: 42
 
-# Configure post training actions
+# Configure post-training actions
 save_ntuples: True
 make_plots: True
 
 # Training config params
 learning_rate: 1e-4
 batch_size: 526
+val_batch_size: 100000
 epochs: 200
 
 # Callbacks
@@ -27,7 +28,7 @@ callbacks:
   early_stopping:
     enabled: True
     min_delta: 0.0001
-    patience: 20
+    patience: 5
 
   # Model checkpoint
   model_checkpoint:
@@ -42,5 +43,6 @@ callbacks:
     enabled: True
   
   # Confusion matrix tensorboard callback
+  # Note: This seems to be quite slow so is disabled by default
   conf_matrix:
-    enabled: True
+    enabled: False

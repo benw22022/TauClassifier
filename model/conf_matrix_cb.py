@@ -2,7 +2,6 @@ import logger
 log = logger.get_logger(__name__)
 import io
 import os
-import time
 import tqdm
 import keras
 import source
@@ -40,13 +39,13 @@ def plot_to_image(figure):
     return image
 
 class ConfusionMatrixCallback(keras.callbacks.Callback):
+    """
+    Callback class that adds confusion matrix to tensorboard
+    """
 
     def __init__(self, generator: source.DataGenerator):
         self.generator = generator
 
-    def on_epoch_begin(self, epoch, logs):
-        print(self.params)
-    
     def on_epoch_end(self, epoch, logs):
 
         y_true = []

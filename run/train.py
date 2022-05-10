@@ -33,9 +33,6 @@ def train(config: DictConfig) -> Tuple[float]:
 
     log.info("Running training")
 
-    # Allow tensorflow to use more GPU VRAM
-    os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-
     # Initialise Ray
     ray.init(runtime_env={"py_modules": [source, run, logger]})
 
@@ -50,7 +47,7 @@ def train(config: DictConfig) -> Tuple[float]:
 
     # Generators
     training_generator = source.DataGenerator(tau_train_files, jet_train_files, config, batch_size=config.batch_size, step_size=config.step_size, name='TrainGen')
-    validation_generator = source.DataGenerator(tau_val_files, jet_val_files, config, batch_size=10000, step_size=config.step_size, name='ValGen')
+    validation_generator = source.DataGenerator(tau_val_files, jet_val_files, config, batch_size=config.val_batch_size, step_size=config.step_size, name='ValGen')
 
     # Configure callbacks
     callbacks = configure_callbacks(config, generator=validation_generator)
