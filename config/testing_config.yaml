@@ -1,17 +1,18 @@
 ---
 # @package _group_
-# Some aliases for branch names
-truth_labels: TauClassifier_Labels
-pred_labels: TauClassifier_Scores
-weights: TauClassifier_pTReweight
 
 # TauID working point effs
-wps: [95, 75, 60]
+working_points: [95, 75, 60]
+
+rejection_working_points: [95, 75, 60]
 
 # Branches for outfile: i.e. network scores and key features for perf plots
 OutFileBranches:
   - TauClassifier_Labels
   - TauJets_truthDecayMode
+  - TauJets_IsTruthMatched
+  - TauJets_truthEtaVis
+  - TauJets_truthPtVis
   - TauJets_truthProng
   - TauClassifier_pTReweight
   - TauJets_mu
@@ -25,3 +26,44 @@ OutFileBranches:
   - TauJets_is3p0n
   - TauJets_is3pxn
   - TauJets_mcEventWeight
+
+
+# Result Loader configs
+visualiser:
+  TauIDRNN:
+    y_true: TauClassifier_isTrueTau
+    y_pred: TauJets_RNNJetScoreSigTrans
+    weights: TauClassifier_pTReweight
+  
+  UTC:
+    y_true: TauClassifier_Labels
+    y_pred: TauClassifier_Scores
+    weights: TauClassifier_pTReweight
+
+  UTC_TauID:
+    y_true: TauClassifier_isTrueTau
+    y_pred: TauClassifier_isTau
+    weights: TauClassifier_pTReweight
+
+sculpting_plots:
+  TauJets_mu:
+    x_scale: linear
+    y_scale: linear
+    units: ''
+    bins: 25
+  TauJets_ptJetSeed:
+    x_scale: log
+    y_scale: linear
+    units: '[MeV]'
+    bins: 25
+  TauJets_etaJetSeed:
+    x_scale: linear
+    y_scale: linear
+    units: ''
+    bins: 25
+  TauJets_phiJetSeed:
+    x_scale: linear
+    y_scale: linear
+    units: ''
+    bins: 25
+  

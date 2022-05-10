@@ -43,7 +43,7 @@ class DataWriter(DataLoader):
         outfile = uproot.recreate(output_file)
 
         branch_dict = {}       
-        batch, _, _ = self.process_batch(self.big_batch)
+        batch, y_true, _ = self.process_batch(self.big_batch)
         y_pred = model.predict(batch)
         branch_dict["TauClassifier_Scores"] = y_pred
         branch_dict["TauClassifier_isFake"] = y_pred[:, 0]
@@ -52,6 +52,10 @@ class DataWriter(DataLoader):
         branch_dict["TauClassifier_is1pxn"] = y_pred[:, 3]
         branch_dict["TauClassifier_is3p0n"] = y_pred[:, 4]
         branch_dict["TauClassifier_is3pxn"] = y_pred[:, 5]
+        branch_dict["TauClassifier_isTau"] = 1 - y_pred[:, 0]
+        branch_dict["TauClassifier_isTrueTau"] = 1 - y_true[:, 0]
+        branch_dict["TauClassifier_isFake"] = y_pred[:, 0]
+        branch_dict["TauClassifier_isTrueFake"] = y_true[:, 0]
         for branch in self.config.OutFileBranches:
             try:
                 branch_dict[branch] = self.big_batch[branch]
