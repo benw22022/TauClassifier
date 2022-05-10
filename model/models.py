@@ -17,15 +17,16 @@ def ModelDSNN(config: DictConfig):
     """
 
     initializer = tf.keras.initializers.HeNormal()
+    orth_regularizer = tf.keras.regularizers.OrthogonalRegularizer(factor=0.01, mode='columns')
     regularizer = tf.keras.regularizers.L1L2(l1=config.l1_penalty, l2=config.l2_penalty)
-    activation = 'elu'
+    activation = config.activation
 
     # Create input branches
-    x_1, b_1 = create_deepset_input(config, 'TauTracks', regularizer=regularizer)
-    x_2, b_2 = create_deepset_input(config, "NeutralPFO", regularizer=regularizer)
-    x_3, b_3 = create_deepset_input(config, "ShotPFO", regularizer=regularizer)
-    x_4, b_4 = create_deepset_input(config, "ConvTrack", regularizer=regularizer)
-    x_5, b_5 = create_dense_input(config, "TauJets", regularizer=regularizer)
+    x_1, b_1 = create_deepset_input(config, 'TauTracks', regularizer=orth_regularizer, activation=activation)
+    x_2, b_2 = create_deepset_input(config, "NeutralPFO", regularizer=orth_regularizer, activation=activation)
+    x_3, b_3 = create_deepset_input(config, "ShotPFO", regularizer=orth_regularizer, activation=activation)
+    x_4, b_4 = create_deepset_input(config, "ConvTrack", regularizer=orth_regularizer, activation=activation)
+    x_5, b_5 = create_dense_input(config, "TauJets", regularizer=regularizer, activation=activation)
    
     # Concatenate inputs
     merged = Concatenate()([b_1, b_2, b_3, b_4, b_5])
