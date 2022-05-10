@@ -31,6 +31,8 @@ step_size: 5 GB  # sets memory used by dataloaders
 TauFiles:  /hepgpu5-data3/benwilson/split_NTuples/*Gammatautau*/*.root
 FakeFiles: /hepgpu5-data3/benwilson/split_NTuples/*JZ*/*.root
 
+fraction: 100
+
 # Cuts
 global_cuts: (TauJets_ptJetSeed > 15000) & (abs(TauJets_etaJetSeed) < 2.5)
 tau_cuts: (${global_cuts} & ((TauJets_IsTruthMatched) & (abs(TauJets_truthEtaVis) < 2.5) & (TauJets_truthPtVis > 15000))) # & (TauJets_truthParticleType == 10) 
