@@ -56,6 +56,17 @@ class DataWriter(DataLoader):
         branch_dict["TauClassifier_isTrueTau"] = 1 - y_true[:, 0]
         branch_dict["TauClassifier_isFake"] = y_pred[:, 0]
         branch_dict["TauClassifier_isTrueFake"] = y_true[:, 0]
+        
+        # Combined TauID and decay mode labels -> current standard
+        combined_scores = np.column_stack([
+            branch_dict["TauJets_RNNJetScoreSigTrans"],
+            branch_dict["TauJets_is1p0n"],
+            branch_dict["TauJets_is1p1n"],
+            branch_dict["TauJets_is1pxn"],
+            branch_dict["TauJets_is3p0n"],
+            branch_dict["TauJets_is3pxn"]])
+        branch_dict["TauClassifier_previousScores"] = combined_scores
+
         for branch in self.config.OutFileBranches:
             try:
                 branch_dict[branch] = self.big_batch[branch]
