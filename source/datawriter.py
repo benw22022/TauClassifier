@@ -56,7 +56,15 @@ class DataWriter(DataLoader):
         branch_dict["TauClassifier_isTrueTau"] = 1 - y_true[:, 0]
         branch_dict["TauClassifier_isFake"] = y_pred[:, 0]
         branch_dict["TauClassifier_isTrueFake"] = y_true[:, 0]
-        
+
+        # Write out extra branches
+        for branch in self.config.OutFileBranches:
+            try:
+                branch_dict[branch] = self.big_batch[branch]
+            except ValueError:
+                log.warn(f"{self.file} has no branch named {branch}. Is this expected? Filling tree with dummy data")
+                branch_dict[branch] = np.ones_like(y_pred[:, 0]) * -999
+
         # Combined TauID and decay mode labels -> current standard
         combined_scores = np.column_stack([
             branch_dict["TauJets_RNNJetScoreSigTrans"],
@@ -66,14 +74,8 @@ class DataWriter(DataLoader):
             branch_dict["TauJets_is3p0n"],
             branch_dict["TauJets_is3pxn"]])
         branch_dict["TauClassifier_previousScores"] = combined_scores
-
-        for branch in self.config.OutFileBranches:
-            try:
-                branch_dict[branch] = self.big_batch[branch]
-            except ValueError:
-                log.warn(f"{self.file} has no branch named {branch}. Is this expected? Filling tree with dummy data")
-                branch_dict[branch] = np.ones_like(y_pred[:, 0]) * -999
-
+        
+        # Write branches to tree
         outfile["tree"] = branch_dict
 
     @staticmethod
