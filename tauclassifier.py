@@ -19,7 +19,7 @@ import matplotlib
 from omegaconf import DictConfig
 import tensorflow as tf
 
-# Dictionary of run_mode arguements mapped to corresponding function
+# Dictionary of run arguements mapped to corresponding function
 RUN_DICT = {'train': run.train,
             'evaluate': run.evaluate,
             'visualise': run.visualise,
@@ -53,7 +53,7 @@ def unified_tau_classifier(config: DictConfig) -> None:
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = config.tf_log_level 
     os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = config.allow_gpu_growth
 
-    # Check that files can be found
+    # Check that files can be found (saves time if they can't be found)
     tau_files = glob.glob(config.TauFiles)
     jet_files = glob.glob(config.FakeFiles)
     if len(tau_files) == 0 or len(jet_files) == 0:

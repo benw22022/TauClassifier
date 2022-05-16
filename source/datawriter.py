@@ -57,6 +57,7 @@ class DataWriter(DataLoader):
         branch_dict["TauClassifier_isFake"] = y_pred[:, 0]
         branch_dict["TauClassifier_isTrueFake"] = y_true[:, 0]
 
+        # Write out extra branches
         for branch in self.config.OutFileBranches:
             try:
                 branch_dict[branch] = self.big_batch[branch]
@@ -74,6 +75,17 @@ class DataWriter(DataLoader):
             branch_dict["TauJets_is3pxn"]])
         branch_dict["TauClassifier_previousScores"] = combined_scores
 
+        # Combined TauID and decay mode labels -> current standard
+        combined_scores = np.column_stack([
+            branch_dict["TauJets_RNNJetScoreSigTrans"],
+            branch_dict["TauJets_is1p0n"],
+            branch_dict["TauJets_is1p1n"],
+            branch_dict["TauJets_is1pxn"],
+            branch_dict["TauJets_is3p0n"],
+            branch_dict["TauJets_is3pxn"]])
+        branch_dict["TauClassifier_previousScores"] = combined_scores
+        
+        # Write branches to tree
         outfile["tree"] = branch_dict
 
     @staticmethod

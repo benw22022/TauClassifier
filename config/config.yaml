@@ -28,9 +28,10 @@ allow_gpu_growth: 'true'
 step_size: 5 GB  # sets memory used by dataloaders
 
 # glob-able paths to input files
+TauFiles:  /hepgpu5-data3/benwilson/split_NTuples/*Gammatautau*/*.root
+FakeFiles: /hepgpu5-data3/benwilson/split_NTuples/*JZ*/*.root
+
 fraction: 100
-TauFiles: /home/bewilson/split_NTuples/*Gammatautau*/*.root
-FakeFiles: /home/bewilson/split_NTuples/*JZ*/*.root
 
 # Cuts
 global_cuts: (TauJets_ptJetSeed > 15000) & (abs(TauJets_etaJetSeed) < 2.5)
