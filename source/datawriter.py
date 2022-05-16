@@ -75,16 +75,6 @@ class DataWriter(DataLoader):
             branch_dict["TauJets_is3pxn"]])
         branch_dict["TauClassifier_previousScores"] = combined_scores
 
-        # Combined TauID and decay mode labels -> current standard
-        combined_scores = np.column_stack([
-            branch_dict["TauJets_RNNJetScoreSigTrans"],
-            branch_dict["TauJets_is1p0n"],
-            branch_dict["TauJets_is1p1n"],
-            branch_dict["TauJets_is1pxn"],
-            branch_dict["TauJets_is3p0n"],
-            branch_dict["TauJets_is3pxn"]])
-        branch_dict["TauClassifier_previousScores"] = combined_scores
-        
         # Write branches to tree
         outfile["tree"] = branch_dict
 
