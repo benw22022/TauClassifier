@@ -26,10 +26,10 @@ def get_files(config: DictConfig, file_type: str) -> Tuple[List[str]]:
     log.debug(f"Found {len(files)} for {file_type} on path {config[file_type]}")
     
     # If requested, only take a fraction of the files
-    if config.fraction < 100:
+    if config.fraction < 1:
         log.info(f"Using {config.fraction}% of data from {file_type}")
         random.seed(42)
-        files = random.sample(files, math.ceil(len(files) * config.fraction / 100))
+        files = random.sample(files, math.ceil(len(files) * config.fraction))
 
     # Do test/train/val split
     train_files, test_files = train_test_split(files, test_size=config.TestSplit, random_state=config.RandomSeed)
