@@ -192,7 +192,7 @@ def visualise(config: DictConfig):
         log.info(f"tauid_utc_cut @{wp} = {tauid_utc_cut}")
         log.info(f"tauid_rnn_cut @{wp} = {tauid_rnn_cut}")
         
-        pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, f"NN_output_wp-{wp}.png"), title=f'network output @{wp}')
+        pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, f"NN_output_eff_wp-{wp}.png"), title=f'network output @{wp}')
         
         # Get different ROC for each prongs
         _, ax = pf.create_ROC_plot_template("UTC_ROC_wps")
@@ -329,7 +329,7 @@ def visualise(config: DictConfig):
         log.info(f"tauid_utc_rej_cut @{wp} = {tauid_utc_cut}")
         log.info(f"tauid_rnn_rej_cut @{wp} = {tauid_rnn_cut}")
         
-        pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, f"NN_output_wp-{wp}.png"), title=f'network output @{wp}')
+        pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, f"NN_output_eff_wp-{wp}.png"), title=f'network output @{wp}')
         
         # Get different ROC for each prongs
         _, ax = pf.create_ROC_plot_template("UTC_ROC_wps")
