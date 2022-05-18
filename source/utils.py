@@ -27,7 +27,7 @@ def get_files(config: DictConfig, file_type: str) -> Tuple[List[str]]:
     
     # If requested, only take a fraction of the files
     if config.fraction < 1:
-        log.info(f"Using {config.fraction}% of data from {file_type}")
+        log.info(f"Using {config.fraction * 100}% of data from {file_type}")
         random.seed(42)
         files = random.sample(files, math.ceil(len(files) * config.fraction))
 
