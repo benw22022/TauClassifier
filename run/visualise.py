@@ -4,6 +4,7 @@ _____________________________________________________________
 TODO: This is horrible make this better!
 """
 
+
 import logger
 log = logger.get_logger(__name__)
 import os
@@ -98,7 +99,7 @@ class ResultLoader:
         return data
     
     def get_eff_rej(self):
-        return pf.get_efficiency_and_rejection(self.y_true, self.y_pred, self.weights)
+        return pf.get_efficiency_and_rejection(self.y_true, self.y_pred)
         
     def get_tauid_wp_cut(self, wp_eff: int) -> str:
         correct_pred_taus = self.y_pred[self.y_true == 1]
@@ -139,7 +140,7 @@ def visualise(config: DictConfig):
     plt.savefig(os.path.join(plotting_dir, 'ROC.png'), dpi=300)
     
     # Confusion Matrix
-    pf.plot_confusion_matrix(utc_loader.y_true, utc_loader.y_pred, weights=utc_loader.weights, saveas=os.path.join(plotting_dir, "confusion_matrix.png"))
+    pf.plot_confusion_matrix(utc_loader.y_true, utc_loader.y_pred, saveas=os.path.join(plotting_dir, "confusion_matrix.png"))
     
     # Plot network outputs
     pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, "NN_output.png"), title='network output')
@@ -231,7 +232,7 @@ def visualise(config: DictConfig):
         utc_loader.change_cuts(None)
         
         saveas = os.path.join(plotting_dir, f"conf_matrix_TauIDRNN_{wp}.png")
-        pf.plot_confusion_matrix(y_true, y_pred, weights=weights, saveas=saveas, labels=labels, title=f'Efficiency = {wp}')
+        pf.plot_confusion_matrix(y_true, y_pred, saveas=saveas, labels=labels, title=f'Efficiency = {wp}')
         
         # With cut on UTC score
         utc_loader.change_cuts(tauid_utc_cut)
@@ -241,7 +242,7 @@ def visualise(config: DictConfig):
         utc_loader.change_cuts(None)
         
         saveas = os.path.join(plotting_dir, f"conf_matrix_UTC_{wp}.png")
-        pf.plot_confusion_matrix(y_true, y_pred, weights=weights, saveas=saveas, labels=labels, title=f'Efficiency = {wp}')
+        pf.plot_confusion_matrix(y_true, y_pred, saveas=saveas, labels=labels, title=f'Efficiency = {wp}')
         
     # Now make efficiency plots for UTC
     for feature in config.sculpting_plots.keys():
@@ -254,19 +255,20 @@ def visualise(config: DictConfig):
         _, ax = pf.create_plot_template(feature, y_label='efficiency', units=units, x_scale=x_scale, y_scale=y_scale,
                                         title=f'plots/{feature}_tauid_efficiencies.png')
         
-        hist, bins = np.histogram(utc_loader.data[feature], weights=utc_loader.weights, bins=binning)
+        hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 0], bins=binning)
     
         # Loop through each working point tauid efficiency 
         for wp in config.working_points:
+                
             tauid_utc_cut = tauid_utc_loader.get_tauid_wp_cut(wp)
             utc_loader.change_cuts(tauid_utc_cut)
             
-            cut_hist, bins = np.histogram(utc_loader[feature], weights=utc_loader.weights, bins=bins)
-            
+            cut_hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 0], bins=bins)
+                            
             ratio_hist = cut_hist / hist
             
             bincentres = [(bins[i]+bins[i+1])/2. for i in range(len(bins)-1)]
-            ax.step(bincentres, ratio_hist ,where='mid', label=f'WP = {wp}')
+            ax.step(bincentres, ratio_hist , where='mid', label=f'WP = {wp}')
 
         utc_loader.change_cuts(None)
         ax.legend(title='UTC')
@@ -276,7 +278,7 @@ def visualise(config: DictConfig):
     
         # Also make some control plots too
         _, ax = pf.create_plot_template(feature, units=units, x_scale=x_scale, y_scale=y_scale, title=f'plots/{feature}')
-        ax.hist(utc_loader[feature], weights=utc_loader.weights, histtype='step', bins=100)
+        ax.hist(utc_loader[feature], histtype='step', bins=100)
         saveas = os.path.join(plotting_dir, f'{feature}.png')
         plt.savefig(saveas, dpi=300)
         log.info(f"Plotted {saveas}")
@@ -292,14 +294,14 @@ def visualise(config: DictConfig):
         _, ax = pf.create_plot_template(feature, y_label='efficiency', units=units, x_scale=x_scale, y_scale=y_scale,
                                         title=f'plots/{feature}_tauidrnn_efficiencies.png')
         
-        hist, bins = np.histogram(utc_loader.data[feature], weights=utc_loader.weights, bins=binning)
+        hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 0], bins=binning)
     
         # Loop through each working point tauid efficiency 
         for wp in config.working_points:
             tauid_rnn_cut = tauid_rnn_loader.get_tauid_wp_cut(wp)
             utc_loader.change_cuts(tauid_rnn_cut)
             
-            cut_hist, bins = np.histogram(utc_loader[feature], weights=utc_loader.weights, bins=bins)
+            cut_hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 0], bins=bins)
             
             ratio_hist = cut_hist / hist
             
@@ -368,7 +370,7 @@ def visualise(config: DictConfig):
         utc_loader.change_cuts(None)
         
         saveas = os.path.join(plotting_dir, f"conf_matrix_TauIDRNN_rej_{wp}.png")
-        pf.plot_confusion_matrix(y_true, y_pred, weights=weights, saveas=saveas, labels=labels, title=f'TauIDRNN_rej_{wp}')
+        pf.plot_confusion_matrix(y_true, y_pred, saveas=saveas, labels=labels, title=f'TauIDRNN_rej_{wp}')
         
         # With cut on UTC score
         utc_loader.change_cuts(tauid_utc_cut)
@@ -378,7 +380,7 @@ def visualise(config: DictConfig):
         utc_loader.change_cuts(None)
         
         saveas = os.path.join(plotting_dir, f"conf_matrix_UTC_rej_{wp}.png")
-        pf.plot_confusion_matrix(y_true, y_pred, weights=weights, saveas=saveas, labels=labels, title=f'UTC_rej_{wp}')
+        pf.plot_confusion_matrix(y_true, y_pred, saveas=saveas, labels=labels, title=f'UTC_rej_{wp}')
         
     # Now make efficiency plots
     for feature in config.sculpting_plots.keys():
@@ -388,17 +390,17 @@ def visualise(config: DictConfig):
         units =  config.sculpting_plots[feature].units
         binning = config.sculpting_plots[feature].bins
         
-        _, ax = pf.create_plot_template(feature, y_label='efficiency', units=units, x_scale=x_scale, y_scale=y_scale,
+        _, ax = pf.create_plot_template(feature, y_label='rejection', units=units, x_scale=x_scale, y_scale=y_scale,
                                         title=f'plots/{feature}_tauid_utc_rejection.png')
         
-        hist, bins = np.histogram(utc_loader.data[feature], weights=utc_loader.weights, bins=binning)
+        hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 1], bins=binning)
     
         # Loop through each working point tauid efficiency 
         for wp in config.working_points:
             tauid_utc_cut = tauid_utc_loader.get_tauid_rej_wp_cut(wp)
             utc_loader.change_cuts(tauid_utc_cut)
             
-            cut_hist, bins = np.histogram(utc_loader[feature], weights=utc_loader.weights, bins=bins)
+            cut_hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 1], bins=bins)
             
             ratio_hist = cut_hist / hist
             
@@ -422,16 +424,16 @@ def visualise(config: DictConfig):
         _, ax = pf.create_plot_template(feature, y_label='rejection', units=units, x_scale=x_scale, y_scale=y_scale,
                                         title=f'plots/{feature}_tauid_rnn_rejection.png')
         
-        hist, bins = np.histogram(utc_loader.data[feature], weights=utc_loader.weights, bins=binning)
+        hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 1], bins=binning)
     
         # Loop through each working point tauid efficiency 
         for wp in config.working_points:
             tauid_rnn_cut = tauid_rnn_loader.get_tauid_rej_wp_cut(wp)
             utc_loader.change_cuts(tauid_rnn_cut)
             
-            cut_hist, bins = np.histogram(utc_loader[feature], weights=utc_loader.weights, bins=bins)
+            cut_hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 1], bins=bins)
             
-            ratio_hist = cut_hist / hist
+            ratio_hist = 1 - cut_hist / hist
             
             bincentres = [(bins[i]+bins[i+1])/2. for i in range(len(bins)-1)]
             ax.step(bincentres, ratio_hist ,where='mid', label=f'WP = {wp}')
