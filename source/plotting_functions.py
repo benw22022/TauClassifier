@@ -17,7 +17,8 @@ from typing import Tuple, List
 import tensorflow as tf
 
 
-def get_efficiency_and_rejection(y_true: np.ndarray, y_pred: np.ndarray, weights: np.ndarray) -> Tuple[float, float]:
+def get_efficiency_and_rejection(y_true: np.ndarray, y_pred: np.ndarray, weights: np.ndarray=None) -> Tuple[float, float]:
+    
 	fpr_keras, tpr_keras, _ = metrics.roc_curve(y_true, y_pred, sample_weight=weights)
 
 	fpr_keras.sort()
@@ -172,7 +173,7 @@ def plot_1_and_3_prong_ROC(data_1prong, data_3prong, title="ROC curve", saveas=N
 	else:
 		plt.savefig(os.path.join("plots", "ROC_seperate_prongs.png"))
 
-def create_ROC_plot_template(name: str='ROC'):
+def create_ROC_plot_template(name=None):
 	"""
 	Create a template matplotlib figure for plotting ROC curves
 	"""
@@ -181,7 +182,6 @@ def create_ROC_plot_template(name: str='ROC'):
 	ax.set_ylabel('Background Rejection')
 	ax.set_ylim(1e0, 1e4)
 	ax.set_yscale("log")
-	ax.set_title(f"plots/{name}.png", loc='right', fontsize=5)
 	return fig, ax
 
 def create_plot_template(name: str, y_label: str='', units: str='', y_scale: str='', x_scale: str='', title: str=''):
