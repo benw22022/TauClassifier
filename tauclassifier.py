@@ -16,6 +16,7 @@ log = logger.get_logger(__name__)
 import run
 import hydra
 import matplotlib
+import traceback
 from omegaconf import DictConfig
 import tensorflow as tf
 
@@ -60,9 +61,13 @@ def unified_tau_classifier(config: DictConfig) -> None:
         log.fatal("No input data found! Please check filepaths in config/config.yaml")
         sys.exit(1)
 
-    # Run selected script. If arg invaild exit 
-    RUN_DICT.get(config.run, invalid_run_mode)(config)
-    sys.exit(0)
-
+    # Run selected script. If arg invaild exit
+    try:
+        RUN_DICT.get(config.run, invalid_run_mode)(config)
+        sys.exit(0)
+    except Exception:
+        log.fatal(traceback.format_exc())
+        sys.exit(1)
+    
 if __name__ == "__main__":
     unified_tau_classifier()
