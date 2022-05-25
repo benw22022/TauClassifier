@@ -7,6 +7,7 @@ This is basically Bowen's Tau Decay Mode Classifier with an extra branch for Tau
 import tensorflow as tf
 from tensorflow.keras.layers import Activation, Dense, Concatenate, Dropout
 from tensorflow.keras import Model
+from model.regularizers import OrthogonalRegularizer
 from model.layers import create_deepset_input, create_dense_input
 from omegaconf import DictConfig
 
@@ -17,7 +18,12 @@ def ModelDSNN(config: DictConfig):
     """
 
     initializer = tf.keras.initializers.HeNormal()
-    orth_regularizer = tf.keras.regularizers.L1L2(l1=config.l1_penalty, l2=config.l2_penalty) # tf.keras.regularizers.OrthogonalRegularizer(factor=0.01, mode='columns')
+    
+    # TODO WIP
+    orth_regularizer = tf.keras.regularizers.L1L2(l1=config.l1_penalty, l2=config.l2_penalty)
+    if config.regularization == "orth":
+        orth_regularizer = OrthogonalRegularizer(factor=0.1, mode='columns')    
+    
     regularizer = tf.keras.regularizers.L1L2(l1=config.l1_penalty, l2=config.l2_penalty)
     activation = config.activation
 

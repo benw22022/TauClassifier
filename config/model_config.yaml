@@ -9,22 +9,24 @@ activation: swish
 l1_penalty: 0.01
 l2_penalty: 0.01
 dropout: 0.1
+regularization: 'l1l2'
+
 
 # For TDD (Phi)
 n_inputs:
   TauTracks: [30,30,20]
-  NeutralPFO: [80,80,60,60]
-  ShotPFO: [20,20,20]
+  NeutralPFO: [30,30,20]
+  ShotPFO: [30,30,20]
   ConvTrack: [30,30,20]
 
 # for Dense (F)
 n_hiddens:
-  TauTracks: [20,20,20]
-  NeutralPFO: [60,40,40]
-  ShotPFO: [20,20,20]
-  ConvTrack: [20,20,20]
-  TauJets: [20, 20, 20]
+  TauTracks: [20,10,5]
+  NeutralPFO: [20,10,5]
+  ShotPFO: [20,10,5]
+  ConvTrack: [20,10,5]
+  TauJets: [20,10,5]
 
 # For fully connected merged layers
-n_dense_merged: [100, 50]
+n_dense_merged: [32, 16]
 n_classes: 6

@@ -32,7 +32,9 @@ To run training do\
 Training related options can be found in `config/training_config.yaml`\
 Each training run will be saved to its own working directory saved in `outputs/train_output/<date-time>`
 Training progress can be tracked through the tensorboard callback; you can launch tensorboard using\
-`tensorboard --logdir=outputs/train_output/<date-time>/logs`.
+`tensorboard --logdir=outputs/train_output/<date-time>/logs`.\
+To run on just a fraction of the full dataset use set the `fraction` option. e.g. to train on 10% of data\
+`python3 tauclassifier.py fraction=0.1`
 
 ### Evaluation
 

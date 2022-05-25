@@ -1,0 +1,30 @@
+---
+# @package _group_
+model_name: DSNN
+batch_norm: True
+mask_value: -999
+activation: swish
+
+# Regularization
+l1_penalty: 0.05
+l2_penalty: 0.05
+dropout: 0.1
+
+# For TDD (Phi)
+n_inputs:
+  TauTracks: [100]
+  NeutralPFO: [100]
+  ShotPFO: [100]
+  ConvTrack: [100]
+
+# for Dense (F)
+n_hiddens:
+  TauTracks: [25]
+  NeutralPFO: [25]
+  ShotPFO: [25]
+  ConvTrack: [25]
+  TauJets: [25]
+
+# For fully connected merged layers
+n_dense_merged: [25, 12]
+n_classes: 6
