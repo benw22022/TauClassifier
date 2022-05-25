@@ -17,7 +17,7 @@ def ModelDSNN(config: DictConfig):
     """
 
     initializer = tf.keras.initializers.HeNormal()
-    orth_regularizer = tf.keras.regularizers.OrthogonalRegularizer(factor=0.01, mode='columns')
+    orth_regularizer = tf.keras.regularizers.L1L2(l1=config.l1_penalty, l2=config.l2_penalty) # tf.keras.regularizers.OrthogonalRegularizer(factor=0.01, mode='columns')
     regularizer = tf.keras.regularizers.L1L2(l1=config.l1_penalty, l2=config.l2_penalty)
     activation = config.activation
 
