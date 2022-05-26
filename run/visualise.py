@@ -86,6 +86,18 @@ class ResultLoader:
     def weights(self):
         return ak.to_numpy(self.data[self.config.visualiser[self.type].weights])
     
+    @property
+    def y_pred_prev(self) -> np.ndarray:
+        combined_scores = np.column_stack([
+                        1 - ak.to_numpy(self.data["TauJets_RNNJetScoreSigTrans"]),
+                        ak.to_numpy(self.data["TauJets_is1p0n"]),
+                        ak.to_numpy(self.data["TauJets_is1p1n"]),
+                        ak.to_numpy(self.data["TauJets_is1pxn"]),
+                        ak.to_numpy(self.data["TauJets_is3p0n"]),
+                        ak.to_numpy(self.data["TauJets_is3pxn"])])
+        return combined_scores
+
+    
     
     def get_data(self):
         if self.cuts is None:
@@ -130,7 +142,7 @@ def visualise(config: DictConfig):
     
     # Print some metrics
     labels = ['fakes', '1p0n', '1p1n', '1pxn', '3p0n', '3pxn']
-    log.info(classification_report(np.argmax(utc_loader.y_true, axis=1), np.argmax(utc_loader.y_pred, axis=1), target_names=labels))
+    log.info("\n" + classification_report(np.argmax(utc_loader.y_true, axis=1), np.argmax(utc_loader.y_pred, axis=1), target_names=labels))
 
     # ROC Curves
     _, ax = pf.create_ROC_plot_template()
@@ -140,17 +152,22 @@ def visualise(config: DictConfig):
     plt.savefig(os.path.join(plotting_dir, 'ROC.png'), dpi=300)
     
     # Confusion Matrix
-    pf.plot_confusion_matrix(utc_loader.y_true, utc_loader.y_pred, saveas=os.path.join(plotting_dir, "confusion_matrix.png"))
+    pf.plot_confusion_matrix(utc_loader.y_true, utc_loader.y_pred, saveas=os.path.join(plotting_dir, "confusion_matrix.png"), title='UTC')
+    pf.plot_confusion_matrix(utc_loader.y_true, utc_loader.y_pred_prev, saveas=os.path.join(plotting_dir, "confusion_matrix_current.png"), title='Current')
+    labels = ["1p0n", "1p1n", "1pxn", "3p0n", "3pxn"]
+    y_true = np.delete(utc_loader.y_true, 0, axis=1)
+    y_pred = np.delete(utc_loader.y_pred_prev, 0, axis=1)
+    pf.plot_confusion_matrix(y_true, y_pred, labels=labels, saveas=os.path.join(plotting_dir, "confusion_matrix_dmc.png"), title='DMC')
     
     # Plot network outputs
     pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, "NN_output.png"), title='network output')
     
-    tauid_utc_loader.change_cuts("TauJets_truthProng == 1")
-    tauid_rnn_loader.change_cuts("TauJets_truthProng == 1")
+    tauid_utc_loader.change_cuts("TauJets_nTracks == 1")
+    tauid_rnn_loader.change_cuts("TauJets_nTracks == 1")
     pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, "NN_output_1prong.png"), title='network output: 1-prong')
     
-    tauid_utc_loader.change_cuts("TauJets_truthProng == 3")
-    tauid_rnn_loader.change_cuts("TauJets_truthProng == 3")
+    tauid_utc_loader.change_cuts("TauJets_nTracks == 3")
+    tauid_rnn_loader.change_cuts("TauJets_nTracks == 3")
     pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, "NN_output_3prong.png"), title='network output: 3-prong')
 
     tauid_utc_loader.change_cuts(None)
@@ -159,9 +176,9 @@ def visualise(config: DictConfig):
     # Get different ROC for each prongs
     _, ax = pf.create_ROC_plot_template("ROC UTC")
     ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: all prong')
-    tauid_utc_loader.change_cuts("TauJets_truthProng == 1")
+    tauid_utc_loader.change_cuts("TauJets_nTracks == 1")
     ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: 1 prong')
-    tauid_utc_loader.change_cuts("TauJets_truthProng == 3")
+    tauid_utc_loader.change_cuts("TauJets_nTracks == 3")
     ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: 3 prong')
     tauid_utc_loader.change_cuts(None)
     ax.legend()
@@ -171,9 +188,9 @@ def visualise(config: DictConfig):
     
     _, ax = pf.create_ROC_plot_template("ROC TauIDRNN")
     ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: all prong')
-    tauid_rnn_loader.change_cuts("TauJets_truthProng == 1")
+    tauid_rnn_loader.change_cuts("TauJets_nTracks == 1")
     ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: 1 prong')
-    tauid_rnn_loader.change_cuts("TauJets_truthProng == 3")
+    tauid_rnn_loader.change_cuts("TauJets_nTracks == 3")
     ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: 3 prong')
     ax.legend()
     tauid_rnn_loader.change_cuts(None)
@@ -198,9 +215,9 @@ def visualise(config: DictConfig):
         # Get different ROC for each prongs
         _, ax = pf.create_ROC_plot_template("UTC_ROC_wps")
         ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: all prong')
-        tauid_utc_loader.change_cuts(f"(TauJets_truthProng == 1) & ({tauid_utc_cut})")
+        tauid_utc_loader.change_cuts(f"(TauJets_nTracks == 1) & ({tauid_utc_cut})")
         ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: 1 prong')
-        tauid_utc_loader.change_cuts(f"(TauJets_truthProng == 3) & ({tauid_utc_cut})")
+        tauid_utc_loader.change_cuts(f"(TauJets_nTracks == 3) & ({tauid_utc_cut})")
         ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: 3 prong')
         tauid_utc_loader.change_cuts(None)
         ax.legend(title=f'Efficiency = {wp}')
@@ -210,9 +227,9 @@ def visualise(config: DictConfig):
         
         _, ax = pf.create_ROC_plot_template("TauIDRNN_ROC_wps")
         ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: all prong')
-        tauid_rnn_loader.change_cuts(f"(TauJets_truthProng == 1) & ({tauid_rnn_cut})")
+        tauid_rnn_loader.change_cuts(f"(TauJets_nTracks == 1) & ({tauid_rnn_cut})")
         ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: 1 prong')
-        tauid_rnn_loader.change_cuts(f"(TauJets_truthProng == 3) & ({tauid_rnn_cut})")
+        tauid_rnn_loader.change_cuts(f"(TauJets_nTracks == 3) & ({tauid_rnn_cut})")
         ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: 3 prong')
         ax.legend(title=f'Efficiency = {wp}')
         tauid_rnn_loader.change_cuts(None)
@@ -336,9 +353,9 @@ def visualise(config: DictConfig):
         # Get different ROC for each prongs
         _, ax = pf.create_ROC_plot_template("UTC_ROC_wps")
         ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: all prong')
-        tauid_utc_loader.change_cuts(f"(TauJets_truthProng == 1) & ({tauid_utc_cut})")
+        tauid_utc_loader.change_cuts(f"(TauJets_nTracks == 1) & ({tauid_utc_cut})")
         ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: 1 prong')
-        tauid_utc_loader.change_cuts(f"(TauJets_truthProng == 3) & ({tauid_utc_cut})")
+        tauid_utc_loader.change_cuts(f"(TauJets_nTracks == 3) & ({tauid_utc_cut})")
         ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: 3 prong')
         tauid_utc_loader.change_cuts(None)
         ax.legend(title='UTC')
@@ -348,9 +365,9 @@ def visualise(config: DictConfig):
         
         _, ax = pf.create_ROC_plot_template("TauIDRNN_ROC_wps")
         ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: all prong')
-        tauid_rnn_loader.change_cuts(f"(TauJets_truthProng == 1) & ({tauid_rnn_cut})")
+        tauid_rnn_loader.change_cuts(f"(TauJets_nTracks == 1) & ({tauid_rnn_cut})")
         ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: 1 prong')
-        tauid_rnn_loader.change_cuts(f"(TauJets_truthProng == 3) & ({tauid_rnn_cut})")
+        tauid_rnn_loader.change_cuts(f"(TauJets_nTracks == 3) & ({tauid_rnn_cut})")
         ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: 3 prong')
         ax.legend(title='TauID RNN')
         tauid_rnn_loader.change_cuts(None)
@@ -402,7 +419,7 @@ def visualise(config: DictConfig):
             
             cut_hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 1], bins=bins)
             
-            ratio_hist = cut_hist / hist
+            ratio_hist = 1 - cut_hist / hist
             
             bincentres = [(bins[i]+bins[i+1])/2. for i in range(len(bins)-1)]
             ax.step(bincentres, ratio_hist ,where='mid', label=f'WP = {wp}')
