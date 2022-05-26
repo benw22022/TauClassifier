@@ -1,3 +1,4 @@
+from typing import Dict
 import logger
 log = logger.get_logger(__name__)
 import os
@@ -5,10 +6,12 @@ import tqdm
 import glob
 import  source
 from model.models import ModelDSNN
+import omegaconf
 from omegaconf import DictConfig
 import glob
 from hydra.utils import get_original_cwd, to_absolute_path
 from pathlib import Path
+import yaml
 
 
 def get_weights(config: DictConfig) -> str:
@@ -30,6 +33,33 @@ def get_weights(config: DictConfig) -> str:
     return weights_file
 
 
+def set_config_keys(master_config: DictConfig, previous_config: Dict) -> None:
+    """
+    Recursively loop through config and set keys
+    """
+    for k, v in previous_config.items():
+        if isinstance(v, dict):
+            try:
+                set_config_keys(master_config[k], v)
+            except omegaconf.errors.ConfigKeyError:
+                log.warn(f"Could not set key '{k}'. Key not in hydra config")
+        else:
+            try:
+                master_config[k] = v
+            except omegaconf.errors.ConfigKeyError:
+                log.warn(f"Could not set key '{k}'. Key not in hydra config")
+
+
+def load_config(config: DictConfig, run_dir: str) -> None:
+    """
+    Load old model config - in case anything changed
+    """
+    previous_config_path = os.path.join(run_dir, '.hydra', 'config.yaml')
+    with open(previous_config_path, "r") as stream:
+        previous_config = yaml.safe_load(stream)
+        set_config_keys(config, previous_config)
+
+
 def evaluate(config: DictConfig) -> None:
 
     log.info("Running Evaluation")
@@ -45,8 +75,11 @@ def evaluate(config: DictConfig) -> None:
     weights_file = get_weights(config)
     
     run_dir = Path(weights_file).parents[1]
-    output_dir = os.path.join(run_dir, "results")
+    output_dir = os.path.join(run_dir, "results_new")
     os.makedirs(output_dir, exist_ok=True)
+    
+    # Load config
+    load_config(config, run_dir)
 
     # Load model
     model = ModelDSNN(config)
