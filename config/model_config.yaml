@@ -14,19 +14,19 @@ regularization: 'l1l2'
 
 # For TDD (Phi)
 n_inputs:
-  TauTracks: [30,30,20]
-  NeutralPFO: [30,30,20]
-  ShotPFO: [30,30,20]
-  ConvTrack: [30,30,20]
+  TauTracks: [64, 64, 64]
+  NeutralPFO: [64, 64, 64]
+  ShotPFO: [64, 64, 64]
+  ConvTrack: [64, 64, 64]
 
 # for Dense (F)
 n_hiddens:
-  TauTracks: [20,10,5]
-  NeutralPFO: [20,10,5]
-  ShotPFO: [20,10,5]
-  ConvTrack: [20,10,5]
-  TauJets: [20,10,5]
+  TauTracks: [64, 64, 64]
+  NeutralPFO: [64, 64, 64]
+  ShotPFO: [64, 64, 64]
+  ConvTrack: [64, 64, 64]
+  TauJets: [64, 64, 64]
 
 # For fully connected merged layers
-n_dense_merged: [32, 16]
+n_dense_merged: [64, 32]
 n_classes: 6
