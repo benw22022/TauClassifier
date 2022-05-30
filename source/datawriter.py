@@ -48,6 +48,7 @@ class DataWriter(DataLoader):
         y_pred = model.predict(batch)
         if self.config.is_sparse:
             y_pred = sparse_to_onehot(y_pred, self.config.n_classes)
+            y_true = sparse_to_onehot(y_true, self.config.n_classes)
         
         branch_dict["TauClassifier_Scores"] = y_pred
         branch_dict["TauClassifier_isFake"] = y_pred[:, 0]

@@ -21,7 +21,7 @@ def onehot_to_sparse(y_onehot):
 def sparse_to_onehot(y_sparse, nclasses):
     y_onehot = np.zeros((len(y_sparse), nclasses))
     for i, y in enumerate(y_sparse):
-        y_onehot[i][np.round(y)] = 1
+        y_onehot[i][np.round(y).astype(int)] = 1
     return y_onehot
 
 
