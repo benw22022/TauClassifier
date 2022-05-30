@@ -18,6 +18,8 @@ import matplotlib.pyplot as plt
 from omegaconf import DictConfig
 from model import configure_callbacks, ModelDSNN
 from typing import Tuple
+import tensorflow_addons as tfa
+
 
 
 def get_number_of_events(files):
@@ -75,17 +77,8 @@ def train(config: DictConfig) -> Tuple[float]:
                     5: weight_for_3p1n,
                     }
 
-    # Assign output layer bias
-    model.layers[-1].bias.assign([np.log(njets / (total)),
-                                  np.log(n1p0n / (total)),
-                                  np.log(n1p1n / (total)),
-                                  np.log(n1pxn / (total)),
-                                  np.log(n3p0n / (total)),
-                                  np.log(n3pxn / (total)),
-                                  ])
-
-
     opt = tf.keras.optimizers.Adam(config.learning_rate)
+    loss = tfa.losses.SigmoidFocalCrossEntropy()
     model.compile(optimizer=opt, loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()], )
     
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""

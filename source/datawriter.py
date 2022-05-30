@@ -15,7 +15,7 @@ import tqdm
 import uproot
 import awkward as ak
 import numpy as np
-from source.dataloader import DataLoader
+from source.dataloader import DataLoader, sparse_to_onehot
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from omegaconf import DictConfig    
@@ -46,6 +46,9 @@ class DataWriter(DataLoader):
         branch_dict = {}       
         batch, y_true, _ = self.process_batch(self.big_batch)
         y_pred = model.predict(batch)
+        if self.config.is_sparse:
+            y_pred = sparse_to_onehot(y_pred, self.config.n_classes)
+        
         branch_dict["TauClassifier_Scores"] = y_pred
         branch_dict["TauClassifier_isFake"] = y_pred[:, 0]
         branch_dict["TauClassifier_is1p0n"] = y_pred[:, 1]

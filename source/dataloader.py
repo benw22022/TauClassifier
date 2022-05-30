@@ -15,6 +15,16 @@ from omegaconf import DictConfig
 from typing import List, Union, Tuple
 
 
+def onehot_to_sparse(y_onehot):
+    return np.argmax(y_onehot, axis=1)
+
+def sparse_to_onehot(y_sparse, nclasses):
+    y_onehot = np.zeros((len(y_sparse), nclasses))
+    for i, y in enumerate(y_sparse):
+        y_onehot[i][round(y)] = 1
+    return y_onehot
+
+
 class DataLoader:
 
     def __init__(self, files: List[str], config: DictConfig, batch_size: int=0, step_size: Union[str, int]='5 GB', name: str='DataLoader', cuts: str=None) -> None:
@@ -145,9 +155,13 @@ class DataLoader:
         shot_pfo = self.build_array(batch,"ShotPFO")
         conv_tracks = self.build_array(batch,"ConvTrack")
         jets = self.build_array(batch,"TauJets")
-
+            
+        
         labels = ak.to_numpy(batch[self.config.Label])
         weights = ak.to_numpy(batch[self.config.Weight])
+        
+        if self.config.is_sparse:
+            labels = onehot_to_sparse(labels)
 
         return (tracks, neutral_pfo, shot_pfo, conv_tracks, jets), labels, weights
 
