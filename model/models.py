@@ -43,9 +43,9 @@ def ModelDSNN(config: DictConfig):
         merged = Activation(activation, name=f"merged_dense_activation_{i}")(merged)
         merged = Dropout(config.dropout, name=f"merged_dropout_{i}")(merged)
 
-    if config.is_sparse:
-        y = Dense(1, activation="relu", name='output')(merged)
-    else:
-        y = Dense(config.n_classes, activation="softmax", name='output')(merged)
+    # if config.is_sparse:
+    #     y = Dense(1, activation="relu", name='output')(merged)
+    # else:
+    y = Dense(config.n_classes, activation="softmax", name='output')(merged)
 
     return Model(inputs=[x_1, x_2, x_3, x_4, x_5], outputs=y)

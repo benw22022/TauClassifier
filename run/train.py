@@ -91,7 +91,7 @@ def train(config: DictConfig) -> Tuple[float]:
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     history = model.fit(training_generator, epochs=config.epochs, 
-                        class_weight=class_weight, 
+                        # class_weight=class_weight, 
                         callbacks=callbacks,
                         validation_data=validation_generator, validation_freq=1, 
                         verbose=1, steps_per_epoch=len(training_generator),
