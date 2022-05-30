@@ -35,7 +35,7 @@ def invalid_run_mode(cfg: DictConfig) -> None:
     returns:
         None
     """
-    log.fatal(f"Run mode: {cfg.run} not recognised! Available modes are {RUN_DICT.keys()}")
+    log.fatal(f"Run mode: {cfg.run} not recognised! Available modes are {list(RUN_DICT.keys())}")
     sys.exit(1)
 
 @hydra.main(config_path="config", config_name="config")
