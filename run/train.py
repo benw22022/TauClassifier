@@ -19,6 +19,7 @@ from omegaconf import DictConfig
 from model import configure_callbacks, ModelDSNN
 from typing import Tuple
 import tensorflow_addons as tfa
+import focal_loss
 
 
 
@@ -78,7 +79,8 @@ def train(config: DictConfig) -> Tuple[float]:
                     }
 
     opt = tf.keras.optimizers.Nadam(config.learning_rate)
-    loss = tfa.losses.SigmoidFocalCrossEntropy(reduction=tf.keras.losses.Reduction.AUTO)
+    # loss = tfa.losses.SigmoidFocalCrossEntropy(reduction=tf.keras.losses.Reduction.AUTO, alpha=config.alpha, gamma=config.gamma)
+    loss = focal_loss.SparseCategoricalFocalLoss(gamma=config.gamma, class_weight=list(class_weight.values()))
     
     acc_metric = tf.keras.metrics.CategoricalAccuracy()
     if config.is_sparse:
