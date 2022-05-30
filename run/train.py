@@ -78,8 +78,13 @@ def train(config: DictConfig) -> Tuple[float]:
                     }
 
     opt = tf.keras.optimizers.Nadam(config.learning_rate)
-    loss = tfa.losses.SigmoidFocalCrossEntropy()
-    model.compile(optimizer=opt, loss=loss, metrics=[tf.keras.metrics.CategoricalAccuracy()], )
+    loss = tfa.losses.SigmoidFocalCrossEntropy(reduction=tf.keras.losses.Reduction.AUTO)
+    
+    acc_metric = tf.keras.metrics.CategoricalAccuracy()
+    if config.is_sparse:
+        acc_metric = tf.keras.metrics.SparseCategoricalAccuracy()
+    
+    model.compile(optimizer=opt, loss=loss, metrics=[acc_metric], )
     
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Train Model

@@ -45,7 +45,6 @@ def ModelDSNN(config: DictConfig):
 
     if config.is_sparse:
         y = Dense(1, activation="relu", name='output')(merged)
-    
     else:
         y = Dense(config.n_classes, activation="softmax", name='output')(merged)
 

@@ -66,7 +66,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         y_batch = np.concatenate([result[1] for result in batch])
         weight_batch = np.concatenate([result[2] for result in batch])
-
+        
         return x_batch, y_batch, weight_batch
     
     def __len__(self) -> int:

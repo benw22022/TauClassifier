@@ -16,12 +16,12 @@ from typing import List, Union, Tuple
 
 
 def onehot_to_sparse(y_onehot):
-    return np.argmax(y_onehot, axis=1)
+    return np.argmax(y_onehot, axis=1) #.reshape(len(y_onehot), 1)
 
 def sparse_to_onehot(y_sparse, nclasses):
     y_onehot = np.zeros((len(y_sparse), nclasses))
     for i, y in enumerate(y_sparse):
-        y_onehot[i][round(y)] = 1
+        y_onehot[i][np.round(y)] = 1
     return y_onehot
 
 
@@ -162,6 +162,7 @@ class DataLoader:
         
         if self.config.is_sparse:
             labels = onehot_to_sparse(labels)
+            # log.error(labels) 
 
         return (tracks, neutral_pfo, shot_pfo, conv_tracks, jets), labels, weights
 
