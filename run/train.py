@@ -77,9 +77,9 @@ def train(config: DictConfig) -> Tuple[float]:
                     5: weight_for_3p1n,
                     }
 
-    opt = tf.keras.optimizers.Adam(config.learning_rate)
+    opt = tf.keras.optimizers.Nadam(config.learning_rate)
     loss = tfa.losses.SigmoidFocalCrossEntropy()
-    model.compile(optimizer=opt, loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()], )
+    model.compile(optimizer=opt, loss=loss, metrics=[tf.keras.metrics.CategoricalAccuracy()], )
     
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     Train Model
