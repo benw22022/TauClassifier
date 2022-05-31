@@ -63,12 +63,12 @@ def train(config: DictConfig) -> Tuple[float]:
     njets, n1p0n, n1p1n,  n1pxn, n3p0n, n3pxn = get_number_of_events(tau_files + jet_files)
     total = njets + n1p0n + n1p1n + n1pxn + n3p0n + n3pxn   
 
-    weight_for_jets = (1 / njets) * (total / 2.0)
-    weight_for_1p0n = (1 / n1p0n) * (total / 2.0)
-    weight_for_1p1n = (1 / n1p1n) * (total / 2.0)
-    weight_for_1pxn = (1 / n1pxn) * (total / 2.0)
-    weight_for_3p0n = (1 / n3p0n) * (total / 2.0)
-    weight_for_3p1n = (1 / n3pxn) * (total / 2.0)
+    weight_for_jets = (1 / njets) * (total / 2.0) / 2
+    weight_for_1p0n = (1 / n1p0n) * (total / 2.0) / 1.5
+    weight_for_1p1n = (1 / n1p1n) * (total / 2.0) / 1.5
+    weight_for_1pxn = (1 / n1pxn) * (total / 2.0) * 2
+    weight_for_3p0n = (1 / n3p0n) * (total / 2.0) 
+    weight_for_3p1n = (1 / n3pxn) * (total / 2.0) * 2
 
     class_weight = {0: weight_for_jets,
                     1: weight_for_1p0n,
@@ -117,8 +117,8 @@ def train(config: DictConfig) -> Tuple[float]:
     
     # Accuracy history
     fig, ax = plt.subplots()
-    ax.plot(history.history['categorical_accuracy'], label='train')
-    ax.plot(history.history['val_categorical_accuracy'], label='val')
+    ax.plot(history.history[acc_metric.name], label='train')
+    ax.plot(history.history[f'val_{acc_metric.name}'], label='val')
     ax.set_xlabel('Epochs')
     ax.set_ylabel('Categorical Accuracy')
     ax.legend()
