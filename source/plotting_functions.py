@@ -98,8 +98,8 @@ def plot_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, weights: np.nd
 	"""
 	Function to plot confusion matrix
 	Makes two plots:
-		One where columns are normalised to unity (Each cell corresponds to purity)
-		One where rows are normalised to unity (Each cell corresponds to efficiency)
+		One where columns are normalised to unity (Each cell corresponds to efficiency)
+		One where rows are normalised to unity (Each cell corresponds to purity)
 	
 	:param y_pred: Array of neural network predictions
 	:param y_true: Correspondin array of truth data
@@ -116,27 +116,27 @@ def plot_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, weights: np.nd
 	conf_matrix = make_confusion_matrix(y_pred, y_true, weights)
 
 	# Normalise entries to unity
-	purity_matrix = conf_matrix / (conf_matrix.sum(axis=0, keepdims=1) + 1e-12)        # nomalise columns to unity
-	efficiency_matrix = conf_matrix / (conf_matrix.sum(axis=1, keepdims=1) + 1e-12)    # nomalise rows to unity
+	efficiency_matrix = conf_matrix / (conf_matrix.sum(axis=0, keepdims=1) + 1e-12)        # nomalise columns to unity
+	purity_matrix = conf_matrix / (conf_matrix.sum(axis=1, keepdims=1) + 1e-12)    # nomalise rows to unity
 	
-	efficiency_matrix = np.nan_to_num(efficiency_matrix, posinf=0, neginf=0, copy=False).astype("float32")
 	purity_matrix = np.nan_to_num(purity_matrix, posinf=0, neginf=0, copy=False).astype("float32")
+	efficiency_matrix = np.nan_to_num(efficiency_matrix, posinf=0, neginf=0, copy=False).astype("float32")
 
 	fig, (ax1, ax2) = plt.subplots(1,2, figsize=(40,15))
 
 	xticklabels = labels
 	yticklabels = labels
-	sns.heatmap(efficiency_matrix, annot=True, cmap="Oranges", xticklabels=xticklabels, yticklabels=yticklabels,
-						fmt=".2", vmin=0, vmax=1, ax=ax1, annot_kws={"size": 35 / np.sqrt(len(efficiency_matrix))},)
 	sns.heatmap(purity_matrix, annot=True, cmap="Oranges", xticklabels=xticklabels, yticklabels=yticklabels,
-						fmt=".2", vmin=0, vmax=1, ax=ax2, annot_kws={"size": 35 / np.sqrt(len(purity_matrix))},)
+						fmt=".2", vmin=0, vmax=1, ax=ax1, annot_kws={"size": 35 / np.sqrt(len(purity_matrix))},)
+	sns.heatmap(efficiency_matrix, annot=True, cmap="Oranges", xticklabels=xticklabels, yticklabels=yticklabels,
+						fmt=".2", vmin=0, vmax=1, ax=ax2, annot_kws={"size": 35 / np.sqrt(len(efficiency_matrix))},)
 	# sns.set(font_scale=8) #! Don't do this! Messes with all subsequent plots
 	ax1.set_xlabel("Truth", fontsize=18)
 	ax1.set_ylabel("Prediction", fontsize=18)
 	ax2.set_xlabel("Truth", fontsize=18)
 	ax2.set_ylabel("Prediction", fontsize=18)
-	ax1.set_title(f"Diagonal Score = {get_diag_score(efficiency_matrix):.2f} Efficiency: {title}", loc='right', fontsize=12)
-	ax2.set_title(f"Diagonal Score = {get_diag_score(purity_matrix):.2f} Purity: {title}", loc='right', fontsize=12)
+	ax1.set_title(f"Diagonal Score = {get_diag_score(purity_matrix):.2f} Purity: {title}", loc='right', fontsize=12)
+	ax2.set_title(f"Diagonal Score = {get_diag_score(efficiency_matrix):.2f} Efficiency: {title}", loc='right', fontsize=12)
 	fig.suptitle(title, fontsize=9)
 	if saveas is None:
 		save_name = os.path.join("plots", "confusion_matrix.png")
@@ -162,7 +162,7 @@ def plot_1_and_3_prong_ROC(data_1prong, data_3prong, title="ROC curve", saveas=N
 	#plt.plot(fpr_keras, tpr_keras, label='Keras (AUC = {:.3f})'.format(auc_keras))
 	ax.plot(eff_1prong, rej_1prong, label="1-Prong")
 	ax.plot(eff_3prong, rej_3prong, label="3-Prong")
-	ax.set_xlabel('Signal Efficiency')
+	ax.set_xlabel('Signal efficiency')
 	ax.set_ylabel('Background Rejection')
 	ax.set_ylim(1e0, 1e4)
 	ax.set_yscale("log")
@@ -178,7 +178,7 @@ def create_ROC_plot_template(name=None):
 	Create a template matplotlib figure for plotting ROC curves
 	"""
 	fig, ax = plt.subplots()
-	ax.set_xlabel('Signal Efficiency')
+	ax.set_xlabel('Signal purity')
 	ax.set_ylabel('Background Rejection')
 	ax.set_ylim(1e0, 1e4)
 	ax.set_yscale("log")
