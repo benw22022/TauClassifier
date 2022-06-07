@@ -8,17 +8,16 @@ python3 tauclassifier.py batch_size=524
 python3 tauclassifier.py run_mode=evaluate
 """
 
+import logger
+log = logger.get_logger(__name__)
 import os
 import sys
 import glob
-import logger
-log = logger.get_logger(__name__)
+import logging
 import run
 import hydra
-import matplotlib
-import traceback
 from omegaconf import DictConfig
-import tensorflow as tf
+
 
 # Dictionary of run arguements mapped to corresponding function
 RUN_DICT = {'train': run.train,
@@ -26,6 +25,11 @@ RUN_DICT = {'train': run.train,
             'visualise': run.visualise,
             'rank': run.feature_rank,
             }
+
+LOG_LEVELS = {'DEBUG': logging.DEBUG,
+              'INFO': logging.INFO,
+              'WARNING': logging.WARNING,
+              'CRITICAL': logging.CRITICAL}
 
 def invalid_run_mode(cfg: DictConfig) -> None:
     """
@@ -37,6 +41,7 @@ def invalid_run_mode(cfg: DictConfig) -> None:
     """
     log.fatal(f"Run mode: {cfg.run} not recognised! Available modes are {list(RUN_DICT.keys())}")
     sys.exit(1)
+
 
 @hydra.main(config_path="config", config_name="config")
 def unified_tau_classifier(config: DictConfig) -> None:
@@ -52,8 +57,8 @@ def unified_tau_classifier(config: DictConfig) -> None:
     if not config.use_gpu:
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = config.tf_log_level 
-    os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = config.allow_gpu_growth
-
+    os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = config.allow_gpu_growth    
+    
     # Check that files can be found (saves time if they can't be found)
     tau_files = glob.glob(config.TauFiles)
     jet_files = glob.glob(config.FakeFiles)
@@ -66,7 +71,7 @@ def unified_tau_classifier(config: DictConfig) -> None:
         RUN_DICT.get(config.run, invalid_run_mode)(config)
         sys.exit(0)
     except Exception:
-        log.fatal(traceback.format_exc())
+        log.exception("An error occured!")
         sys.exit(1)
     
 if __name__ == "__main__":
