@@ -5,6 +5,8 @@ defaults:
   - model_config.yaml
   - training_config.yaml
   - testing_config.yaml
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
 
 # Hydra specific
 # TODO: Add help message
@@ -17,8 +19,6 @@ hydra:
       outputs/${run}_output/${now:%Y-%m-%d_%H-%M-%S}
 
 # Logging settings
-# TODO: actually implement this
-log_level: DEBUG
 tf_log_level: '1'
 
 # Run mode
@@ -31,6 +31,7 @@ step_size: 5 GB  # sets memory used by dataloaders
 TauFiles:  /home/bewilson/split_NTuples/*Gammatautau*/*.root
 FakeFiles: /home/bewilson/split_NTuples/*JZ*/*.root
 
+# Fraction of data to run on e.g. fraction=0.1 -> 10% of data
 fraction: 1
 
 # Cuts
