@@ -35,7 +35,7 @@ def get_number_of_events(files):
 def train(config: DictConfig) -> Tuple[float]:
 
     log.info("Running training")
-
+    
     # Initialise Ray
     ray.init(runtime_env={"py_modules": [source, run, logger]})
 
@@ -61,14 +61,20 @@ def train(config: DictConfig) -> Tuple[float]:
     # Following steps in: https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
     # Compute class weights 
     njets, n1p0n, n1p1n,  n1pxn, n3p0n, n3pxn = get_number_of_events(tau_files + jet_files)
-    total = njets + n1p0n + n1p1n + n1pxn + n3p0n + n3pxn   
-
-    weight_for_jets = (1 / njets) * (total / 2.0) / 2
-    weight_for_1p0n = (1 / n1p0n) * (total / 2.0) / 1.5
-    weight_for_1p1n = (1 / n1p1n) * (total / 2.0) / 1.5
-    weight_for_1pxn = (1 / n1pxn) * (total / 2.0) * 2
-    weight_for_3p0n = (1 / n3p0n) * (total / 2.0) 
-    weight_for_3p1n = (1 / n3pxn) * (total / 2.0) * 2
+    total = njets + n1p0n + n1p1n + n1pxn + n3p0n + n3pxn
+    log.debug(f"# fakes = {njets}")
+    log.debug(f"# 1p0n = {n1p0n}")
+    log.debug(f"# 1p1n = {n1p1n}")
+    log.debug(f"# 1pxn = {n1pxn}")
+    log.debug(f"# 3p0n = {n3p0n}")
+    log.debug(f"# 3pxn = {n3pxn}")
+    
+    weight_for_jets = (1 / njets) * (total / 2.0)
+    weight_for_1p0n = (1 / n1p0n) * (total / 2.0)
+    weight_for_1p1n = (1 / n1p1n) * (total / 2.0)
+    weight_for_1pxn = (1 / n1pxn) * (total / 2.0)
+    weight_for_3p0n = (1 / n3p0n) * (total / 2.0)
+    weight_for_3p1n = (1 / n3pxn) * (total / 2.0)
 
     class_weight = {0: weight_for_jets,
                     1: weight_for_1p0n,
@@ -78,7 +84,7 @@ def train(config: DictConfig) -> Tuple[float]:
                     5: weight_for_3p1n,
                     }
 
-    opt = tf.keras.optimizers.Nadam(config.learning_rate)
+    opt = tf.keras.optimizers.Nadam(config.learning_rate, epsilon=config.epsilon)
     # loss = tfa.losses.SigmoidFocalCrossEntropy(reduction=tf.keras.losses.Reduction.AUTO, alpha=config.alpha, gamma=config.gamma)
     loss = focal_loss.SparseCategoricalFocalLoss(gamma=config.gamma, class_weight=list(class_weight.values()))
     
@@ -127,7 +133,7 @@ def train(config: DictConfig) -> Tuple[float]:
     # Return best validation loss and accuracy
     best_val_loss_epoch = np.argmin(history.history["val_loss"])
     best_val_loss = history.history["val_loss"][best_val_loss_epoch]
-    best_val_acc = history.history["val_categorical_accuracy"][best_val_loss_epoch]
+    best_val_acc = history.history[acc_metric.name][best_val_loss_epoch]
 
     log.info(f"Best epoch was {best_val_loss_epoch}\tloss: {best_val_loss:.3f}\tAccuracy: {best_val_acc:.2f}")
 
