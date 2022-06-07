@@ -75,7 +75,7 @@ def evaluate(config: DictConfig) -> None:
     weights_file = get_weights(config)
     
     run_dir = Path(weights_file).parents[1]
-    output_dir = os.path.join(run_dir, "results_new")
+    output_dir = os.path.join(run_dir, "results")
     os.makedirs(output_dir, exist_ok=True)
     
     # Load config
