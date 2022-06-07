@@ -46,7 +46,6 @@ class DataWriter(DataLoader):
         branch_dict = {}       
         batch, y_true, _ = self.process_batch(self.big_batch)
         y_pred = model.predict(batch)
-        log.error(y_pred)
         if self.config.is_sparse:
             y_true = sparse_to_onehot(y_true, self.config.n_classes)
         
