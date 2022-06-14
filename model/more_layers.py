@@ -1,4 +1,8 @@
 import tensorflow as tf
+from tensorflow.keras.layers import Dense, Layer, Activation, BatchNormalization
+from tensorflow import repeat
+
+# import tensorflow as tf
 
 
 # https://www.tensorflow.org/tutorials/text/transformer, appears in "Attention is all you need" NIPS 2018 paper
@@ -27,8 +31,8 @@ def scaled_dot_product_attention(q, k, v, mask):
     scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)
 
     # add the mask to the scaled tensor.
-    # if mask is not None:
-    #     scaled_attention_logits += float((int(mask) * -1000000))
+    if mask is not None:
+        scaled_attention_logits += (mask * -1e9)
 
     # softmax is normalized on the last axis (seq_len_k) so that the scores
     # add up to 1.
@@ -87,3 +91,63 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         output = self.dense(concat_attention)  # (batch_size, seq_len_q, d_model)
 
         return output
+
+class RFF(tf.keras.layers.Layer):
+    """
+    Row-wise FeedForward layers.
+    """
+    def __init__(self, d):
+        super(RFF, self).__init__()
+        self.linear_1 = Dense(d, activation='relu')
+        self.linear_2 = Dense(d, activation='relu')
+        self.linear_3 = Dense(d, activation='relu')
+    def call(self, x):
+        """
+        Arguments:
+            x: a float tensor with shape [b, n, d].
+        Returns:
+            a float tensor with shape [b, n, d].
+        """
+        return self.linear_3(self.linear_2(self.linear_1(x)))
+
+
+class PoolingMultiHeadAttention(tf.keras.layers.Layer):
+    def __init__(self, d: int, k: int, h: int, rff: RFF, rff_s: RFF):
+        """
+        Arguments:
+            d: an integer, input dimension.
+            k: an integer, number of seed vectors.
+            h: an integer, number of heads.
+            rff: a module, row-wise feedforward layers.
+                It takes a float tensor with shape [b, n, d] and
+                returns a float tensor with the same shape.
+        """
+        super(PoolingMultiHeadAttention, self).__init__()
+        self.mab = MultiHeadAttention(d, h, rff)
+        self.seed_vectors = tf.random.normal(shape=(1, k, d))
+        self.rff_s = rff_s
+    @tf.function
+    def call(self, z):
+        """
+        Arguments:
+            z: a float tensor with shape [b, n, d].
+        Returns:
+            a float tensor with shape [b, k, d]
+        """
+        b = tf.shape(z)[0]
+        s = self.seed_vectors
+        s = repeat(s, (b), axis=0)  # shape [b, k, d]
+        return self.mab(s, self.rff_s(z))
+    
+class SetAttentionBlock(tf.keras.layers.Layer):
+    def __init__(self, d: int, h: int, rff: RFF):
+        super(SetAttentionBlock, self).__init__()
+        self.mab = MultiHeadAttention(d, h, rff)
+    def call(self, x):
+        """
+        Arguments:
+            x: a float tensor with shape [b, n, d].
+        Returns:
+            a float tensor with shape [b, n, d].
+        """
+        return self.mab(x, x)

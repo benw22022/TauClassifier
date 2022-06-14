@@ -6,7 +6,7 @@ import os
 import glob
 import uproot
 
-NTUPLE_DIR = "../NTuples"
+NTUPLE_DIR = "../split_NTuples"
 
 def get_breakdown(files):
 

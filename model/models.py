@@ -5,10 +5,10 @@ This is basically Bowen's Tau Decay Mode Classifier with an extra branch for Tau
 """
 
 import tensorflow as tf
-from tensorflow.keras.layers import Activation, Dense, Concatenate, Dropout
+from tensorflow.keras.layers import Activation, Dense, Concatenate, Dropout, BatchNormalization
 from tensorflow.keras import Model
 from model.regularizers import OrthogonalRegularizer
-from model.layers import create_deepset_input, create_dense_input
+from model.layers import create_deepset_input, create_dense_input, create_attn_deepset_input
 from omegaconf import DictConfig
 
 
@@ -28,10 +28,10 @@ def ModelDSNN(config: DictConfig):
     activation = config.activation
 
     # Create input branches
-    x_1, b_1 = create_deepset_input(config, 'TauTracks', regularizer=orth_regularizer, activation=activation)
-    x_2, b_2 = create_deepset_input(config, "NeutralPFO", regularizer=orth_regularizer, activation=activation)
-    x_3, b_3 = create_deepset_input(config, "ShotPFO", regularizer=orth_regularizer, activation=activation)
-    x_4, b_4 = create_deepset_input(config, "ConvTrack", regularizer=orth_regularizer, activation=activation)
+    x_1, b_1 = create_attn_deepset_input(config, 'TauTracks', regularizer=orth_regularizer, activation=activation)
+    x_2, b_2 = create_attn_deepset_input(config, "NeutralPFO", regularizer=orth_regularizer, activation=activation)
+    x_3, b_3 = create_attn_deepset_input(config, "ShotPFO", regularizer=orth_regularizer, activation=activation)
+    x_4, b_4 = create_attn_deepset_input(config, "ConvTrack", regularizer=orth_regularizer, activation=activation)
     x_5, b_5 = create_dense_input(config, "TauJets", regularizer=regularizer, activation=activation)
    
     # Concatenate inputs
@@ -42,7 +42,8 @@ def ModelDSNN(config: DictConfig):
         merged = Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer, name=f"merged_dense_{i}-{n}")(merged)
         merged = Activation(activation, name=f"merged_dense_activation_{i}")(merged)
         merged = Dropout(config.dropout, name=f"merged_dropout_{i}")(merged)
-
+        merged = BatchNormalization(name=f"batchnorm_merged_{i}")(merged)
+        
     # if config.is_sparse:
     #     y = Dense(1, activation="relu", name='output')(merged)
     # else:
