@@ -17,6 +17,8 @@ epochs: 200
 is_sparse: True
 alpha: [0.1, 0.1, 0.15, 0.2, 0.2, 0.25]
 gamma: 2 # [1, 2, 3, 3, 2.5, 3]
+epsilon: 1e-7
+momentum: 0.0
 
 # Callbacks
 callbacks:

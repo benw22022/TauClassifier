@@ -84,9 +84,14 @@ def train(config: DictConfig) -> Tuple[float]:
                     5: weight_for_3p1n,
                     }
 
-    opt = tf.keras.optimizers.Nadam(config.learning_rate, epsilon=config.epsilon)
+    # opt = tf.keras.optimizers.Nadam(config.learning_rate, epsilon=config.epsilon)
+    # opt = tf.keras.optimizers.SGD(learning_rate=0.01, momentum=config.momentum)
+    # opt = tf.keras.optimizers.RMSprop(config.learning_rate)
+    opt = tf.keras.optimizers.Adam(config.learning_rate, epsilon=config.epsilon)
+    # opt = tf.keras.optimizers.Ftrl(config.learning_rate)
     # loss = tfa.losses.SigmoidFocalCrossEntropy(reduction=tf.keras.losses.Reduction.AUTO, alpha=config.alpha, gamma=config.gamma)
     loss = focal_loss.SparseCategoricalFocalLoss(gamma=config.gamma, class_weight=list(class_weight.values()))
+    # loss =  tf.keras.losses.SparseCategoricalCrossentropy()
     
     acc_metric = tf.keras.metrics.CategoricalAccuracy()
     if config.is_sparse:
@@ -99,7 +104,7 @@ def train(config: DictConfig) -> Tuple[float]:
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     history = model.fit(training_generator, epochs=config.epochs, 
-                        # class_weight=class_weight, 
+                        # class_weight=class_weight,
                         callbacks=callbacks,
                         validation_data=validation_generator, validation_freq=1, 
                         verbose=1, steps_per_epoch=len(training_generator),
