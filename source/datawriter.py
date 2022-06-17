@@ -75,6 +75,10 @@ class DataWriter(DataLoader):
             ak.to_numpy(branch_dict["TauJets_is3p0n"]),
             ak.to_numpy(branch_dict["TauJets_is3pxn"])])
         branch_dict["TauClassifier_previousScores"] = combined_scores
+        
+        log.debug(f"Writing output file {output_file}:tree with branches")
+        for key in branch_dict:
+            log.debug(f"\t- {key}")
 
         # Write branches to tree
         outfile["tree"] = branch_dict
