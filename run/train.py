@@ -85,7 +85,7 @@ def train(config: DictConfig) -> Tuple[float]:
                                   ])
 
 
-    opt = tf.keras.optimizers.Adam(config.learning_rate)
+    opt = tf.keras.optimizers.Adam(config.learning_rate, epsilon=config.epsilon)
     model.compile(optimizer=opt, loss="categorical_crossentropy", metrics=[tf.keras.metrics.CategoricalAccuracy()], )
     
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
