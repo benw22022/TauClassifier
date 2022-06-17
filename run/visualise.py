@@ -155,19 +155,30 @@ def visualise(config: DictConfig):
     pf.plot_confusion_matrix(utc_loader.y_true, utc_loader.y_pred, saveas=os.path.join(plotting_dir, "confusion_matrix.png"), title='UTC')
     pf.plot_confusion_matrix(utc_loader.y_true, utc_loader.y_pred_prev, saveas=os.path.join(plotting_dir, "confusion_matrix_current.png"), title='Current')
     labels = ["1p0n", "1p1n", "1pxn", "3p0n", "3pxn"]
+    
     y_true = np.delete(utc_loader.y_true, 0, axis=1)
     y_pred = np.delete(utc_loader.y_pred_prev, 0, axis=1)
     pf.plot_confusion_matrix(y_true, y_pred, labels=labels, saveas=os.path.join(plotting_dir, "confusion_matrix_dmc.png"), title='DMC')
     
+    utc_loader.change_cuts("TauJets_isRNNJetIDMedium == 1")
+    y_true = np.delete(utc_loader.y_true, 0, axis=1)
+    y_pred = np.delete(utc_loader.y_pred_prev, 0, axis=1)
+    pf.plot_confusion_matrix(y_true, y_pred, labels=labels, saveas=os.path.join(plotting_dir, "confusion_matrix_dmc_tauID_medium.png"), title='DMC')
+    
+    y_true = np.delete(utc_loader.y_true, 0, axis=1)
+    y_pred = np.delete(utc_loader.y_pred, 0, axis=1)
+    pf.plot_confusion_matrix(y_true, y_pred, labels=labels, saveas=os.path.join(plotting_dir, "confusion_matrix_UTC_tauID_medium.png"), title='UTC')
+    
+    
     # Plot network outputs
     pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, "NN_output.png"), title='network output')
     
-    tauid_utc_loader.change_cuts("TauJets_truthProng == 1")
-    tauid_rnn_loader.change_cuts("TauJets_truthProng == 1")
+    tauid_utc_loader.change_cuts("TauJets_nTracks == 1")
+    tauid_rnn_loader.change_cuts("TauJets_nTracks == 1")
     pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, "NN_output_1prong.png"), title='network output: 1-prong')
     
-    tauid_utc_loader.change_cuts("TauJets_truthProng == 3")
-    tauid_rnn_loader.change_cuts("TauJets_truthProng == 3")
+    tauid_utc_loader.change_cuts("TauJets_nTracks == 3")
+    tauid_rnn_loader.change_cuts("TauJets_nTracks == 3")
     pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, "NN_output_3prong.png"), title='network output: 3-prong')
 
     tauid_utc_loader.change_cuts(None)
@@ -176,9 +187,9 @@ def visualise(config: DictConfig):
     # Get different ROC for each prongs
     _, ax = pf.create_ROC_plot_template("ROC UTC")
     ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: all prong')
-    tauid_utc_loader.change_cuts("TauJets_truthProng == 1")
+    tauid_utc_loader.change_cuts("TauJets_nTracks == 1")
     ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: 1 prong')
-    tauid_utc_loader.change_cuts("TauJets_truthProng == 3")
+    tauid_utc_loader.change_cuts("TauJets_nTracks == 3")
     ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: 3 prong')
     tauid_utc_loader.change_cuts(None)
     ax.legend()
@@ -188,9 +199,9 @@ def visualise(config: DictConfig):
     
     _, ax = pf.create_ROC_plot_template("ROC TauIDRNN")
     ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: all prong')
-    tauid_rnn_loader.change_cuts("TauJets_truthProng == 1")
+    tauid_rnn_loader.change_cuts("TauJets_nTracks == 1")
     ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: 1 prong')
-    tauid_rnn_loader.change_cuts("TauJets_truthProng == 3")
+    tauid_rnn_loader.change_cuts("TauJets_nTracks == 3")
     ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: 3 prong')
     ax.legend()
     tauid_rnn_loader.change_cuts(None)
@@ -215,9 +226,9 @@ def visualise(config: DictConfig):
         # Get different ROC for each prongs
         _, ax = pf.create_ROC_plot_template("UTC_ROC_wps")
         ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: all prong')
-        tauid_utc_loader.change_cuts(f"(TauJets_truthProng == 1) & ({tauid_utc_cut})")
+        tauid_utc_loader.change_cuts(f"(TauJets_nTracks == 1) & ({tauid_utc_cut})")
         ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: 1 prong')
-        tauid_utc_loader.change_cuts(f"(TauJets_truthProng == 3) & ({tauid_utc_cut})")
+        tauid_utc_loader.change_cuts(f"(TauJets_nTracks == 3) & ({tauid_utc_cut})")
         ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: 3 prong')
         tauid_utc_loader.change_cuts(None)
         ax.legend(title=f'Efficiency = {wp}')
@@ -227,9 +238,9 @@ def visualise(config: DictConfig):
         
         _, ax = pf.create_ROC_plot_template("TauIDRNN_ROC_wps")
         ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: all prong')
-        tauid_rnn_loader.change_cuts(f"(TauJets_truthProng == 1) & ({tauid_rnn_cut})")
+        tauid_rnn_loader.change_cuts(f"(TauJets_nTracks == 1) & ({tauid_rnn_cut})")
         ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: 1 prong')
-        tauid_rnn_loader.change_cuts(f"(TauJets_truthProng == 3) & ({tauid_rnn_cut})")
+        tauid_rnn_loader.change_cuts(f"(TauJets_nTracks == 3) & ({tauid_rnn_cut})")
         ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: 3 prong')
         ax.legend(title=f'Efficiency = {wp}')
         tauid_rnn_loader.change_cuts(None)
@@ -353,9 +364,9 @@ def visualise(config: DictConfig):
         # Get different ROC for each prongs
         _, ax = pf.create_ROC_plot_template("UTC_ROC_wps")
         ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: all prong')
-        tauid_utc_loader.change_cuts(f"(TauJets_truthProng == 1) & ({tauid_utc_cut})")
+        tauid_utc_loader.change_cuts(f"(TauJets_nTracks == 1) & ({tauid_utc_cut})")
         ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: 1 prong')
-        tauid_utc_loader.change_cuts(f"(TauJets_truthProng == 3) & ({tauid_utc_cut})")
+        tauid_utc_loader.change_cuts(f"(TauJets_nTracks == 3) & ({tauid_utc_cut})")
         ax.plot(*tauid_utc_loader.get_eff_rej(), label='UTC: 3 prong')
         tauid_utc_loader.change_cuts(None)
         ax.legend(title='UTC')
@@ -365,9 +376,9 @@ def visualise(config: DictConfig):
         
         _, ax = pf.create_ROC_plot_template("TauIDRNN_ROC_wps")
         ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: all prong')
-        tauid_rnn_loader.change_cuts(f"(TauJets_truthProng == 1) & ({tauid_rnn_cut})")
+        tauid_rnn_loader.change_cuts(f"(TauJets_nTracks == 1) & ({tauid_rnn_cut})")
         ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: 1 prong')
-        tauid_rnn_loader.change_cuts(f"(TauJets_truthProng == 3) & ({tauid_rnn_cut})")
+        tauid_rnn_loader.change_cuts(f"(TauJets_nTracks == 3) & ({tauid_rnn_cut})")
         ax.plot(*tauid_rnn_loader.get_eff_rej(), label='TauIDRNN: 3 prong')
         ax.legend(title='TauID RNN')
         tauid_rnn_loader.change_cuts(None)
