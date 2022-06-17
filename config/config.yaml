@@ -5,6 +5,8 @@ defaults:
   - model_config.yaml
   - training_config.yaml
   - testing_config.yaml
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
 
 # Hydra specific
 # TODO: Add help message
