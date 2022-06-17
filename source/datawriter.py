@@ -7,10 +7,13 @@ This class differs from DataLoader in that it uses uproot.concatenate
 instead of uproot.iterate
 """
 
+import logger
+log = logger.get_logger(__name__)
 import os
 import ray
 import tqdm
 import uproot
+import awkward as ak
 import numpy as np
 from source.dataloader import DataLoader
 import tensorflow as tf
@@ -19,7 +22,7 @@ from omegaconf import DictConfig
 
 class DataWriter(DataLoader):
     
-    def __init__(self, file: str, config: DictConfig) -> None:
+    def __init__(self, file: str, config: DictConfig, cuts: str=None) -> None:
         super().__init__((file,), config, batch_size=256, step_size='1 GB')
 
         """
@@ -31,7 +34,8 @@ class DataWriter(DataLoader):
             config: DictConfig - A global config dict from Hydra
         """
         self.file = file
-        self.big_batch = uproot.concatenate(file, filter_name=self.features)
+        self.cuts = cuts
+        self.big_batch = uproot.concatenate(file, filter_name=self.features, cut=self.cuts)
 
     def write_results(self, model: tf.keras.Model, output_file: str) -> None:
         """
@@ -40,21 +44,39 @@ class DataWriter(DataLoader):
         outfile = uproot.recreate(output_file)
 
         branch_dict = {}       
-        batch, y_true, weights = self.process_batch(self.big_batch)
+        batch, y_true, _ = self.process_batch(self.big_batch)
         y_pred = model.predict(batch)
         branch_dict["TauClassifier_Scores"] = y_pred
         branch_dict["TauClassifier_isFake"] = y_pred[:, 0]
         branch_dict["TauClassifier_is1p0n"] = y_pred[:, 1]
         branch_dict["TauClassifier_is1p1n"] = y_pred[:, 2]
-        branch_dict["TauClassifier_is1pXn"] = y_pred[:, 3]
+        branch_dict["TauClassifier_is1pxn"] = y_pred[:, 3]
         branch_dict["TauClassifier_is3p0n"] = y_pred[:, 4]
-        branch_dict["TauClassifier_is3pXn"] = y_pred[:, 5]
-        branch_dict["TauClassifier_TruthScores"] = y_true
+        branch_dict["TauClassifier_is3pxn"] = y_pred[:, 5]
+        branch_dict["TauClassifier_isTau"] = 1 - y_pred[:, 0]
+        branch_dict["TauClassifier_isTrueTau"] = 1 - y_true[:, 0]
+        branch_dict["TauClassifier_isFake"] = y_pred[:, 0]
+        branch_dict["TauClassifier_isTrueFake"] = y_true[:, 0]
+
+        # Write out extra branches
         for branch in self.config.OutFileBranches:
-            branch_dict[branch] = self.big_batch[branch]
+            try:
+                branch_dict[branch] = self.big_batch[branch]
+            except ValueError:
+                log.warn(f"{self.file} has no branch named {branch}. Is this expected? Filling tree with dummy data")
+                branch_dict[branch] = np.ones_like(y_pred[:, 0]) * -999
+        
+        # Combined TauID and decay mode labels -> current standard
+        combined_scores = np.column_stack([
+            ak.to_numpy(branch_dict["TauJets_RNNJetScoreSigTrans"]),
+            ak.to_numpy(branch_dict["TauJets_is1p0n"]),
+            ak.to_numpy(branch_dict["TauJets_is1p1n"]),
+            ak.to_numpy(branch_dict["TauJets_is1pxn"]),
+            ak.to_numpy(branch_dict["TauJets_is3p0n"]),
+            ak.to_numpy(branch_dict["TauJets_is3pxn"])])
+        branch_dict["TauClassifier_previousScores"] = combined_scores
 
-        branch_dict["TauClassifier_Weight"] = weights
-
+        # Write branches to tree
         outfile["tree"] = branch_dict
 
     @staticmethod

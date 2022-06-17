@@ -17,14 +17,12 @@ def get_last_weights():
 
 def evaluate(config: DictConfig) -> None:
 
-    log.info()
-
     # Disable GPU (Don't really need it and it could cause issues if already training)
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
     # Grab files
     _, tau_test_files, _ = source.get_files(config, "TauFiles") 
-    _, jet_test_files, _ = source.get_files(config, "JetFiles") 
+    _, jet_test_files, _ = source.get_files(config, "FakeFiles") 
     
     # Grab weights file - automatically select last created weights file unless specified
     try:
@@ -39,6 +37,7 @@ def evaluate(config: DictConfig) -> None:
     # TODO: see if this can be parallelised with ray (May not work due to how fussy tf can be with model objects)
     # TODO: ^^^ Cannot pass model object to ray Actor - have to create model on Actor instantiation
     # Write results to file
+    os.makedirs("results", exist_ok=True)
     for i, file in tqdm.tqdm(enumerate(tau_test_files), total=len(tau_test_files)):
         loader = source.DataWriter(file, config)
         loader.write_results(model, output_file=f"results/taus_{i:02d}.root")

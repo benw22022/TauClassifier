@@ -5,7 +5,7 @@ Utility functions
 import glob
 from sklearn.model_selection import train_test_split
 from omegaconf import DictConfig
-from typing import Tuple
+from typing import Tuple, List
 
 def get_files(config: DictConfig, file_type: str) -> Tuple[List[str]]:
     files = glob.glob(config[file_type])

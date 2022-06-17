@@ -91,20 +91,29 @@ branches:
       - "TauJets_SumPtTrkFrac_normed"
       - "TauJets_ptRatioEflowApprox_normed"
       - "TauJets_mEflowApprox_normed"
-      - "TauJets_ptJetSeed_normed"
-      - "TauJets_etaJetSeed_normed"
-      - "TauJets_phiJetSeed_normed"
+
 
 # Branches for outfile: i.e. network scores and key features for perf plots
 OutFileBranches:
-  # - "TauClassifier_Labels"
-  - "TauJets_truthDecayMode"
-  - "TauJets_truthProng"
-  - "TauClassifier_pTReweight"
-  - "TauJets_mu"
-  - "TauJets_ptJetSeed"
-  - "TauJets_etaJetSeed"
-  - "TauJets_phiJetSeed"
-  - "TauJets_RNNJetScoreSigTrans"
-  - "TauJets_mcEventWeight"
+  - TauClassifier_Labels
+  - TauJets_truthDecayMode
+  - TauJets_IsTruthMatched
+  - TauJets_truthEtaVis
+  - TauJets_truthPtVis
+  - TauJets_truthProng
+  - TauJets_nTracks 
+  - TauClassifier_pTReweight
+  - TauJets_mu
+  - TauJets_ptJetSeed
+  - TauJets_etaJetSeed
+  - TauJets_phiJetSeed
+  - TauJets_RNNJetScoreSigTrans
+  - TauJets_is1p0n
+  - TauJets_is1p1n
+  - TauJets_is1pxn
+  - TauJets_is3p0n
+  - TauJets_is3pxn
+  - TauJets_mcEventWeight
+  - TauJets_isRNNJetIDMedium
+
 
