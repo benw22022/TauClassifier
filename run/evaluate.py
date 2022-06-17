@@ -55,7 +55,15 @@ def load_config(config: DictConfig, run_dir: str) -> None:
     Load old model config - in case anything changed
     """
     previous_config_path = os.path.join(run_dir, '.hydra', 'config.yaml')
+    
+    if not os.path.exists(previous_config_path):
+        log.warn(f"Could load config file: {previous_config_path}")
+        return    
+    if config.overide_old_config:
+        log.warn(f"Ignoring old config")
+
     with open(previous_config_path, "r") as stream:
+        log.info(f"Loading previous config from {previous_config_path}")
         previous_config = yaml.safe_load(stream)
         set_config_keys(config, previous_config)
 
