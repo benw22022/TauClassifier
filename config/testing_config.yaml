@@ -27,6 +27,7 @@ OutFileBranches:
   - TauJets_is3p0n
   - TauJets_is3pxn
   - TauJets_mcEventWeight
+  - TauJets_isRNNJetIDMedium
 
 
 # Result Loader configs
