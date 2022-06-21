@@ -115,5 +115,6 @@ OutFileBranches:
   - TauJets_is3pxn
   - TauJets_mcEventWeight
   - TauJets_isRNNJetIDMedium
+  - TauJets_truthPtVis
 
 
