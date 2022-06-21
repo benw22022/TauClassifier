@@ -298,12 +298,98 @@ def visualise(config: DictConfig):
             bincentres = [(bins[i]+bins[i+1])/2. for i in range(len(bins)-1)]
             ax.step(bincentres, ratio_hist , where='mid', label=f'WP = {wp}')
 
+        ax.set_xlim((config.sculpting_plots[feature].min,  config.sculpting_plots[feature].max))
+        
         utc_loader.change_cuts(None)
         ax.legend(title='UTC')
         saveas = os.path.join(plotting_dir, f'{feature}_tauid_efficiencies.png')
         plt.savefig(saveas, dpi=300)
         log.info(f"Plotted {saveas}")
+
+    """
+    ! Make sculpting plots for 1-prong
+    """
+        
+    # Now make efficiency plots for UTC
+    for feature in config.sculpting_plots.keys():
+        
+        utc_loader.change_cuts("TauJets_truthProng == 1")
+
+        
+        x_scale = config.sculpting_plots[feature].x_scale
+        y_scale = config.sculpting_plots[feature].y_scale
+        units =  config.sculpting_plots[feature].units
+        binning = config.sculpting_plots[feature].bins
+        
+        _, ax = pf.create_plot_template(feature, y_label='efficiency', units=units, x_scale=x_scale, y_scale=y_scale,
+                                        title=f'plots/{feature}_tauid_efficiencies.png')
+        
+        hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 0], bins=binning)
     
+        # Loop through each working point tauid efficiency 
+        for wp in config.working_points:
+                
+            tauid_utc_cut = tauid_utc_loader.get_tauid_wp_cut(wp)
+            utc_loader.change_cuts(f"({tauid_utc_cut}) & (TauJets_truthProng == 1)")
+            
+            cut_hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 0], bins=bins)
+                            
+            ratio_hist = cut_hist / hist
+            
+            bincentres = [(bins[i]+bins[i+1])/2. for i in range(len(bins)-1)]
+            ax.step(bincentres, ratio_hist , where='mid', label=f'WP = {wp}')
+
+        ax.set_xlim((config.sculpting_plots[feature].min,  config.sculpting_plots[feature].max))
+        
+        utc_loader.change_cuts(None)
+        ax.legend(title='UTC: 1-prong')
+        saveas = os.path.join(plotting_dir, f'{feature}_tauid_efficiencies_1prong.png')
+        plt.savefig(saveas, dpi=300)
+        log.info(f"Plotted {saveas}")
+        
+    """
+    ! Make sculpting plots for 3-prong
+    """
+        
+    # Now make efficiency plots for UTC
+    for feature in config.sculpting_plots.keys():
+        
+        utc_loader.change_cuts("TauJets_truthProng == 3")
+
+        
+        x_scale = config.sculpting_plots[feature].x_scale
+        y_scale = config.sculpting_plots[feature].y_scale
+        units =  config.sculpting_plots[feature].units
+        binning = config.sculpting_plots[feature].bins
+        
+        _, ax = pf.create_plot_template(feature, y_label='efficiency', units=units, x_scale=x_scale, y_scale=y_scale,
+                                        title=f'plots/{feature}_tauid_efficiencies.png')
+        
+        hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 0], bins=binning)
+    
+        # Loop through each working point tauid efficiency 
+        for wp in config.working_points:
+                
+            tauid_utc_cut = tauid_utc_loader.get_tauid_wp_cut(wp)
+            utc_loader.change_cuts(f"({tauid_utc_cut}) & (TauJets_truthProng == 3)")
+            
+            cut_hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 0], bins=bins)
+                            
+            ratio_hist = cut_hist / hist
+            
+            bincentres = [(bins[i]+bins[i+1])/2. for i in range(len(bins)-1)]
+            ax.step(bincentres, ratio_hist , where='mid', label=f'WP = {wp}')
+
+        ax.set_xlim((config.sculpting_plots[feature].min,  config.sculpting_plots[feature].max))
+        
+        utc_loader.change_cuts(None)
+        ax.legend(title='UTC: 3-prong')
+        saveas = os.path.join(plotting_dir, f'{feature}_tauid_efficiencies_3prong.png')
+        plt.savefig(saveas, dpi=300)
+        log.info(f"Plotted {saveas}")
+        
+        
+        
         # Also make some control plots too
         _, ax = pf.create_plot_template(feature, units=units, x_scale=x_scale, y_scale=y_scale, title=f'plots/{feature}')
         ax.hist(utc_loader[feature], histtype='step', bins=100)
@@ -342,6 +428,98 @@ def visualise(config: DictConfig):
         plt.savefig(saveas, dpi=300)
         log.info(f"Plotted {saveas}")
 
+    
+    """
+    ! Make sculpting plots for 1-prong RNN
+    """
+        
+    # Now make efficiency plots for UTC
+    for feature in config.sculpting_plots.keys():
+        
+        utc_loader.change_cuts("TauJets_truthProng == 1")
+
+        
+        x_scale = config.sculpting_plots[feature].x_scale
+        y_scale = config.sculpting_plots[feature].y_scale
+        units =  config.sculpting_plots[feature].units
+        binning = config.sculpting_plots[feature].bins
+        
+        _, ax = pf.create_plot_template(feature, y_label='efficiency', units=units, x_scale=x_scale, y_scale=y_scale,
+                                        title=f'plots/{feature}_tauid_efficiencies.png')
+        
+        hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 0], bins=binning)
+    
+        # Loop through each working point tauid efficiency 
+        for wp in config.working_points:
+                
+            tauid_utc_cut = tauid_rnn_loader.get_tauid_wp_cut(wp)
+            utc_loader.change_cuts(f"({tauid_utc_cut}) & (TauJets_truthProng == 1)")
+            
+            cut_hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 0], bins=bins)
+                            
+            ratio_hist = cut_hist / hist
+            
+            bincentres = [(bins[i]+bins[i+1])/2. for i in range(len(bins)-1)]
+            ax.step(bincentres, ratio_hist , where='mid', label=f'WP = {wp}')
+
+        ax.set_xlim((config.sculpting_plots[feature].min,  config.sculpting_plots[feature].max))
+        
+        utc_loader.change_cuts(None)
+        ax.legend(title='RNN: 1-prong')
+        saveas = os.path.join(plotting_dir, f'{feature}_tauidRNN_efficiencies_1prong.png')
+        plt.savefig(saveas, dpi=300)
+        log.info(f"Plotted {saveas}")
+        
+    """
+    ! Make sculpting plots for 3-prong
+    """
+        
+    # Now make efficiency plots for UTC
+    for feature in config.sculpting_plots.keys():
+        
+        utc_loader.change_cuts("TauJets_truthProng == 3")
+
+        
+        x_scale = config.sculpting_plots[feature].x_scale
+        y_scale = config.sculpting_plots[feature].y_scale
+        units =  config.sculpting_plots[feature].units
+        binning = config.sculpting_plots[feature].bins
+        
+        _, ax = pf.create_plot_template(feature, y_label='efficiency', units=units, x_scale=x_scale, y_scale=y_scale,
+                                        title=f'plots/{feature}_tauid_efficiencies.png')
+        
+        hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 0], bins=binning)
+    
+        # Loop through each working point tauid efficiency 
+        for wp in config.working_points:
+                
+            tauid_utc_cut = tauid_rnn_loader.get_tauid_wp_cut(wp)
+            utc_loader.change_cuts(f"({tauid_utc_cut}) & (TauJets_truthProng == 3)")
+            
+            cut_hist, bins = np.histogram(utc_loader[feature][utc_loader.y_true[:,0] == 0], bins=bins)
+                            
+            ratio_hist = cut_hist / hist
+            
+            bincentres = [(bins[i]+bins[i+1])/2. for i in range(len(bins)-1)]
+            ax.step(bincentres, ratio_hist , where='mid', label=f'WP = {wp}')
+
+        ax.set_xlim((config.sculpting_plots[feature].min,  config.sculpting_plots[feature].max))
+        
+        utc_loader.change_cuts(None)
+        ax.legend(title='RNN: 3-prong')
+        saveas = os.path.join(plotting_dir, f'{feature}_tauidRNN_efficiencies_3prong.png')
+        plt.savefig(saveas, dpi=300)
+        log.info(f"Plotted {saveas}")
+        
+        # Also make some control plots too
+        _, ax = pf.create_plot_template(feature, units=units, x_scale=x_scale, y_scale=y_scale, title=f'plots/{feature}')
+        ax.hist(utc_loader[feature], histtype='step', bins=100)
+        saveas = os.path.join(plotting_dir, f'{feature}.png')
+        plt.savefig(saveas, dpi=300)
+        log.info(f"Plotted {saveas}")
+    
+    
+    
     """
     ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     Rejection Plots
