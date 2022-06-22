@@ -72,6 +72,14 @@ def evaluate(config: DictConfig) -> None:
 
     log.info("Running Evaluation")
     
+    # Grab weights file - automatically select last created weights file unless specified
+    weights_file = get_weights(config)
+    
+    run_dir = Path(weights_file).parents[1]
+    output_dir = os.path.join(run_dir, "results")
+    os.makedirs(output_dir, exist_ok=True)
+
+    
     # Load config
     load_config(config, run_dir)
 
@@ -82,13 +90,6 @@ def evaluate(config: DictConfig) -> None:
     _, tau_test_files, _ = source.get_files(config, "TauFiles") 
     _, jet_test_files, _ = source.get_files(config, "FakeFiles") 
     
-    # Grab weights file - automatically select last created weights file unless specified
-    weights_file = get_weights(config)
-    
-    run_dir = Path(weights_file).parents[1]
-    output_dir = os.path.join(run_dir, "results")
-    os.makedirs(output_dir, exist_ok=True)
-
     # Load model
     model = ModelDSNN(config)
     model.load_weights(weights_file)
