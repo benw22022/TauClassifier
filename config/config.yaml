@@ -9,7 +9,7 @@ defaults:
   - override hydra/hydra_logging: colorlog
 
 # Hydra specific
-# TODO: Add help message
+# TODO: Add help message, see: https://hydra.cc/docs/configure_hydra/app_help/ 
 hydra:
   help:
     template:
