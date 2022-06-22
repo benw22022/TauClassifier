@@ -58,7 +58,7 @@ def load_config(config: DictConfig, run_dir: str) -> None:
     
     if not os.path.exists(previous_config_path):
         log.warn(f"Could load config file: {previous_config_path}")
-        return    
+        return
     if config.overide_old_config:
         log.warn(f"Ignoring old config")
 
@@ -71,6 +71,9 @@ def load_config(config: DictConfig, run_dir: str) -> None:
 def evaluate(config: DictConfig) -> None:
 
     log.info("Running Evaluation")
+    
+    # Load config
+    load_config(config, run_dir)
 
     # Disable GPU (Don't really need it and it could cause issues if already training)
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -85,9 +88,6 @@ def evaluate(config: DictConfig) -> None:
     run_dir = Path(weights_file).parents[1]
     output_dir = os.path.join(run_dir, "results")
     os.makedirs(output_dir, exist_ok=True)
-    
-    # Load config
-    load_config(config, run_dir)
 
     # Load model
     model = ModelDSNN(config)
