@@ -37,7 +37,7 @@ FakeFiles: /home/bewilson/split_NTuples/*JZ*/*.root
 fraction: 1
 
 # overide old config with new one when running evaluation
-overide_old_config: True
+overide_old_config: False
 
 # Cuts
 global_cuts: (TauJets_ptJetSeed > 15000) & (abs(TauJets_etaJetSeed) < 2.5)
