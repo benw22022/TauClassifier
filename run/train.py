@@ -24,7 +24,7 @@ import focal_loss
 
 def get_optimizer(config: DictConfig):
 
-    opt_dict = {'Adam': tf.keras.optimizers.adam(config.learning_rate, epsilon=config.epsilon),
+    opt_dict = {'Adam': tf.keras.optimizers.Adam(config.learning_rate, epsilon=config.epsilon),
                 'Nadam': tf.keras.optimizers.Nadam(config.learning_rate, epsilon=config.epsilon),
                 'SGD': tf.keras.optimizers.SGD(learning_rate=0.01, momentum=config.momentum),
                 'RMSProp': tf.keras.optimizers.RMSprop(config.learning_rate),
@@ -32,7 +32,7 @@ def get_optimizer(config: DictConfig):
                 }
     
     def invalid_opt():
-        log.error(f'Optimizer {config.optimizer} not recognised! Options are {list(opt_dict.keys)}\n\
+        log.error(f'Optimizer {config.optimizer} not recognised! Options are {list(opt_dict.keys())}\n\
                   Using default optimizer \'Adam\'')
         return opt_dict['Adam']
 
@@ -47,7 +47,7 @@ def get_loss(config: DictConfig, class_weight):
                  'sigmoid_focal_crossentropy': tfa.losses.SigmoidFocalCrossEntropy()}
     
     def invalid_loss():
-        log.error(f'Loss {config.loss} not recognised! Options are {list(loss_dict.keys)}\n\
+        log.error(f'Loss {config.loss} not recognised! Options are {list(loss_dict.keys())}\n\
                   Using default optimizer \'categorical_crossentropy\'')
         return loss_dict['categorical_crossentropy']
 
