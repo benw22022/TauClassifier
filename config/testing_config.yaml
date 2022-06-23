@@ -26,7 +26,9 @@ OutFileBranches:
   - TauJets_is1pxn
   - TauJets_is3p0n
   - TauJets_is3pxn
-  - TauJets_mcEventWeigh
+  - TauJets_mcEventWeight
+  - TauJets_isRNNJetIDMedium
+  - TauJets_truthPtVis
 
 
 # Result Loader configs
@@ -51,20 +53,34 @@ sculpting_plots:
     x_scale: linear
     y_scale: linear
     units: ''
-    bins: 25
+    bins: 50
+    min: 0
+    max: 80
   TauJets_ptJetSeed:
-    x_scale: log
+    x_scale: linear
     y_scale: linear
     units: '[MeV]'
-    bins: 25
+    bins: 50
+    min: 1500
+    max: 1e6
+  TauJets_truthPtVis:
+    x_scale: linear
+    y_scale: linear
+    units: '[MeV]'
+    bins: 50
+    min: 1500
+    max: 1e6
   TauJets_etaJetSeed:
     x_scale: linear
     y_scale: linear
     units: ''
     bins: 25
+    min: -4
+    max: 4
   TauJets_phiJetSeed:
     x_scale: linear
     y_scale: linear
     units: ''
     bins: 25
-  
+    min: 0
+    max: 3.14159

@@ -5,9 +5,11 @@ defaults:
   - model_config.yaml
   - training_config.yaml
   - testing_config.yaml
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
 
 # Hydra specific
-# TODO: Add help message
+# TODO: Add help message, see: https://hydra.cc/docs/configure_hydra/app_help/ 
 hydra:
   help:
     template:
@@ -28,10 +30,14 @@ allow_gpu_growth: 'true'
 step_size: 5 GB  # sets memory used by dataloaders
 
 # glob-able paths to input files
-TauFiles:  /hepgpu5-data3/benwilson/split_NTuples/*Gammatautau*/*.root
-FakeFiles: /hepgpu5-data3/benwilson/split_NTuples/*JZ*/*.root
+TauFiles:  /home/bewilson/split_NTuples/*Gammatautau*/*.root
+FakeFiles: /home/bewilson/split_NTuples/*JZ*/*.root
 
-fraction: 100
+# Fraction of data to run on
+fraction: 1
+
+# overide old config with new one when running evaluation
+overide_old_config: False
 
 # Cuts
 global_cuts: (TauJets_ptJetSeed > 15000) & (abs(TauJets_etaJetSeed) < 2.5)
