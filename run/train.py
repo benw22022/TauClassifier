@@ -54,7 +54,7 @@ def get_loss(config: DictConfig, class_weight):
         log.error(f'Loss {config.loss} not recognised! Options are {list(loss_dict.keys())}')
         log.warn('Using default loss \'categorical_crossentropy\'')
         loss_dict['categorical_crossentropy']
-        return loss.dict['Adam']
+        return loss_dict['Adam']
 
 def get_number_of_events(files):
     all_labels = uproot.concatenate(files, filter_name="TauClassifier_Labels", library='np')["TauClassifier_Labels"]
