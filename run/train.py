@@ -22,6 +22,36 @@ import tensorflow_addons as tfa
 import focal_loss
 
 
+def get_optimizer(config: DictConfig):
+
+    opt_dict = {'Adam': tf.keras.optimizers.adam(config.learning_rate, epsilon=config.epsilon),
+                'Nadam': tf.keras.optimizers.Nadam(config.learning_rate, epsilon=config.epsilon),
+                'SGD': tf.keras.optimizers.SGD(learning_rate=0.01, momentum=config.momentum),
+                'RMSProp': tf.keras.optimizers.RMSprop(config.learning_rate),
+                'Ftrl': tf.keras.optimizers.Ftrl(config.learning_rate)
+                }
+    
+    def invalid_opt():
+        log.error(f'Optimizer {config.optimizer} not recognised! Options are {list(opt_dict.keys)}\n\
+                  Using default optimizer \'Adam\'')
+        return opt_dict['Adam']
+
+    return opt_dict.get(config.optimizer, invalid_opt())
+
+
+def get_loss(config: DictConfig, class_weight):
+    
+    loss_dict = {'categorical_crossentropy': tf.keras.losses.CategoricalCrossentropy(),
+                 'sparse_categorical_crossentropy': tf.keras.losses.SparseCategoricalCrossentropy(),
+                 'focal_loss': focal_loss.SparseCategoricalFocalLoss(gamma=config.gamma, class_weight=list(class_weight.values())),
+                 'sigmoid_focal_crossentropy': tfa.losses.SigmoidFocalCrossEntropy()}
+    
+    def invalid_loss():
+        log.error(f'Loss {config.loss} not recognised! Options are {list(loss_dict.keys)}\n\
+                  Using default optimizer \'categorical_crossentropy\'')
+        return loss_dict['categorical_crossentropy']
+
+    return loss_dict.get(config.loss, invalid_loss())
 
 def get_number_of_events(files):
     all_labels = uproot.concatenate(files, filter_name="TauClassifier_Labels", library='np')["TauClassifier_Labels"]
@@ -84,18 +114,15 @@ def train(config: DictConfig) -> Tuple[float]:
                     5: weight_for_3p1n,
                     }
 
-    # opt = tf.keras.optimizers.Nadam(config.learning_rate, epsilon=config.epsilon)
-    # opt = tf.keras.optimizers.SGD(learning_rate=0.01, momentum=config.momentum)
-    # opt = tf.keras.optimizers.RMSprop(config.learning_rate)
-    opt = tf.keras.optimizers.Adam(config.learning_rate, epsilon=config.epsilon)
-    # opt = tf.keras.optimizers.Ftrl(config.learning_rate)
-    # loss = tfa.losses.SigmoidFocalCrossEntropy(reduction=tf.keras.losses.Reduction.AUTO, alpha=config.alpha, gamma=config.gamma)
-    loss = focal_loss.SparseCategoricalFocalLoss(gamma=config.gamma, class_weight=list(class_weight.values()))
-    # loss =  tf.keras.losses.SparseCategoricalCrossentropy()
+    opt = get_optimizer(config)
+    loss = get_loss(config, class_weight)
     
     acc_metric = tf.keras.metrics.CategoricalAccuracy()
-    if config.is_sparse:
+    if 'sparse' in config.loss:
         acc_metric = tf.keras.metrics.SparseCategoricalAccuracy()
+    
+    if config.loss == 'focal_loss':
+        class_weight = None
     
     model.compile(optimizer=opt, loss=loss, metrics=[acc_metric], )
     
