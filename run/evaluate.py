@@ -59,7 +59,7 @@ def load_config(config: DictConfig, run_dir: str) -> None:
     if not os.path.exists(previous_config_path):
         log.warn(f"Could load config file: {previous_config_path}")
         return
-    if config.overide_old_config:
+    if config.override_old_config:
         log.warn(f"Ignoring old config")
 
     with open(previous_config_path, "r") as stream:
