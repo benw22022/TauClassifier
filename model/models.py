@@ -5,10 +5,10 @@ This is basically Bowen's Tau Decay Mode Classifier with an extra branch for Tau
 """
 
 import tensorflow as tf
-from tensorflow.keras.layers import Activation, Dense, Concatenate, Dropout
+from tensorflow.keras.layers import Activation, Dense, Concatenate, Dropout, BatchNormalization
 from tensorflow.keras import Model
 from model.regularizers import OrthogonalRegularizer
-from model.layers import create_deepset_input, create_dense_input
+from model.layers import create_deepset_input, create_dense_input, create_attn_deepset_input
 from omegaconf import DictConfig
 
 
@@ -42,7 +42,8 @@ def ModelDSNN(config: DictConfig):
         merged = Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer, name=f"merged_dense_{i}-{n}")(merged)
         merged = Activation(activation, name=f"merged_dense_activation_{i}")(merged)
         merged = Dropout(config.dropout, name=f"merged_dropout_{i}")(merged)
-
+        merged = BatchNormalization(name=f"batchnorm_merged_{i}")(merged)
+        
     # if config.is_sparse:
     #     y = Dense(1, activation="relu", name='output')(merged)
     # else:

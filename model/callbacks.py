@@ -35,6 +35,7 @@ class LoggingCallback(keras.callbacks.Callback):
         self.time_epoch_start = time.time()
 
     def on_epoch_end(self, epoch, logs=None):
+        print("\n") # print newline to prevent logging on same line as pbar
         time_epoch_taken = time.time() - self.time_epoch_start
         time_taken = time.time() - self.time_start
         time_epoch_taken = datetime.timedelta(seconds=time_epoch_taken)

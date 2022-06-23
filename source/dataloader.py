@@ -155,14 +155,12 @@ class DataLoader:
         shot_pfo = self.build_array(batch,"ShotPFO")
         conv_tracks = self.build_array(batch,"ConvTrack")
         jets = self.build_array(batch,"TauJets")
-            
         
         labels = ak.to_numpy(batch[self.config.Label])
         weights = ak.to_numpy(batch[self.config.Weight])
         
         if self.config.is_sparse:
             labels = onehot_to_sparse(labels)
-            # log.error(labels) 
 
         return (tracks, neutral_pfo, shot_pfo, conv_tracks, jets), labels, weights
 

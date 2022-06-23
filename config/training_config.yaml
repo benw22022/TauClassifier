@@ -11,12 +11,16 @@ make_plots: True
 
 # Training config params
 learning_rate: 1e-4
+epsilon: 1e-7
 batch_size: 526
 val_batch_size: 100000
 epochs: 200
 is_sparse: True
 alpha: [0.1, 0.1, 0.15, 0.2, 0.2, 0.25]
 gamma: 2 # [1, 2, 3, 3, 2.5, 3]
+momentum: 0.0
+loss: categorical_crossentropy
+optimizer: Adam
 
 # Callbacks
 callbacks:

@@ -46,7 +46,6 @@ class DataWriter(DataLoader):
         branch_dict = {}       
         batch, y_true, _ = self.process_batch(self.big_batch)
         y_pred = model.predict(batch)
-        log.error(y_pred)
         if self.config.is_sparse:
             y_true = sparse_to_onehot(y_true, self.config.n_classes)
         
@@ -79,6 +78,10 @@ class DataWriter(DataLoader):
             ak.to_numpy(branch_dict["TauJets_is3p0n"]),
             ak.to_numpy(branch_dict["TauJets_is3pxn"])])
         branch_dict["TauClassifier_previousScores"] = combined_scores
+        
+        log.debug(f"Writing output file {output_file}:tree with branches")
+        for key in branch_dict:
+            log.debug(f"\t- {key}")
 
         # Write branches to tree
         outfile["tree"] = branch_dict
