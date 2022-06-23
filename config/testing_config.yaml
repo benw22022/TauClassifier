@@ -14,7 +14,7 @@ OutFileBranches:
   - TauJets_truthEtaVis
   - TauJets_truthPtVis
   - TauJets_truthProng
-  - TauJets_nTracks 
+  - TauJets_nTracks
   - TauClassifier_pTReweight
   - TauJets_mu
   - TauJets_ptJetSeed
@@ -26,7 +26,7 @@ OutFileBranches:
   - TauJets_is1pxn
   - TauJets_is3p0n
   - TauJets_is3pxn
-  - TauJets_mcEventWeight
+  - TauJets_mcEventWeigh
 
 
 # Result Loader configs
