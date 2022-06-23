@@ -31,12 +31,13 @@ def get_optimizer(config: DictConfig):
                 'Ftrl': tf.keras.optimizers.Ftrl(config.learning_rate)
                 }
     
-    def invalid_opt():
-        log.error(f'Optimizer {config.optimizer} not recognised! Options are {list(opt_dict.keys())}\n\
-                  Using default optimizer \'Adam\'')
+    try:
+        log.info(f"Optimizer: {config.optimizer}")
+        return opt_dict[config.optimizer]
+    except KeyError:
+        log.error(f'Optimizer {config.optimizer} not recognised! Options are {list(opt_dict.keys())}')
+        log.warn('Using default optimizer \'Adam\'')
         return opt_dict['Adam']
-
-    return opt_dict.get(config.optimizer, invalid_opt())
 
 
 def get_loss(config: DictConfig, class_weight):
@@ -46,12 +47,14 @@ def get_loss(config: DictConfig, class_weight):
                  'focal_loss': focal_loss.SparseCategoricalFocalLoss(gamma=config.gamma, class_weight=list(class_weight.values())),
                  'sigmoid_focal_crossentropy': tfa.losses.SigmoidFocalCrossEntropy()}
     
-    def invalid_loss():
-        log.error(f'Loss {config.loss} not recognised! Options are {list(loss_dict.keys())}\n\
-                  Using default optimizer \'categorical_crossentropy\'')
-        return loss_dict['categorical_crossentropy']
-
-    return loss_dict.get(config.loss, invalid_loss())
+    try:
+        log.info(f"Loss function: {config.loss}")
+        return loss_dict[config.loss]
+    except KeyError:
+        log.error(f'Loss {config.loss} not recognised! Options are {list(loss_dict.keys())}')
+        log.warn('Using default loss \'categorical_crossentropy\'')
+        loss_dict['categorical_crossentropy']
+        return loss.dict['Adam']
 
 def get_number_of_events(files):
     all_labels = uproot.concatenate(files, filter_name="TauClassifier_Labels", library='np')["TauClassifier_Labels"]
