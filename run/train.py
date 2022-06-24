@@ -17,12 +17,12 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from omegaconf import DictConfig
 from model import configure_callbacks, ModelDSNN
-from typing import Tuple
+from typing import List, Tuple
 import tensorflow_addons as tfa
 import focal_loss
 
 
-def get_optimizer(config: DictConfig):
+def get_optimizer(config: DictConfig) -> tf.keras.optimizers.Optimizer:
 
     opt_dict = {'Adam': tf.keras.optimizers.Adam(config.learning_rate, epsilon=config.epsilon),
                 'Nadam': tf.keras.optimizers.Nadam(config.learning_rate, epsilon=config.epsilon),
@@ -40,7 +40,13 @@ def get_optimizer(config: DictConfig):
         return opt_dict['Adam']
 
 
-def get_loss(config: DictConfig, class_weight):
+def get_loss(config: DictConfig, class_weight: List[float]) -> tf.keras.losses.Loss:
+    """
+    Parse 'loss' option in config to get loss function
+    args:
+        config: DictConfig - Hydra config object
+        class_weight: 
+    """
     
     loss_dict = {'categorical_crossentropy': tf.keras.losses.CategoricalCrossentropy(),
                  'sparse_categorical_crossentropy': tf.keras.losses.SparseCategoricalCrossentropy(),
@@ -56,7 +62,15 @@ def get_loss(config: DictConfig, class_weight):
         loss_dict['categorical_crossentropy']
         return loss_dict['Adam']
 
-def get_number_of_events(files):
+def get_number_of_events(files: List[str]) -> List[int]:
+    """
+    Gets the number of events in each class
+    args: 
+        files: List[str] - A list of filepaths to ntuples
+    returns:
+        class_breakdown: List[int] - A list containing the number of events belonging to each class
+    """
+    
     all_labels = uproot.concatenate(files, filter_name="TauClassifier_Labels", library='np')["TauClassifier_Labels"]
     all_labels = np.vstack(all_labels)
     class_breakdown = []
