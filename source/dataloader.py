@@ -159,7 +159,7 @@ class DataLoader:
         labels = ak.to_numpy(batch[self.config.Label])
         weights = ak.to_numpy(batch[self.config.Weight])
         
-        if self.config.is_sparse:
+        if 'sparse' in self.config.loss or 'focal_loss' in self.config.loss:
             labels = onehot_to_sparse(labels)
 
         return (tracks, neutral_pfo, shot_pfo, conv_tracks, jets), labels, weights
