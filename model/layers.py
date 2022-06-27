@@ -18,7 +18,7 @@ from tensorflow.keras.layers import Layer, Activation, BatchNormalization, Multi
 from tensorflow.keras import Model
 from model.set_transformer.model import BasicSetTransformer
 from omegaconf import DictConfig
-from model.set_transformer.blocks import *
+# from model.set_transformer.blocks import *
 
 class Sum(Layer):
     """Simple sum layer.
@@ -51,7 +51,7 @@ class Sum(Layer):
         return None
 
 def create_deepset_input(config: DictConfig, branchname: str, activation: str='elu', initializer: tf.keras.initializers.Initializer=tf.keras.initializers.HeNormal(),
-                         regularizer: tf.keras.regularizers.Regularizer=None):
+                         regularizer: tf.keras.regularizers.Regularizer=None, self_attention=False):
     """
     Create a Deepset input branch
     args:
@@ -70,6 +70,9 @@ def create_deepset_input(config: DictConfig, branchname: str, activation: str='e
      # Time Distributed layers
     for i, n in enumerate(config.n_inputs[branchname]):
         tdd_layer = TimeDistributed(Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer), name=f'tdd_{branchname}_{i}-{n}')(tdd_layer)
+        if self_attention:
+            # tdd_layer = MultiHeadAttention(config.branches[branchname].max_objects, config.branches[branchname].max_objects)(tdd_layer, tdd_layer)
+            tdd_layer = MultiHeadAttention(num_heads=config.branches[branchname].max_objects, key_dim=config.branches[branchname].max_objects, name=f"self_attention_{branchname}_{i}")(tdd_layer, tdd_layer)
         tdd_layer = Activation(activation, name=f"tdd_{branchname}_activation_{i}")(tdd_layer)
         if config.batch_norm:
             tdd_layer = BatchNormalization(name=f"batchnorm_tdd_{branchname}_{i}")(tdd_layer)
@@ -111,84 +114,84 @@ def create_dense_input(config: DictConfig, branchname: str, activation: str='elu
 
 
 
-def create_attn_deepset_input(config: DictConfig, branchname: str, activation: str='elu', initializer: tf.keras.initializers.Initializer=tf.keras.initializers.HeNormal(),
-                         regularizer: tf.keras.regularizers.Regularizer=None):
-    """
-    Create a Deepset input branch
-    args:
-        config: DictConfig - Hydra config object
-        branchname: str - Name of the input in the config
-        activation: str - Name of compatible activation function
-        initializer: tf.keras.initializers.Initializer=tf.keras.initializers.HeNormal() - Kernal initializer function
-    returns:
-        input_layer, dense_layer
-    """
-    
-    # Input
-    input_layer = Input(shape=(len(config.branches[branchname].features), config.branches[branchname].max_objects), name=f'input_{branchname}')
-    tdd_layer = Masking(mask_value=config.mask_value, name=f'masked_{branchname}_input')(input_layer)
-
-    #  # Time Distributed layers
-    # for i, n in enumerate(config.n_inputs[branchname]):
-    #     tdd_layer = TimeDistributed(Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer), name=f'tdd_{branchname}_{i}-{n}')(tdd_layer)
-    #     # tdd_layer = MultiHeadAttention(num_heads=config.branches[branchname].max_objects, key_dim=config.branches[branchname].max_objects)(tdd_layer, tdd_layer)
-    #     tdd_layer = Activation(activation, name=f"tdd_{branchname}_activation_{i}")(tdd_layer)
-    #     if config.batch_norm:
-    #         tdd_layer = BatchNormalization(name=f"batchnorm_tdd_{branchname}_{i}")(tdd_layer)
-    
-    max_objs = config.branches[branchname].max_objects
-    
-    dense_layer = BasicSetTransformer(out_dim=20)(tdd_layer)
-    # dense_layer = Dense(config.n_hiddens[branchname][0], kernel_initializer=initializer, kernel_regularizer=regularizer, name=f'dense_{branchname}_{i}-{n}')(tdd_layer)
-    
-    
-    # Deepset Sum Layer
-    # dense_layer = Sum(name=f'sum_{branchname}')(tdd_layer)
-
-    # Regular dense layers
-    # for i, n in enumerate(config.n_hiddens[branchname]):
-    #     dense_layer = Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer, name=f'dense_{branchname}_{i}-{n}')(dense_layer)
-    #     dense_layer = Activation(activation, name=f"dense_{branchname}_activation_{i}")(dense_layer)
-    #     if config.batch_norm:
-    #         dense_layer = BatchNormalization(name=f"batchnorm_dense_{branchname}_{i}")(dense_layer)
-        
-    return input_layer, dense_layer
-
-
-def create_simple_attn_deepset_input(config: DictConfig, branchname: str, activation: str='elu', initializer: tf.keras.initializers.Initializer=tf.keras.initializers.HeNormal(),
-                         regularizer: tf.keras.regularizers.Regularizer=None):
-    """
-    Create a Deepset input branch
-    args:
-        config: DictConfig - Hydra config object
-        branchname: str - Name of the input in the config
-        activation: str - Name of compatible activation function
-        initializer: tf.keras.initializers.Initializer=tf.keras.initializers.HeNormal() - Kernal initializer function
-    returns:
-        input_layer, dense_layer
-    """
-    
-    # Input
-    input_layer = Input(shape=(len(config.branches[branchname].features), config.branches[branchname].max_objects), name=f'input_{branchname}')
-    tdd_layer = Masking(mask_value=config.mask_value, name=f'masked_{branchname}_input')(input_layer)
-
-     # Time Distributed layers
-    for i, n in enumerate(config.n_inputs[branchname]):
-        tdd_layer = TimeDistributed(Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer), name=f'tdd_{branchname}_{i}-{n}')(tdd_layer)
-        tdd_layer = MultiHeadAttention(num_heads=config.branches[branchname].max_objects, key_dim=config.branches[branchname].max_objects)(tdd_layer, tdd_layer)
-        tdd_layer = Activation(activation, name=f"tdd_{branchname}_activation_{i}")(tdd_layer)
-        if config.batch_norm:
-            tdd_layer = BatchNormalization(name=f"batchnorm_tdd_{branchname}_{i}")(tdd_layer)
-    
-    
-    # Deepset Sum Layer
-    dense_layer = Sum(name=f'sum_{branchname}')(tdd_layer)
-
-    # Regular dense layers
-    for i, n in enumerate(config.n_hiddens[branchname]):
-        dense_layer = Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer, name=f'dense_{branchname}_{i}-{n}')(dense_layer)
-        dense_layer = Activation(activation, name=f"dense_{branchname}_activation_{i}")(dense_layer)
-        if config.batch_norm:
-            dense_layer = BatchNormalization(name=f"batchnorm_dense_{branchname}_{i}")(dense_layer)
-        
-    return input_layer, dense_layer
+# def create_attn_deepset_input(config: DictConfig, branchname: str, activation: str='elu', initializer: tf.keras.initializers.Initializer=tf.keras.initializers.HeNormal(),
+#                          regularizer: tf.keras.regularizers.Regularizer=None):
+#     """
+#     Create a Deepset input branch
+#     args:
+#         config: DictConfig - Hydra config object
+#         branchname: str - Name of the input in the config
+#         activation: str - Name of compatible activation function
+#         initializer: tf.keras.initializers.Initializer=tf.keras.initializers.HeNormal() - Kernal initializer function
+#     returns:
+#         input_layer, dense_layer
+#     """
+#     
+#     # Input
+#     input_layer = Input(shape=(len(config.branches[branchname].features), config.branches[branchname].max_objects), name=f'input_{branchname}')
+#     tdd_layer = Masking(mask_value=config.mask_value, name=f'masked_{branchname}_input')(input_layer)
+# 
+#     #  # Time Distributed layers
+#     # for i, n in enumerate(config.n_inputs[branchname]):
+#     #     tdd_layer = TimeDistributed(Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer), name=f'tdd_{branchname}_{i}-{n}')(tdd_layer)
+#     #     # tdd_layer = MultiHeadAttention(num_heads=config.branches[branchname].max_objects, key_dim=config.branches[branchname].max_objects)(tdd_layer, tdd_layer)
+#     #     tdd_layer = Activation(activation, name=f"tdd_{branchname}_activation_{i}")(tdd_layer)
+#     #     if config.batch_norm:
+#     #         tdd_layer = BatchNormalization(name=f"batchnorm_tdd_{branchname}_{i}")(tdd_layer)
+#     
+#     max_objs = config.branches[branchname].max_objects
+#     
+#     dense_layer = BasicSetTransformer(out_dim=20)(tdd_layer)
+#     # dense_layer = Dense(config.n_hiddens[branchname][0], kernel_initializer=initializer, kernel_regularizer=regularizer, name=f'dense_{branchname}_{i}-{n}')(tdd_layer)
+#     
+#     
+#     # Deepset Sum Layer
+#     # dense_layer = Sum(name=f'sum_{branchname}')(tdd_layer)
+# 
+#     # Regular dense layers
+#     # for i, n in enumerate(config.n_hiddens[branchname]):
+#     #     dense_layer = Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer, name=f'dense_{branchname}_{i}-{n}')(dense_layer)
+#     #     dense_layer = Activation(activation, name=f"dense_{branchname}_activation_{i}")(dense_layer)
+#     #     if config.batch_norm:
+#     #         dense_layer = BatchNormalization(name=f"batchnorm_dense_{branchname}_{i}")(dense_layer)
+#         
+#     return input_layer, dense_layer
+# 
+# 
+# def create_simple_attn_deepset_input(config: DictConfig, branchname: str, activation: str='elu', initializer: tf.keras.initializers.Initializer=tf.keras.initializers.HeNormal(),
+#                          regularizer: tf.keras.regularizers.Regularizer=None):
+#     """
+#     Create a Deepset input branch
+#     args:
+#         config: DictConfig - Hydra config object
+#         branchname: str - Name of the input in the config
+#         activation: str - Name of compatible activation function
+#         initializer: tf.keras.initializers.Initializer=tf.keras.initializers.HeNormal() - Kernal initializer function
+#     returns:
+#         input_layer, dense_layer
+#     """
+#     
+#     # Input
+#     input_layer = Input(shape=(len(config.branches[branchname].features), config.branches[branchname].max_objects), name=f'input_{branchname}')
+#     tdd_layer = Masking(mask_value=config.mask_value, name=f'masked_{branchname}_input')(input_layer)
+# 
+#      # Time Distributed layers
+#     for i, n in enumerate(config.n_inputs[branchname]):
+#         tdd_layer = TimeDistributed(Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer), name=f'tdd_{branchname}_{i}-{n}')(tdd_layer)
+#         tdd_layer = MultiHeadAttention(num_heads=config.branches[branchname].max_objects, key_dim=config.branches[branchname].max_objects)(tdd_layer, tdd_layer)
+#         tdd_layer = Activation(activation, name=f"tdd_{branchname}_activation_{i}")(tdd_layer)
+#         if config.batch_norm:
+#             tdd_layer = BatchNormalization(name=f"batchnorm_tdd_{branchname}_{i}")(tdd_layer)
+#     
+#     
+#     # Deepset Sum Layer
+#     dense_layer = Sum(name=f'sum_{branchname}')(tdd_layer)
+# 
+#     # Regular dense layers
+#     for i, n in enumerate(config.n_hiddens[branchname]):
+#         dense_layer = Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer, name=f'dense_{branchname}_{i}-{n}')(dense_layer)
+#         dense_layer = Activation(activation, name=f"dense_{branchname}_activation_{i}")(dense_layer)
+#         if config.batch_norm:
+#             dense_layer = BatchNormalization(name=f"batchnorm_dense_{branchname}_{i}")(dense_layer)
+#         
+#     return input_layer, dense_layer

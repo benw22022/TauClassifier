@@ -4,6 +4,7 @@ model_name: DSNN
 batch_norm: True
 mask_value: -999
 activation: swish
+self_attention: False
 
 # Regularization
 l1_penalty: 0.00

@@ -8,7 +8,7 @@ import tensorflow as tf
 from tensorflow.keras.layers import Activation, Dense, Concatenate, Dropout, BatchNormalization
 from tensorflow.keras import Model
 from model.regularizers import OrthogonalRegularizer
-from model.layers import create_deepset_input, create_dense_input, create_attn_deepset_input
+from model.layers import create_deepset_input, create_dense_input # , create_attn_deepset_input
 from omegaconf import DictConfig
 
 
@@ -28,10 +28,10 @@ def ModelDSNN(config: DictConfig):
     activation = config.activation
 
     # Create input branches
-    x_1, b_1 = create_deepset_input(config, 'TauTracks', regularizer=orth_regularizer, activation=activation)
-    x_2, b_2 = create_deepset_input(config, "NeutralPFO", regularizer=orth_regularizer, activation=activation)
-    x_3, b_3 = create_deepset_input(config, "ShotPFO", regularizer=orth_regularizer, activation=activation)
-    x_4, b_4 = create_deepset_input(config, "ConvTrack", regularizer=orth_regularizer, activation=activation)
+    x_1, b_1 = create_deepset_input(config, 'TauTracks', regularizer=orth_regularizer, activation=activation, self_attention=config.self_attention)
+    x_2, b_2 = create_deepset_input(config, "NeutralPFO", regularizer=orth_regularizer, activation=activation, self_attention=config.self_attention)
+    x_3, b_3 = create_deepset_input(config, "ShotPFO", regularizer=orth_regularizer, activation=activation, self_attention=config.self_attention)
+    x_4, b_4 = create_deepset_input(config, "ConvTrack", regularizer=orth_regularizer, activation=activation, self_attention=config.self_attention)
     x_5, b_5 = create_dense_input(config, "TauJets", regularizer=regularizer, activation=activation)
    
     # Concatenate inputs
