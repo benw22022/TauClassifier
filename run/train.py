@@ -4,80 +4,21 @@ Training Script
 ________________________________________________
 Script to run the neural network training
 """
+
 import logger
 log = logger.get_logger(__name__)
 import os
 import ray
-import glob
 import source
 import run
-import uproot
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from omegaconf import DictConfig
 from model import configure_callbacks, ModelDSNN
-from typing import List, Tuple
-import tensorflow_addons as tfa
-import focal_loss
+from typing import Tuple
 
-
-def get_optimizer(config: DictConfig) -> tf.keras.optimizers.Optimizer:
-
-    opt_dict = {'Adam': tf.keras.optimizers.Adam(config.learning_rate, epsilon=config.epsilon),
-                'Nadam': tf.keras.optimizers.Nadam(config.learning_rate, epsilon=config.epsilon),
-                'SGD': tf.keras.optimizers.SGD(learning_rate=0.01, momentum=config.momentum),
-                'RMSProp': tf.keras.optimizers.RMSprop(config.learning_rate),
-                'Ftrl': tf.keras.optimizers.Ftrl(config.learning_rate)
-                }
     
-    try:
-        log.info(f"Optimizer: {config.optimizer}")
-        return opt_dict[config.optimizer]
-    except KeyError:
-        log.error(f'Optimizer {config.optimizer} not recognised! Options are {list(opt_dict.keys())}')
-        log.warn('Using default optimizer \'Adam\'')
-        return opt_dict['Adam']
-
-
-def get_loss(config: DictConfig, class_weight: List[float]) -> tf.keras.losses.Loss:
-    """
-    Parse 'loss' option in config to get loss function
-    args:
-        config: DictConfig - Hydra config object
-        class_weight: 
-    """
-    
-    loss_dict = {'categorical_crossentropy': tf.keras.losses.CategoricalCrossentropy(),
-                 'sparse_categorical_crossentropy': tf.keras.losses.SparseCategoricalCrossentropy(),
-                 'focal_loss': focal_loss.SparseCategoricalFocalLoss(gamma=config.gamma, class_weight=list(class_weight.values())),
-                 'sigmoid_focal_crossentropy': tfa.losses.SigmoidFocalCrossEntropy()}
-    
-    try:
-        log.info(f"Loss function: {config.loss}")
-        return loss_dict[config.loss]
-    except KeyError:
-        log.error(f'Loss {config.loss} not recognised! Options are {list(loss_dict.keys())}')
-        log.warn('Using default loss \'categorical_crossentropy\'')
-        loss_dict['categorical_crossentropy']
-        return loss_dict['Adam']
-
-def get_number_of_events(files: List[str]) -> List[int]:
-    """
-    Gets the number of events in each class
-    args: 
-        files: List[str] - A list of filepaths to ntuples
-    returns:
-        class_breakdown: List[int] - A list containing the number of events belonging to each class
-    """
-    
-    all_labels = uproot.concatenate(files, filter_name="TauClassifier_Labels", library='np')["TauClassifier_Labels"]
-    all_labels = np.vstack(all_labels)
-    class_breakdown = []
-    for l in range(0, all_labels.shape[1]):
-        class_breakdown.append(np.sum(all_labels[:, l]))
-    return class_breakdown
-
 
 def train(config: DictConfig) -> Tuple[float]:
 
@@ -107,7 +48,7 @@ def train(config: DictConfig) -> Tuple[float]:
 
     # Following steps in: https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
     # Compute class weights 
-    njets, n1p0n, n1p1n,  n1pxn, n3p0n, n3pxn = get_number_of_events(tau_files + jet_files)
+    njets, n1p0n, n1p1n,  n1pxn, n3p0n, n3pxn = source.get_number_of_events(tau_files + jet_files)
     total = njets + n1p0n + n1p1n + n1pxn + n3p0n + n3pxn
     log.debug(f"# fakes = {njets}")
     log.debug(f"# 1p0n = {n1p0n}")
@@ -131,15 +72,15 @@ def train(config: DictConfig) -> Tuple[float]:
                     5: weight_for_3p1n,
                     }
 
-    opt = get_optimizer(config)
-    loss = get_loss(config, class_weight)
+    opt = source.get_optimizer(config)
+    loss = source.get_loss(config, class_weight)
     
     acc_metric = tf.keras.metrics.CategoricalAccuracy()
-    if 'sparse' in config.loss:
+    if 'sparse' in config.loss or 'focal_loss' in config.loss:
         acc_metric = tf.keras.metrics.SparseCategoricalAccuracy()
-    
-    if config.loss == 'focal_loss':
-        class_weight = None
+        
+    # if config.loss == 'focal_loss':
+    #     class_weight = None
     
     model.compile(optimizer=opt, loss=loss, metrics=[acc_metric], )
     
