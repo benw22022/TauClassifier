@@ -178,7 +178,7 @@ def create_ROC_plot_template(name=None):
 	Create a template matplotlib figure for plotting ROC curves
 	"""
 	fig, ax = plt.subplots()
-	ax.set_xlabel('Signal purity')
+	ax.set_xlabel('Signal efficiency')
 	ax.set_ylabel('Background Rejection')
 	ax.set_ylim(1e0, 1e4)
 	ax.set_yscale("log")
