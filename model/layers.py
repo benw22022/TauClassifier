@@ -14,7 +14,7 @@ import yaml
 from keras import backend as kbe
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense, Masking, TimeDistributed, Concatenate
-from tensorflow.keras.layers import Layer, Activation, BatchNormalization, MultiHeadAttention
+from tensorflow.keras.layers import Layer, Activation, BatchNormalization, MultiHeadAttention, LayerNormalization
 from tensorflow.keras import Model
 from model.set_transformer.model import BasicSetTransformer
 from omegaconf import DictConfig
@@ -75,7 +75,9 @@ def create_deepset_input(config: DictConfig, branchname: str, activation: str='e
             tdd_layer = MultiHeadAttention(num_heads=config.branches[branchname].max_objects, key_dim=config.branches[branchname].max_objects, name=f"self_attention_{branchname}_{i}")(tdd_layer, tdd_layer)
         tdd_layer = Activation(activation, name=f"tdd_{branchname}_activation_{i}")(tdd_layer)
         if config.batch_norm:
-            tdd_layer = BatchNormalization(name=f"batchnorm_tdd_{branchname}_{i}")(tdd_layer)
+            # tdd_layer = BatchNormalization(name=f"batchnorm_tdd_{branchname}_{i}")(tdd_layer)
+            tdd_layer = LayerNormalization(name=f"layernorm_tdd_{branchname}_{i}")(tdd_layer)
+            
     
     
     # Deepset Sum Layer
