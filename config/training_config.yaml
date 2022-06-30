@@ -35,7 +35,7 @@ callbacks:
   early_stopping:
     enabled: True
     min_delta: 0.0001
-    patience: 5
+    patience: 10
 
   # Model checkpoint
   model_checkpoint:
