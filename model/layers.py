@@ -72,7 +72,7 @@ def create_deepset_input(config: DictConfig, branchname: str, activation: str='e
         tdd_layer = TimeDistributed(Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer), name=f'tdd_{branchname}_{i}-{n}')(tdd_layer)
         if self_attention:
             # tdd_layer = MultiHeadAttention(config.branches[branchname].max_objects, config.branches[branchname].max_objects)(tdd_layer, tdd_layer)
-            tdd_layer = MultiHeadAttention(num_heads=config.branches[branchname].max_objects, key_dim=config.branches[branchname].max_objects, name=f"self_attention_{branchname}_{i}")(tdd_layer, tdd_layer)
+            tdd_layer = MultiHeadAttention(num_heads=len(config.branches[branchname].features), key_dim=config.branches[branchname].max_objects, name=f"self_attention_{branchname}_{i}")(tdd_layer, tdd_layer)
         tdd_layer = Activation(activation, name=f"tdd_{branchname}_activation_{i}")(tdd_layer)
         if config.batch_norm:
             # tdd_layer = BatchNormalization(name=f"batchnorm_tdd_{branchname}_{i}")(tdd_layer)
