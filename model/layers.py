@@ -67,7 +67,7 @@ def create_deepset_input(config: DictConfig, branchname: str, activation: str='e
     input_layer = Input(shape=(len(config.branches[branchname].features), config.branches[branchname].max_objects), name=f'input_{branchname}')
     tdd_layer = Masking(mask_value=config.mask_value, name=f'masked_{branchname}_input')(input_layer)
 
-     # Time Distributed layers
+    # Time Distributed layers
     for i, n in enumerate(config.n_inputs[branchname]):
         tdd_layer = TimeDistributed(Dense(n, kernel_initializer=initializer, kernel_regularizer=regularizer), name=f'tdd_{branchname}_{i}-{n}')(tdd_layer)
         if self_attention:
