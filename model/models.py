@@ -20,18 +20,16 @@ def ModelDSNN(config: DictConfig):
     initializer = tf.keras.initializers.HeNormal()
     
     # TODO WIP
-    orth_regularizer = tf.keras.regularizers.L1L2(l1=config.l1_penalty, l2=config.l2_penalty)
-    if config.regularization == "orth":
-        orth_regularizer = OrthogonalRegularizer(factor=0.1, mode='columns')    
-    
     regularizer = tf.keras.regularizers.L1L2(l1=config.l1_penalty, l2=config.l2_penalty)
+    if config.regularization == "orth":
+        regularizer = OrthogonalRegularizer(factor=0.1, mode='columns')    
     activation = config.activation
 
     # Create input branches
-    x_1, b_1 = create_deepset_input(config, 'TauTracks', regularizer=orth_regularizer, activation=activation, self_attention=config.self_attention)
-    x_2, b_2 = create_deepset_input(config, "NeutralPFO", regularizer=orth_regularizer, activation=activation, self_attention=config.self_attention)
-    x_3, b_3 = create_deepset_input(config, "ShotPFO", regularizer=orth_regularizer, activation=activation, self_attention=config.self_attention)
-    x_4, b_4 = create_deepset_input(config, "ConvTrack", regularizer=orth_regularizer, activation=activation, self_attention=config.self_attention)
+    x_1, b_1 = create_deepset_input(config, 'TauTracks', regularizer=regularizer, activation=activation, self_attention=config.self_attention)
+    x_2, b_2 = create_deepset_input(config, "NeutralPFO", regularizer=regularizer, activation=activation, self_attention=config.self_attention)
+    x_3, b_3 = create_deepset_input(config, "ShotPFO", regularizer=regularizer, activation=activation, self_attention=config.self_attention)
+    x_4, b_4 = create_deepset_input(config, "ConvTrack", regularizer=regularizer, activation=activation, self_attention=config.self_attention)
     x_5, b_5 = create_dense_input(config, "TauJets", regularizer=regularizer, activation=activation)
    
     # Concatenate inputs
