@@ -127,16 +127,21 @@ def plot_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, weights: np.nd
 	xticklabels = labels
 	yticklabels = labels
 	sns.heatmap(purity_matrix, annot=True, cmap="Oranges", xticklabels=xticklabels, yticklabels=yticklabels,
-						fmt=".2", vmin=0, vmax=1, ax=ax1, annot_kws={"size": 35 / np.sqrt(len(purity_matrix))},)
+						fmt=".2", vmin=0, vmax=1, ax=ax1, annot_kws={"size": 42 / np.sqrt(len(purity_matrix))},)
 	sns.heatmap(efficiency_matrix, annot=True, cmap="Oranges", xticklabels=xticklabels, yticklabels=yticklabels,
-						fmt=".2", vmin=0, vmax=1, ax=ax2, annot_kws={"size": 35 / np.sqrt(len(efficiency_matrix))},)
+						fmt=".2", vmin=0, vmax=1, ax=ax2, annot_kws={"size": 42 / np.sqrt(len(efficiency_matrix))},)
 	# sns.set(font_scale=8) #! Don't do this! Messes with all subsequent plots
-	ax1.set_xlabel("Truth", fontsize=18)
+	ax1.set_xlabel("Truth", fontsize=18)	
 	ax1.set_ylabel("Prediction", fontsize=18)
 	ax2.set_xlabel("Truth", fontsize=18)
 	ax2.set_ylabel("Prediction", fontsize=18)
 	ax1.set_title(f"Diagonal Score = {get_diag_score(purity_matrix):.2f} Purity: {title}", loc='right', fontsize=12)
 	ax2.set_title(f"Diagonal Score = {get_diag_score(efficiency_matrix):.2f} Efficiency: {title}", loc='right', fontsize=12)
+	ax1.set_xticklabels(ax1.get_xmajorticklabels(), fontsize = 18)
+	ax1.set_yticklabels(ax1.get_ymajorticklabels(), fontsize = 18)
+	ax2.set_xticklabels(ax2.get_xmajorticklabels(), fontsize = 18)
+	ax2.set_yticklabels(ax2.get_ymajorticklabels(), fontsize = 18)
+ 	
 	fig.suptitle(title, fontsize=9)
 	if saveas is None:
 		save_name = os.path.join("plots", "confusion_matrix.png")

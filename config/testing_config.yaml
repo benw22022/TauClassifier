@@ -75,8 +75,8 @@ sculpting_plots:
     y_scale: linear
     units: ''
     bins: 25
-    min: -4
-    max: 4
+    min: -2.5
+    max: 2.5
   TauJets_phiJetSeed:
     x_scale: linear
     y_scale: linear
