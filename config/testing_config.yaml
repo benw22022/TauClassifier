@@ -14,7 +14,7 @@ OutFileBranches:
   - TauJets_truthEtaVis
   - TauJets_truthPtVis
   - TauJets_truthProng
-  - TauJets_nTracks 
+  - TauJets_nTracks
   - TauClassifier_pTReweight
   - TauJets_mu
   - TauJets_ptJetSeed
