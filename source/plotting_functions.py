@@ -127,9 +127,19 @@ def plot_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, weights: np.nd
 	xticklabels = labels
 	yticklabels = labels
 	sns.heatmap(efficiency_matrix, annot=True, cmap="Oranges", xticklabels=xticklabels, yticklabels=yticklabels,
-						fmt=".2", vmin=0, vmax=1, ax=ax1, annot_kws={"size": 35 / np.sqrt(len(efficiency_matrix))},)
+						fmt=".2", vmin=0, vmax=1, ax=ax1, annot_kws={"size": 45 / np.sqrt(len(efficiency_matrix))},)
 	sns.heatmap(purity_matrix, annot=True, cmap="Oranges", xticklabels=xticklabels, yticklabels=yticklabels,
-						fmt=".2", vmin=0, vmax=1, ax=ax2, annot_kws={"size": 35 / np.sqrt(len(purity_matrix))},)
+						fmt=".2", vmin=0, vmax=1, ax=ax2, annot_kws={"size": 45 / np.sqrt(len(purity_matrix))},)
+	
+	ax1.set_xlabel("Truth", fontsize=34)
+	ax1.set_ylabel("Prediction", fontsize=34)
+	ax2.set_xlabel("Truth", fontsize=34)
+	ax2.set_ylabel("Prediction", fontsize=34)
+	ax1.set_xticklabels(ax1.get_xmajorticklabels(), fontsize = 24)
+	ax2.set_xticklabels(ax2.get_xmajorticklabels(), fontsize = 24)
+	ax1.set_yticklabels(ax1.get_xmajorticklabels(), fontsize = 24)
+	ax2.set_yticklabels(ax2.get_xmajorticklabels(), fontsize = 24)
+
 	# sns.set(font_scale=8) #! Don't do this! Messes with all subsequent plots
 	ax1.set_xlabel("Truth", fontsize=18)
 	ax1.set_ylabel("Prediction", fontsize=18)
@@ -148,7 +158,7 @@ def plot_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, weights: np.nd
 		log.info(f"Plotted {saveas}")
 		plt.savefig(saveas)
 
-	return fig
+	return fig, efficiency_matrix, purity_matrix
 
 
 

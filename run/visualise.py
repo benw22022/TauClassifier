@@ -21,6 +21,7 @@ from omegaconf import DictConfig
 from hydra.utils import get_original_cwd, to_absolute_path
 import awkward as ak
 import sys
+import seaborn as sns
 
 def get_tauid_wp_cut(y_true: np.ndarray, y_pred: np.ndarray, wp_effs: List[int]) -> List[float]:
     """
@@ -163,12 +164,34 @@ def visualise(config: DictConfig):
     utc_loader.change_cuts("TauJets_isRNNJetIDMedium == 1")
     y_true = np.delete(utc_loader.y_true, 0, axis=1)
     y_pred = np.delete(utc_loader.y_pred_prev, 0, axis=1)
-    pf.plot_confusion_matrix(y_true, y_pred, labels=labels, saveas=os.path.join(plotting_dir, "confusion_matrix_dmc_tauID_medium.png"), title='DMC')
+    _, dmc_eff_m, dmc_pur_m, = pf.plot_confusion_matrix(y_true, y_pred, labels=labels, saveas=os.path.join(plotting_dir, "confusion_matrix_dmc_tauID_medium.png"), title='DMC')
     
     y_true = np.delete(utc_loader.y_true, 0, axis=1)
     y_pred = np.delete(utc_loader.y_pred, 0, axis=1)
-    pf.plot_confusion_matrix(y_true, y_pred, labels=labels, saveas=os.path.join(plotting_dir, "confusion_matrix_UTC_tauID_medium.png"), title='UTC')
+    _, utc_eff_m, utc_pur_m, = pf.plot_confusion_matrix(y_true, y_pred, labels=labels, saveas=os.path.join(plotting_dir, "confusion_matrix_UTC_tauID_medium.png"), title='UTC')
     
+    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(40,15))
+    labels = ["1p0n", "1p1n", "1pxn", "3p0n", "3pxn"]
+    xticklabels = labels
+    yticklabels = labels
+    sns.heatmap(utc_eff_m / dmc_eff_m, annot=True, cmap="Blues", xticklabels=xticklabels, yticklabels=yticklabels,
+                fmt=".2", vmin=0.7, vmax=6, ax=ax1, annot_kws={"size": 45 / np.sqrt(len(utc_eff_m))},)
+    sns.heatmap(utc_pur_m / dmc_pur_m, annot=True, cmap="Blues", xticklabels=xticklabels, yticklabels=yticklabels,
+                fmt=".2", vmin=0.7, vmax=6, ax=ax2, annot_kws={"size": 45 / np.sqrt(len(utc_eff_m))},)
+
+    ax1.set_xlabel("Truth", fontsize=34)
+    ax1.set_ylabel("Prediction", fontsize=34)
+    ax2.set_xlabel("Truth", fontsize=34)
+    ax2.set_ylabel("Prediction", fontsize=34)
+    ax1.set_xticklabels(ax1.get_xmajorticklabels(), fontsize = 24)
+    ax2.set_xticklabels(ax2.get_xmajorticklabels(), fontsize = 24)
+    ax1.set_yticklabels(ax1.get_xmajorticklabels(), fontsize = 24)
+    ax2.set_yticklabels(ax2.get_xmajorticklabels(), fontsize = 24)
+    saveas = os.path.join(plotting_dir, "confusion_matrix_ratio.png")
+    log.info(f"Plotted {saveas}")
+    plt.savefig(saveas)
+
+    return
     
     # Plot network outputs
     pf.plot_network_output(tauid_utc_loader, tauid_rnn_loader, os.path.join(plotting_dir, "NN_output.png"), title='network output')
