@@ -11,6 +11,7 @@
 *.pb
 *.metadata
 *.root
+*.pt
 
 # Ignore any plots
 *.png
@@ -30,6 +31,7 @@ experimental*
 tb_logs/*
 logs/*
 outputs/*
+data/*
 
 # Ignore logs
 *.log
