@@ -8,7 +8,23 @@ Install miniconda\
   `conda env create -f config/environment.yaml`
 
 ## Dataset creation
-TODO: Add documentation for THOR code
+My fork of [`THOR`](https://gitlab.cern.ch/atlas-perf-tau/THOR) can be found [here](https://gitlab.cern.ch/atlas-perf-tau/THOR). 
+You'll also need my fork of [`tauRecToolsDev`](https://gitlab.cern.ch/atlas-perf-tau/tauRecToolsDev) which you can get from [here](https://gitlab.cern.ch/atlas-perf-tau/tauRecToolsDev). When you setup `THOR` it will copy the central branch of `tauRecToolsDev`, you'll need to replace it with mine.
+The AODs for the Tau Classifier dataset can be found in `THOR/THOR/share/datasets/MC20dDijet.txt` and `THOR/THOR/share/datasets/MC20dGammatautau.txt`, before submitting any jobs to the grid I highly recommend downloading a part of one of these datasets with `Rucio` to test that the code works locally.
+To run over a local file do:
+```
+thor THOR/THOR/share/StreamNNDecayMode/Main.py -i <path-to-folder-with-data> -o "output"
+```
+Such a path might look like `"/afs/cern.ch/work/b/bewilson/public/data"`, where I have a gammatautau AOD sample that I downloaded sometime ago.
+Once you've checked that your THOR joboption runs locally, to run the gamma* -> tau tau samples run:
+```
+thor THOR/THOR/share/StreamNNDecayMode/Main.py -r grid -g THOR/THOR/share/datasets/MC20dGammatautau.txt --gridstreamname TauClassifierV1 --gridrunversion 0 --nFilesPerJob=5
+```
+and likewise for the dijet samples
+```
+thor THOR/THOR/share/StreamNNDecayMode/Main.py -r grid -g THOR/THOR/share/datasets/MC20dDijet.txt --gridstreamname TauClassifierV1 --gridrunversion 0 --nFilesPerJob=5
+```
+You can monitor the progress of your grid jobs on the [bigpanda](https://bigpanda.cern.ch/user/) website. You may find that some proportion of your grid jobs fail, to fix this (assuming this isn't a fault in your code) by resubmitting the failed jobs or by experimenting with changing the `nFilesPerJob` option.
 
 ## Data preparation
 To get efficient test/train/val splits data is split up into 100,000 event chunks and to improve network training features are normalised to have mean zero and standard deviation one.\
